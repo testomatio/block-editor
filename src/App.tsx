@@ -1,0 +1,343 @@
+import { useMemo, useState } from "react";
+import { BlockNoteView } from "@blocknote/mantine";
+import {
+  useCreateBlockNote,
+  useEditorChange,
+  SuggestionMenuController,
+  getDefaultReactSlashMenuItems,
+  useBlockNoteEditor,
+} from "@blocknote/react";
+import {
+  filterSuggestionItems,
+  insertOrUpdateBlock,
+} from "@blocknote/core";
+import {
+  blocksToMarkdown,
+  markdownToBlocks,
+  type CustomEditorBlock,
+  type CustomPartialBlock,
+} from "./editor/customMarkdownConverter";
+import { customSchema } from "./editor/customSchema";
+import "./App.css";
+
+type Schema = typeof customSchema;
+
+const DEFAULT_BLOCK_PROPS = {
+  textAlignment: "left" as const,
+  textColor: "default" as const,
+  backgroundColor: "default" as const,
+};
+
+function CustomSlashMenu() {
+  const editor = useBlockNoteEditor<Schema["blockSchema"], Schema["inlineContentSchema"], Schema["styleSchema"]>();
+
+  if (!editor) {
+    return null;
+  }
+
+  const getItems = async (query: string) => {
+    const defaultItems = getDefaultReactSlashMenuItems(editor);
+
+    const stepItem = {
+      key: "test_step" as any,
+      title: "Test Step",
+      subtext: "Capture an action with its expected result",
+      group: "Test documentation",
+      icon: <span className="bn-suggestion-icon">TS</span>,
+      aliases: ["step", "test step", "expected"],
+      onItemClick: () => {
+        insertOrUpdateBlock(editor, {
+          type: "testStep",
+          props: {
+            stepTitle: "",
+            expectedResult: "",
+          },
+        });
+      },
+    };
+
+    return filterSuggestionItems([...defaultItems, stepItem], query);
+  };
+
+  return (
+    <SuggestionMenuController
+      triggerCharacter="/"
+      getItems={getItems}
+    />
+  );
+}
+
+function App() {
+  const editor = useCreateBlockNote({
+    schema: customSchema,
+    pasteHandler: ({ event, editor, defaultPasteHandler }) => {
+      const plainText = event.clipboardData?.getData("text/plain") ?? "";
+
+      if (!plainText.trim()) {
+        return defaultPasteHandler();
+      }
+
+      try {
+        const parsedBlocks = markdownToBlocks(plainText);
+
+        if (parsedBlocks.length === 0) {
+          return defaultPasteHandler();
+        }
+
+        const selection = editor.getSelection();
+        const selectedIds = selection?.blocks
+          ?.map((block) => block.id)
+          .filter((id): id is string => Boolean(id)) ?? [];
+
+        if (selectedIds.length > 0) {
+          editor.replaceBlocks(selectedIds, parsedBlocks);
+        } else {
+          const cursorBlock = editor.getTextCursorPosition().block;
+          if (cursorBlock) {
+            editor.replaceBlocks([cursorBlock.id], parsedBlocks);
+          } else if (editor.document.length > 0) {
+            const reference = editor.document[editor.document.length - 1];
+            editor.insertBlocks(parsedBlocks, reference.id, "after");
+          } else {
+            return defaultPasteHandler();
+          }
+        }
+
+        editor.focus();
+        return true;
+      } catch (error) {
+        console.error("Failed to paste custom markdown", error);
+        return defaultPasteHandler();
+      }
+    },
+  });
+  const [markdown, setMarkdown] = useState("");
+  const [conversionError, setConversionError] = useState<string | null>(null);
+  const [blocksJson, setBlocksJson] = useState("[]");
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
+
+  useEditorChange((editorInstance) => {
+    try {
+      const documentBlocks = editorInstance.document as CustomEditorBlock[];
+      const md = blocksToMarkdown(documentBlocks);
+      setMarkdown(md);
+      setBlocksJson(JSON.stringify(documentBlocks, null, 2));
+      setConversionError(null);
+      setCopyStatus("idle");
+      setCopyBlocksStatus("idle");
+    } catch (error) {
+      setConversionError(error instanceof Error ? error.message : String(error));
+      setCopyStatus("idle");
+      setCopyBlocksStatus("idle");
+    }
+  }, editor);
+
+  const createTestCaseBlock = useMemo<() => CustomPartialBlock>(() => {
+    return () => ({
+      type: "testCase",
+      props: {
+        ...DEFAULT_BLOCK_PROPS,
+        status: "draft",
+        reference: "",
+      },
+      content: [
+        {
+          type: "text",
+          text: "Write the expected result, steps, and assertions here…",
+          styles: {},
+        },
+      ],
+      children: [],
+    });
+  }, []);
+
+  const createTestStepBlock = useMemo<() => CustomPartialBlock>(() => {
+    return () => ({
+      type: "testStep",
+      props: {
+        stepTitle: "",
+        expectedResult: "",
+      },
+      children: [],
+    });
+  }, []);
+
+  const insertBlockAfterSelection = (createBlock: () => CustomPartialBlock) => {
+    const selection = editor.getSelection();
+    const selectedBlocks = selection?.blocks ?? [];
+    const selectedBlock = selectedBlocks[selectedBlocks.length - 1];
+    const documentBlocks = editor.document;
+    const fallbackBlock = documentBlocks[documentBlocks.length - 1];
+    const referenceId = selectedBlock?.id ?? fallbackBlock?.id;
+
+    if (!referenceId) {
+      return;
+    }
+
+    editor.insertBlocks([createBlock()], referenceId, "after");
+  };
+
+  const insertTestCase = () => insertBlockAfterSelection(createTestCaseBlock);
+  const insertTestStep = () => insertBlockAfterSelection(createTestStepBlock);
+
+  const handleCopyMarkdown = async () => {
+    if (conversionError) {
+      return;
+    }
+
+    try {
+      if (
+        typeof navigator !== "undefined" &&
+        navigator?.clipboard?.writeText
+      ) {
+        await navigator.clipboard.writeText(markdown);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = markdown;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setCopyStatus("copied");
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => setCopyStatus("idle"), 2000);
+      }
+    } catch (error) {
+      console.error("Failed to copy markdown", error);
+      setCopyStatus("failed");
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => setCopyStatus("idle"), 2000);
+      }
+    }
+  };
+
+  const [copyBlocksStatus, setCopyBlocksStatus] = useState<
+    "idle" | "copied" | "failed"
+  >("idle");
+
+  const handleCopyBlocks = async () => {
+    if (conversionError) {
+      return;
+    }
+
+    try {
+      if (
+        typeof navigator !== "undefined" &&
+        navigator?.clipboard?.writeText
+      ) {
+        await navigator.clipboard.writeText(blocksJson);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = blocksJson;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setCopyBlocksStatus("copied");
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => setCopyBlocksStatus("idle"), 2000);
+      }
+    } catch (error) {
+      console.error("Failed to copy block JSON", error);
+      setCopyBlocksStatus("failed");
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => setCopyBlocksStatus("idle"), 2000);
+      }
+    }
+  };
+
+  return (
+    <div className="app">
+      <header className="app__header">
+        <div>
+          <h1>BlockNote Custom Block Playground</h1>
+          <p>
+            Explore custom blocks for documenting test cases and actionable steps, then convert the document to Markdown using a bespoke serializer.
+          </p>
+        </div>
+        <div className="app__actions">
+          <button type="button" className="app__action" onClick={insertTestStep}>
+            Insert Step
+          </button>
+          <button
+            type="button"
+            className="app__action app__action--ghost"
+            onClick={insertTestCase}
+          >
+            Insert Test Case
+          </button>
+        </div>
+      </header>
+
+      <section className="app__workspace">
+        <div className="app__editor">
+          <BlockNoteView editor={editor} theme="light" slashMenu={false}>
+            <CustomSlashMenu />
+          </BlockNoteView>
+        </div>
+        <aside className="app__preview">
+          <div className="app__panel">
+            <h2>Markdown Preview</h2>
+            {conversionError ? (
+              <p className="app__error">{conversionError}</p>
+            ) : (
+              <pre>{markdown}</pre>
+            )}
+            <div className="app__copy">
+              <button
+                type="button"
+                className="app__action app__action--ghost"
+                onClick={handleCopyMarkdown}
+                disabled={!!conversionError || markdown.length === 0}
+              >
+                Copy Markdown
+              </button>
+              {copyStatus === "copied" && (
+                <span className="app__copy-status">Copied!</span>
+              )}
+              {copyStatus === "failed" && (
+                <span className="app__copy-status app__copy-status--error">
+                  Copy failed
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="app__panel">
+            <h2>Blocks JSON</h2>
+            <pre>{blocksJson}</pre>
+            <div className="app__copy">
+              <button
+                type="button"
+                className="app__action app__action--ghost"
+                onClick={handleCopyBlocks}
+                disabled={!!conversionError || blocksJson.length === 0}
+              >
+                Copy Blocks
+              </button>
+              {copyBlocksStatus === "copied" && (
+                <span className="app__copy-status">Copied!</span>
+              )}
+              {copyBlocksStatus === "failed" && (
+                <span className="app__copy-status app__copy-status--error">
+                  Copy failed
+                </span>
+              )}
+            </div>
+          </div>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+export default App;
