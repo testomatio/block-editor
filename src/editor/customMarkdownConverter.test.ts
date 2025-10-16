@@ -99,6 +99,29 @@ describe("blocksToMarkdown", () => {
     );
   });
 
+  it("keeps inline formatting inside step fields", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "s3",
+        type: "testStep",
+        props: {
+          stepTitle: "**Click** the _Login_ button",
+          expectedResult: "**Success** is shown\nSecond line with <u>underline</u>",
+        },
+        content: undefined,
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      [
+        "* **Click** the _Login_ button",
+        "  *Expected Result*: **Success** is shown",
+        "  Second line with <u>underline</u>",
+      ].join("\n"),
+    );
+  });
+
   it("exports the custom test case block", () => {
     const blocks: CustomEditorBlock[] = [
       {

@@ -91,24 +91,16 @@ function stripExpectedPrefix(text: string): string {
   const label = match[0];
   let remainder = text.slice(label.length).trimStart();
 
-  const stripMarkers = (value: string) => {
-    let result = value.trimEnd();
-    let changed = true;
-    while (changed) {
-      changed = false;
-      const markerMatch = result.match(STRIP_MARKERS_REGEX);
-      if (markerMatch) {
-        result = markerMatch[1].trim();
-        changed = true;
-      }
-    }
+  const cleanupLeading = (value: string) => {
+    let result = value.trimStart();
+    result = result.replace(/^\\+(?=[*_`~:[\]])/, "");
+    result = result.replace(/^(?:[*_`~]+)(?=\s|$)/, "");
     return result.trimStart();
   };
 
-  remainder = stripMarkers(remainder);
-  remainder = remainder.replace(/^\\+(?=[*_`~:[\]])/, "");
+  remainder = cleanupLeading(remainder);
   remainder = stripLeadingFormatting(remainder);
-  return remainder;
+  return remainder.trimStart();
 }
 
 function stripLeadingFormatting(text: string): string {
@@ -328,11 +320,20 @@ function serializeBlock(
       const expectedResult = ((block.props as any).expectedResult ?? "").trim();
 
       if (stepTitle.length > 0) {
-        lines.push(`* ${escapeMarkdown(stepTitle)}`);
+        const normalizedTitle = stepTitle
+          .split(/\r?\n/)
+          .map((segment) => segment.trim())
+          .filter((segment) => segment.length > 0)
+          .join(" ");
+
+        if (normalizedTitle.length > 0) {
+          lines.push(`* ${normalizedTitle}`);
+        }
       }
 
-      if (expectedResult.length > 0) {
-        const expectedLines = expectedResult.split(/\r?\n/);
+      const normalizedExpected = stripExpectedPrefix(expectedResult).trim();
+      if (normalizedExpected.length > 0) {
+        const expectedLines = normalizedExpected.split(/\r?\n/);
         const label = "*Expected Result*";
         expectedLines.forEach((expectedLine: string, index: number) => {
           const trimmedLine = expectedLine.trim();
@@ -340,11 +341,10 @@ function serializeBlock(
             return;
           }
 
-          const escaped = escapeMarkdown(trimmedLine);
           if (index === 0) {
-            lines.push(`  ${label}: ${escaped}`.trimEnd());
+            lines.push(`  ${label}: ${trimmedLine}`);
           } else {
-            lines.push(`  ${escaped}`.trimEnd());
+            lines.push(`  ${trimmedLine}`);
           }
         });
       }
@@ -757,7 +757,7 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
       type: "testStep",
       props: {
         stepTitle,
-        expectedResult,
+        expectedResult: stripExpectedPrefix(expectedResult),
       },
       children: [],
     },
@@ -1150,4 +1150,3 @@ function parseTable(lines: string[], index: number): { block: CustomPartialBlock
     nextIndex: next,
   };
 }
-const STRIP_MARKERS_REGEX = /^(?:[*_`]+)(.*?)(?:[*_`]+)$/;
