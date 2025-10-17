@@ -306,6 +306,9 @@ const testStepBlock = createReactBlockSpec(
       stepTitle: {
         default: "",
       },
+      stepsDescription: {
+        default: "",
+      },
       expectedResult: {
         default: "",
       },
@@ -314,9 +317,10 @@ const testStepBlock = createReactBlockSpec(
   {
     render: ({ block, editor }) => {
       const stepTitle = (block.props.stepTitle as string) || "";
+      const stepsDescription = (block.props.stepsDescription as string) || "";
       const expectedResult = (block.props.expectedResult as string) || "";
       const showExpectedField =
-        stepTitle.trim().length > 0 || expectedResult.trim().length > 0;
+        stepTitle.trim().length > 0 || stepsDescription.trim().length > 0 || expectedResult.trim().length > 0;
 
       const handleStepTitleChange = useCallback(
         (next: string) => {
@@ -331,6 +335,21 @@ const testStepBlock = createReactBlockSpec(
           });
         },
         [editor, block.id, stepTitle],
+      );
+
+      const handleStepsDescriptionChange = useCallback(
+        (next: string) => {
+          if (next === stepsDescription) {
+            return;
+          }
+
+          editor.updateBlock(block.id, {
+            props: {
+              stepsDescription: next,
+            },
+          });
+        },
+        [editor, block.id, stepsDescription],
       );
 
       const handleExpectedChange = useCallback(
@@ -356,6 +375,12 @@ const testStepBlock = createReactBlockSpec(
             placeholder="Describe the action to perform"
             onChange={handleStepTitleChange}
             autoFocus={stepTitle.length === 0}
+          />
+          <StepField
+            label="Steps Description"
+            value={stepsDescription}
+            placeholder="Provide additional details about the step"
+            onChange={handleStepsDescriptionChange}
           />
           {showExpectedField && (
             <StepField
