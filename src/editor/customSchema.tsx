@@ -1,7 +1,286 @@
 import { defaultBlockSpecs, defaultProps } from "@blocknote/core";
 import { BlockNoteSchema } from "@blocknote/core";
 import { createReactBlockSpec } from "@blocknote/react";
-import type { ChangeEvent, CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ChangeEvent, ClipboardEvent, CSSProperties } from "react";
+
+type InlineSegment = {
+  text: string;
+  styles: {
+    bold: boolean;
+    italic: boolean;
+    underline: boolean;
+  };
+};
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function markdownToHtml(markdown: string): string {
+  if (!markdown) {
+    return "";
+  }
+
+  const lines = markdown.split(/\n/);
+  const htmlLines = lines.map((line) => {
+    const inline = parseInlineMarkdown(line);
+    return inlineToHtml(inline);
+  });
+  return htmlLines.join("<br />");
+}
+
+function parseInlineMarkdown(text: string): InlineSegment[] {
+  if (!text) {
+    return [];
+  }
+
+  const normalized = text.replace(/\\([*_`~])/g, "\uE000$1");
+  const rawSegments = normalized
+    .split(/(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|<u>[^<]+<\/u>)/)
+    .filter(Boolean);
+
+  return rawSegments.map((segment) => {
+    const baseStyles = { bold: false, italic: false, underline: false };
+
+    if (/^\*\*(.+)\*\*$/.test(segment) || /^__(.+)__$/.test(segment)) {
+      const content = segment.slice(2, -2);
+      return {
+        text: restoreEscapes(content),
+        styles: { ...baseStyles, bold: true },
+      };
+    }
+
+    if (/^\*(.+)\*$/.test(segment) || /^_(.+)_$/.test(segment)) {
+      const content = segment.slice(1, -1);
+      return {
+        text: restoreEscapes(content),
+        styles: { ...baseStyles, italic: true },
+      };
+    }
+
+    if (/^<u>(.+)<\/u>$/.test(segment)) {
+      const content = segment.slice(3, -4);
+      return {
+        text: restoreEscapes(content),
+        styles: { ...baseStyles, underline: true },
+      };
+    }
+
+    return {
+      text: restoreEscapes(segment),
+      styles: { ...baseStyles },
+    };
+  });
+}
+
+function inlineToHtml(inline: InlineSegment[]): string {
+  return inline
+    .map(({ text, styles }) => {
+      let html = escapeHtml(text);
+      if (styles.bold) {
+        html = `<strong>${html}</strong>`;
+      }
+      if (styles.italic) {
+        html = `<em>${html}</em>`;
+      }
+      if (styles.underline) {
+        html = `<u>${html}</u>`;
+      }
+      return html;
+    })
+    .join("");
+}
+
+function restoreEscapes(text: string): string {
+  return text.replace(/\uE000/g, "\\");
+}
+
+function htmlToMarkdown(html: string): string {
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+
+  const traverse = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent ?? "";
+      return escapeMarkdownText(text);
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return "";
+    }
+
+    const element = node as HTMLElement;
+    const children = Array.from(element.childNodes)
+      .map(traverse)
+      .join("");
+
+    switch (element.tagName.toLowerCase()) {
+      case "strong":
+      case "b":
+        return children ? `**${children}**` : children;
+      case "em":
+      case "i":
+        return children ? `*${children}*` : children;
+      case "u":
+        return children ? `<u>${children}</u>` : children;
+      case "br":
+        return "\n";
+      case "div":
+      case "p":
+        return children + "\n";
+      default:
+        return children;
+    }
+  };
+
+  const markdown = Array.from(temp.childNodes).map(traverse).join("");
+  return markdown.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function escapeMarkdownText(text: string): string {
+  return text.replace(/([*_`\\])/g, "\\$1");
+}
+
+type StepFieldProps = {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (nextValue: string) => void;
+  autoFocus?: boolean;
+};
+
+function StepField({ label, value, placeholder, onChange, autoFocus }: StepFieldProps) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const autoFocusRef = useRef(false);
+
+  useEffect(() => {
+    const element = editorRef.current;
+    if (!element || isFocused) {
+      return;
+    }
+
+    if (value.trim().length === 0) {
+      element.innerHTML = "";
+    } else {
+      element.innerHTML = markdownToHtml(value);
+    }
+  }, [value, isFocused]);
+
+  const syncValue = useCallback(() => {
+    const element = editorRef.current;
+    if (!element) {
+      return;
+    }
+
+    const markdown = htmlToMarkdown(element.innerHTML);
+    if (markdown !== value) {
+      onChange(markdown);
+    }
+    if (!markdown && element.innerHTML !== "") {
+      element.innerHTML = "";
+    }
+  }, [onChange, value]);
+
+  useEffect(() => {
+    if (autoFocus && !autoFocusRef.current && editorRef.current) {
+      editorRef.current.focus();
+      setIsFocused(true);
+      autoFocusRef.current = true;
+    }
+  }, [autoFocus]);
+
+  const applyFormat = useCallback(
+    (command: "bold" | "italic" | "underline") => {
+      document.execCommand(command);
+      syncValue();
+    },
+    [syncValue],
+  );
+
+  const handlePaste = useCallback(
+    (event: ClipboardEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const text = event.clipboardData?.getData("text/plain") ?? "";
+      document.execCommand("insertText", false, text);
+      syncValue();
+    },
+    [syncValue],
+  );
+
+  return (
+    <div className="bn-step-field">
+      <div className="bn-step-field__top">
+        <span className="bn-step-field__label">{label}</span>
+        <div className="bn-step-toolbar" aria-label={`${label} formatting`}>
+          <button
+            type="button"
+            className="bn-step-toolbar__button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              editorRef.current?.focus();
+              applyFormat("bold");
+            }}
+            aria-label="Bold"
+          >
+            B
+          </button>
+          <button
+            type="button"
+            className="bn-step-toolbar__button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              editorRef.current?.focus();
+              applyFormat("italic");
+            }}
+            aria-label="Italic"
+          >
+            I
+          </button>
+          <button
+            type="button"
+            className="bn-step-toolbar__button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              editorRef.current?.focus();
+              applyFormat("underline");
+            }}
+            aria-label="Underline"
+          >
+            U
+          </button>
+        </div>
+      </div>
+      <div
+        ref={editorRef}
+        className="bn-step-editor"
+        contentEditable
+        suppressContentEditableWarning
+        data-placeholder={placeholder}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => {
+          setIsFocused(false);
+          syncValue();
+        }}
+        onInput={syncValue}
+        onPaste={handlePaste}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            document.execCommand("insertLineBreak");
+            syncValue();
+          }
+        }}
+      />
+    </div>
+  );
+}
 
 const statusOptions = ["draft", "ready", "blocked"] as const;
 
@@ -27,6 +306,9 @@ const testStepBlock = createReactBlockSpec(
       stepTitle: {
         default: "",
       },
+      stepsDescription: {
+        default: "",
+      },
       expectedResult: {
         default: "",
       },
@@ -35,42 +317,78 @@ const testStepBlock = createReactBlockSpec(
   {
     render: ({ block, editor }) => {
       const stepTitle = (block.props.stepTitle as string) || "";
+      const stepsDescription = (block.props.stepsDescription as string) || "";
       const expectedResult = (block.props.expectedResult as string) || "";
-      const showExpectedInput = stepTitle.trim().length > 0;
+      const showExpectedField =
+        stepTitle.trim().length > 0 || stepsDescription.trim().length > 0 || expectedResult.trim().length > 0;
 
-      const handleInputChange = (
-        event: ChangeEvent<HTMLInputElement>,
-        key: "stepTitle" | "expectedResult",
-      ) => {
-        editor.updateBlock(block.id, {
-          props: {
-            [key]: event.target.value,
-          },
-        });
-      };
+      const handleStepTitleChange = useCallback(
+        (next: string) => {
+          if (next === stepTitle) {
+            return;
+          }
+
+          editor.updateBlock(block.id, {
+            props: {
+              stepTitle: next,
+            },
+          });
+        },
+        [editor, block.id, stepTitle],
+      );
+
+      const handleStepsDescriptionChange = useCallback(
+        (next: string) => {
+          if (next === stepsDescription) {
+            return;
+          }
+
+          editor.updateBlock(block.id, {
+            props: {
+              stepsDescription: next,
+            },
+          });
+        },
+        [editor, block.id, stepsDescription],
+      );
+
+      const handleExpectedChange = useCallback(
+        (next: string) => {
+          if (next === expectedResult) {
+            return;
+          }
+
+          editor.updateBlock(block.id, {
+            props: {
+              expectedResult: next,
+            },
+          });
+        },
+        [editor, block.id, expectedResult],
+      );
 
       return (
         <div className="bn-teststep">
-          <label className="bn-teststep__field">
-            <span className="bn-teststep__label">Step Title</span>
-            <input
-              className="bn-teststep__input"
-              placeholder="Describe the action to perform"
-              value={stepTitle}
-              autoFocus={stepTitle.length === 0}
-              onChange={(event) => handleInputChange(event, "stepTitle")}
+          <StepField
+            label="Step Title"
+            value={stepTitle}
+            placeholder="Describe the action to perform"
+            onChange={handleStepTitleChange}
+            autoFocus={stepTitle.length === 0}
+          />
+          <StepField
+            label="Steps Description"
+            value={stepsDescription}
+            placeholder="Provide additional details about the step"
+            onChange={handleStepsDescriptionChange}
+          />
+          {showExpectedField && (
+            <StepField
+              label="Expected Result"
+              value={expectedResult}
+              placeholder="What should happen?"
+              onChange={handleExpectedChange}
             />
-          </label>
-          {showExpectedInput && (
-            <label className="bn-teststep__field">
-              <span className="bn-teststep__label">Expected Result</span>
-              <input
-                className="bn-teststep__input"
-                placeholder="What should happen?"
-                value={expectedResult}
-                onChange={(event) => handleInputChange(event, "expectedResult")}
-              />
-            </label>
           )}
         </div>
       );

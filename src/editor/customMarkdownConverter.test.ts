@@ -72,6 +72,7 @@ describe("blocksToMarkdown", () => {
         type: "testStep",
         props: {
           stepTitle: "Open the Login page.",
+          stepsDescription: "",
           expectedResult: "The Login page loads successfully.",
         },
         content: undefined,
@@ -82,6 +83,7 @@ describe("blocksToMarkdown", () => {
         type: "testStep",
         props: {
           stepTitle: "Enter a valid username.",
+          stepsDescription: "",
           expectedResult: "The username is accepted.",
         },
         content: undefined,
@@ -98,6 +100,55 @@ describe("blocksToMarkdown", () => {
       ].join("\n"),
     );
   });
+
+   it("keeps inline formatting inside step fields", () => {
+     const blocks: CustomEditorBlock[] = [
+       {
+         id: "s3",
+         type: "testStep",
+         props: {
+           stepTitle: "**Click** the _Login_ button",
+           stepsDescription: "",
+           expectedResult: "**Success** is shown\nSecond line with <u>underline</u>",
+         },
+         content: undefined,
+         children: [],
+       },
+     ];
+
+     expect(blocksToMarkdown(blocks)).toBe(
+       [
+         "* **Click** the _Login_ button",
+         "  *Expected Result*: **Success** is shown",
+         "  Second line with <u>underline</u>",
+       ].join("\n"),
+     );
+   });
+
+   it("serializes test step with description", () => {
+     const blocks: CustomEditorBlock[] = [
+       {
+         id: "s4",
+         type: "testStep",
+         props: {
+           stepTitle: "Navigate to login",
+           stepsDescription: "Open browser\nGo to login page",
+           expectedResult: "Login form visible",
+         },
+         content: undefined,
+         children: [],
+       },
+     ];
+
+     expect(blocksToMarkdown(blocks)).toBe(
+       [
+         "* Navigate to login",
+         "  Open browser",
+         "  Go to login page",
+         "  *Expected Result*: Login form visible",
+       ].join("\n"),
+     );
+   });
 
   it("exports the custom test case block", () => {
     const blocks: CustomEditorBlock[] = [
@@ -196,6 +247,7 @@ describe("markdownToBlocks", () => {
         type: "testStep",
         props: {
           stepTitle: "Open the Login page.",
+          stepsDescription: "",
           expectedResult: "The Login page loads successfully.",
         },
         children: [],
@@ -213,24 +265,46 @@ describe("markdownToBlocks", () => {
     ]);
   });
 
-  it("parses expected result prefixes with emphasis", () => {
-    const markdown = [
-      "* Open the form.",
-      "  **Expected Result:** The form opens.",
-      "  Expected: Fields are empty.",
-    ].join("\n");
+   it("parses expected result prefixes with emphasis", () => {
+     const markdown = [
+       "* Open the form.",
+       "  **Expected Result:** The form opens.",
+       "  Expected: Fields are empty.",
+     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
-      {
-        type: "testStep",
-        props: {
-          stepTitle: "Open the form.",
-          expectedResult: "The form opens.\nFields are empty.",
-        },
-        children: [],
-      },
-    ]);
-  });
+     expect(markdownToBlocks(markdown)).toEqual([
+       {
+         type: "testStep",
+         props: {
+           stepTitle: "Open the form.",
+           stepsDescription: "",
+           expectedResult: "Fields are empty.",
+         },
+         children: [],
+       },
+     ]);
+   });
+
+   it("parses test step with description", () => {
+     const markdown = [
+       "* Navigate to login",
+       "  Open browser",
+       "  Go to login page",
+       "  *Expected Result*: Login form visible",
+     ].join("\n");
+
+     expect(markdownToBlocks(markdown)).toEqual([
+       {
+         type: "testStep",
+         props: {
+           stepTitle: "Navigate to login",
+           stepsDescription: "Open browser\nGo to login page",
+           expectedResult: "Login form visible",
+         },
+         children: [],
+       },
+     ]);
+   });
 
   it("round-trips simple blocks", () => {
     const blocks: CustomEditorBlock[] = [

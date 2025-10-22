@@ -50,6 +50,7 @@ function CustomSlashMenu() {
           type: "testStep",
           props: {
             stepTitle: "",
+            stepsDescription: "",
             expectedResult: "",
           },
         });
@@ -158,6 +159,7 @@ function App() {
       type: "testStep",
       props: {
         stepTitle: "",
+        stepsDescription: "",
         expectedResult: "",
       },
       children: [],
@@ -287,52 +289,58 @@ function App() {
         </div>
         <aside className="app__preview">
           <div className="app__panel">
-            <h2>Markdown Preview</h2>
+            <div className="app__panel-header">
+              <h2>Markdown Preview</h2>
+              <div className="app__copy">
+                <button
+                  type="button"
+                  className="app__action app__action--ghost"
+                  onClick={handleCopyMarkdown}
+                  disabled={!!conversionError || markdown.length === 0}
+                  title="Copy Markdown"
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                </button>
+                {copyStatus === "copied" && (
+                  <span className="app__copy-status">Copied!</span>
+                )}
+                {copyStatus === "failed" && (
+                  <span className="app__copy-status app__copy-status--error">
+                    Copy failed
+                  </span>
+                )}
+              </div>
+            </div>
             {conversionError ? (
               <p className="app__error">{conversionError}</p>
             ) : (
               <pre>{markdown}</pre>
             )}
-            <div className="app__copy">
-              <button
-                type="button"
-                className="app__action app__action--ghost"
-                onClick={handleCopyMarkdown}
-                disabled={!!conversionError || markdown.length === 0}
-              >
-                Copy Markdown
-              </button>
-              {copyStatus === "copied" && (
-                <span className="app__copy-status">Copied!</span>
-              )}
-              {copyStatus === "failed" && (
-                <span className="app__copy-status app__copy-status--error">
-                  Copy failed
-                </span>
-              )}
-            </div>
           </div>
           <div className="app__panel">
-            <h2>Blocks JSON</h2>
-            <pre>{blocksJson}</pre>
-            <div className="app__copy">
-              <button
-                type="button"
-                className="app__action app__action--ghost"
-                onClick={handleCopyBlocks}
-                disabled={!!conversionError || blocksJson.length === 0}
-              >
-                Copy Blocks
-              </button>
-              {copyBlocksStatus === "copied" && (
-                <span className="app__copy-status">Copied!</span>
-              )}
-              {copyBlocksStatus === "failed" && (
-                <span className="app__copy-status app__copy-status--error">
-                  Copy failed
-                </span>
-              )}
+            <div className="app__panel-header">
+              <h2>Blocks JSON</h2>
+              <div className="app__copy">
+                <button
+                  type="button"
+                  className="app__action app__action--ghost"
+                  onClick={handleCopyBlocks}
+                  disabled={!!conversionError || blocksJson.length === 0}
+                  title="Copy Blocks"
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                </button>
+                {copyBlocksStatus === "copied" && (
+                  <span className="app__copy-status">Copied!</span>
+                )}
+                {copyBlocksStatus === "failed" && (
+                  <span className="app__copy-status app__copy-status--error">
+                    Copy failed
+                  </span>
+                )}
+              </div>
             </div>
+            <pre>{blocksJson}</pre>
           </div>
         </aside>
       </section>

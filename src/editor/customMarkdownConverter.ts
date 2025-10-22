@@ -71,7 +71,7 @@ function normalizeStatus(value: string | undefined): StepStatus {
 const SPECIAL_CHAR_REGEX = /([*_`~\[\]()<>\\])/g;
 const HTML_SPAN_REGEX = /<\/?span[^>]*>/g;
 const HTML_UNDERLINE_REGEX = /<\/?u>/g;
-const EXPECTED_LABEL_REGEX = /^(?:[*_`]{0,3}\s*)?(expected(?:\s+result)?)\s*(?:[*_`]{0,3})?(?:\s*[:\-–—]?\s*)/i;
+const EXPECTED_LABEL_REGEX = /^(?:[*_`]*\s*)?(expected(?:\s+result)?)\s*(?:[*_`]*\s*)?(?:\s*[:\-–—]?\s*)/i;
 
 function escapeMarkdown(text: string): string {
   return text.replace(SPECIAL_CHAR_REGEX, "\\$1");
@@ -91,24 +91,16 @@ function stripExpectedPrefix(text: string): string {
   const label = match[0];
   let remainder = text.slice(label.length).trimStart();
 
-  const stripMarkers = (value: string) => {
-    let result = value.trimEnd();
-    let changed = true;
-    while (changed) {
-      changed = false;
-      const markerMatch = result.match(STRIP_MARKERS_REGEX);
-      if (markerMatch) {
-        result = markerMatch[1].trim();
-        changed = true;
-      }
-    }
+  const cleanupLeading = (value: string) => {
+    let result = value.trimStart();
+    result = result.replace(/^\\+(?=[*_`~:[\]])/, "");
+    result = result.replace(/^(?:[*_`~]+)(?=\s|$)/, "");
     return result.trimStart();
   };
 
-  remainder = stripMarkers(remainder);
-  remainder = remainder.replace(/^\\+(?=[*_`~:[\]])/, "");
+  remainder = cleanupLeading(remainder);
   remainder = stripLeadingFormatting(remainder);
-  return remainder;
+  return remainder.trimStart();
 }
 
 function stripLeadingFormatting(text: string): string {
@@ -325,14 +317,34 @@ function serializeBlock(
     }
     case "testStep": {
       const stepTitle = ((block.props as any).stepTitle ?? "").trim();
+      const stepsDescription = ((block.props as any).stepsDescription ?? "").trim();
       const expectedResult = ((block.props as any).expectedResult ?? "").trim();
 
       if (stepTitle.length > 0) {
-        lines.push(`* ${escapeMarkdown(stepTitle)}`);
+        const normalizedTitle = stepTitle
+          .split(/\r?\n/)
+          .map((segment: string) => segment.trim())
+          .filter((segment: string) => segment.length > 0)
+          .join(" ");
+
+        if (normalizedTitle.length > 0) {
+          lines.push(`* ${normalizedTitle}`);
+        }
       }
 
-      if (expectedResult.length > 0) {
-        const expectedLines = expectedResult.split(/\r?\n/);
+      if (stepsDescription.length > 0) {
+        const descriptionLines = stepsDescription.split(/\r?\n/);
+        descriptionLines.forEach((descriptionLine: string) => {
+          const trimmedLine = descriptionLine.trim();
+          if (trimmedLine.length > 0) {
+            lines.push(`  ${trimmedLine}`);
+          }
+        });
+      }
+
+      const normalizedExpected = stripExpectedPrefix(expectedResult).trim();
+      if (normalizedExpected.length > 0) {
+        const expectedLines = normalizedExpected.split(/\r?\n/);
         const label = "*Expected Result*";
         expectedLines.forEach((expectedLine: string, index: number) => {
           const trimmedLine = expectedLine.trim();
@@ -340,11 +352,10 @@ function serializeBlock(
             return;
           }
 
-          const escaped = escapeMarkdown(trimmedLine);
           if (index === 0) {
-            lines.push(`  ${label}: ${escaped}`.trimEnd());
+            lines.push(`  ${label}: ${trimmedLine}`);
           } else {
-            lines.push(`  ${escaped}`.trimEnd());
+            lines.push(`  ${trimmedLine}`);
           }
         });
       }
@@ -722,13 +733,16 @@ function parseList(
 
 function parseTestStep(lines: string[], index: number): { block: CustomPartialBlock; nextIndex: number } | null {
   const current = lines[index];
-  if (!current.trim().startsWith("* ")) {
+  const trimmed = current.trim();
+  if (!trimmed.startsWith("* ") && !trimmed.startsWith("- ")) {
     return null;
   }
 
-  const stepTitle = unescapeMarkdown(current.trim().slice(2)).trim();
+  const stepTitle = unescapeMarkdown(trimmed.slice(2)).trim();
+  let stepsDescription = "";
   let expectedResult = "";
   let next = index + 1;
+  let inExpectedResult = false;
 
   while (next < lines.length) {
     const line = lines[next];
@@ -742,27 +756,36 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
     }
 
     const trimmed = line.trim();
-    const withoutLabel = stripExpectedPrefix(trimmed);
-    const addition = unescapeMarkdown(withoutLabel);
-    if (addition.length > 0) {
-      expectedResult = expectedResult
-        ? `${expectedResult}\n${addition}`
-        : addition;
+    if (trimmed.match(EXPECTED_LABEL_REGEX) || trimmed.toLowerCase().includes("expected")) {
+      inExpectedResult = true;
+      const withoutLabel = stripExpectedPrefix(trimmed);
+      expectedResult = unescapeMarkdown(withoutLabel);
+    } else if (inExpectedResult) {
+      const withoutLabel = stripExpectedPrefix(trimmed);
+      expectedResult += "\n" + unescapeMarkdown(withoutLabel);
+    } else {
+      stepsDescription += (stepsDescription ? "\n" : "") + unescapeMarkdown(trimmed);
     }
     next += 1;
   }
 
-  return {
-    block: {
-      type: "testStep",
-      props: {
-        stepTitle,
-        expectedResult,
+  // Only parse as test step if there's expected result or description content
+  if (expectedResult || stepsDescription) {
+    return {
+      block: {
+        type: "testStep",
+        props: {
+          stepTitle,
+          stepsDescription,
+          expectedResult,
+        },
+        children: [],
       },
-      children: [],
-    },
-    nextIndex: next,
-  };
+      nextIndex: next,
+    };
+  }
+
+  return null;
 }
 
 function parseTestCase(lines: string[], index: number): { block: CustomPartialBlock; nextIndex: number } | null {
@@ -1150,4 +1173,3 @@ function parseTable(lines: string[], index: number): { block: CustomPartialBlock
     nextIndex: next,
   };
 }
-const STRIP_MARKERS_REGEX = /^(?:[*_`]+)(.*?)(?:[*_`]+)$/;
