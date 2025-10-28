@@ -631,13 +631,13 @@ function cloneCellProps() {
 }
 
 function detectListType(trimmed: string): "bullet" | "numbered" | "check" | null {
-  if (/^- \[[xX\s]\] /.test(trimmed)) {
+  if (/^[-*+]\s+\[[xX\s]\]\s+/.test(trimmed)) {
     return "check";
   }
-  if (/^\d+\.\s+/.test(trimmed)) {
+  if (/^\d+[.)]\s+/.test(trimmed)) {
     return "numbered";
   }
-  if (/^-\s+/.test(trimmed)) {
+  if (/^[-*+]\s+/.test(trimmed)) {
     return "bullet";
   }
   return null;
@@ -697,8 +697,9 @@ function parseList(
     }
 
     if (listType === "check") {
-      const checked = trimmed[3].toLowerCase() === "x";
-      const text = trimmed.slice(6);
+      const checkMatch = trimmed.match(/^[-*+]\s+\[([xX\s])\]\s+(.*)$/);
+      const checked = (checkMatch?.[1] ?? "").toLowerCase() === "x";
+      const text = checkMatch?.[2] ?? trimmed.slice(6);
       items.push({
         type: "checkListItem",
         props: { ...cloneBaseProps(), checked },
@@ -706,7 +707,7 @@ function parseList(
         children: [],
       });
     } else if (listType === "numbered") {
-      const match = trimmed.match(/^(\d+)\.\s+(.*)$/);
+      const match = trimmed.match(/^(\d+)[.)]\s+(.*)$/);
       const start = match ? Number(match[1]) : 1;
       const text = match ? match[2] : trimmed;
       items.push({
@@ -716,7 +717,8 @@ function parseList(
         children: [],
       });
     } else {
-      const text = trimmed.slice(2);
+      const bulletMatch = trimmed.match(/^[-*+]\s+(.*)$/);
+      const text = bulletMatch?.[1] ?? trimmed.slice(2);
       items.push({
         type: "bulletListItem",
         props: cloneBaseProps(),
@@ -746,25 +748,43 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
 
   while (next < lines.length) {
     const line = lines[next];
-    if (!line.trim()) {
+    const rawTrimmed = line.trim();
+
+    if (!rawTrimmed) {
       next += 1;
       continue;
     }
 
-    if (!line.startsWith("  ")) {
+    if (rawTrimmed.startsWith("* ") || rawTrimmed.startsWith("- ")) {
       break;
     }
 
-    const trimmed = line.trim();
-    if (trimmed.match(EXPECTED_LABEL_REGEX) || trimmed.toLowerCase().includes("expected")) {
+    if (
+      rawTrimmed.startsWith("#") ||
+      rawTrimmed.startsWith(":::") ||
+      rawTrimmed.startsWith("```") ||
+      rawTrimmed.startsWith(">")
+    ) {
+      break;
+    }
+
+    const hasIndent = line.startsWith("  ");
+    const matchesExpected = !!rawTrimmed.match(EXPECTED_LABEL_REGEX) ||
+      rawTrimmed.toLowerCase().includes("expected");
+
+    if (!hasIndent && !matchesExpected && !inExpectedResult) {
+      break;
+    }
+
+    if (matchesExpected) {
       inExpectedResult = true;
-      const withoutLabel = stripExpectedPrefix(trimmed);
+      const withoutLabel = stripExpectedPrefix(rawTrimmed);
       expectedResult = unescapeMarkdown(withoutLabel);
     } else if (inExpectedResult) {
-      const withoutLabel = stripExpectedPrefix(trimmed);
+      const withoutLabel = stripExpectedPrefix(rawTrimmed);
       expectedResult += "\n" + unescapeMarkdown(withoutLabel);
     } else {
-      stepsDescription += (stepsDescription ? "\n" : "") + unescapeMarkdown(trimmed);
+      stepsDescription += (stepsDescription ? "\n" : "") + unescapeMarkdown(rawTrimmed);
     }
     next += 1;
   }

@@ -262,6 +262,131 @@ describe("markdownToBlocks", () => {
         content: [{ type: "text", text: "Run the smoke tests.", styles: {} }],
         children: [],
       },
+   ]);
+  });
+
+  it("parses step lists with inline expected results label", () => {
+    const markdown = [
+      "## Test Description: Real-time notifications (chat, order updates, file received)",
+      "",
+      "This test case verifies the functionality of real-time notifications for chat messages, order updates, and file receipts within the application.",
+      "",
+      "### Preconditions",
+      "* The user is logged into the application.",
+      "* The user has the necessary permissions to receive notifications.",
+      "* The application is configured to send real-time notifications.",
+      "",
+      "### Steps",
+      "",
+      "* Step 1: Send a chat message to the user.",
+      "**Expected Result**: The user receives a real-time notification for the chat message.",
+      "* Step 2: Update an order status.",
+      "**Expected Result**: The user receives a real-time notification for the order update.",
+      "* Step 3: Send a file to the user.",
+      "**Expected Result**: The user receives a real-time notification for the file received.",
+      "* Step 4: Verify that the notifications are displayed correctly in the application's notification panel.",
+      "**Expected Result**: All notifications (chat message, order update, file received) are listed in the notification panel with the correct information (e.g., timestamp, message content).",
+      "",
+      "### Postconditions",
+      "* The user has received and viewed the notifications.",
+      "* The application continues to function as expected after receiving and processing the notifications.",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+
+    expect(stepBlocks).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Step 1: Send a chat message to the user.",
+          stepsDescription: "",
+          expectedResult: "The user receives a real-time notification for the chat message.",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Step 2: Update an order status.",
+          stepsDescription: "",
+          expectedResult: "The user receives a real-time notification for the order update.",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Step 3: Send a file to the user.",
+          stepsDescription: "",
+          expectedResult: "The user receives a real-time notification for the file received.",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Step 4: Verify that the notifications are displayed correctly in the application's notification panel.",
+          stepsDescription: "",
+          expectedResult: "All notifications (chat message, order update, file received) are listed in the notification panel with the correct information (e.g., timestamp, message content).",
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("parses bullet lists written with asterisk markers", () => {
+    const markdown = [
+      "### Preconditions",
+      "",
+      "* The user is logged into the application.",
+      "* The user has the necessary permissions to receive notifications.",
+      "* The application is configured to send real-time notifications.",
+    ].join("\n");
+
+    expect(markdownToBlocks(markdown)).toEqual([
+      {
+        type: "heading",
+        props: { ...baseProps, level: 3 },
+        content: [{ type: "text", text: "Preconditions", styles: {} }],
+        children: [],
+      },
+      {
+        type: "bulletListItem",
+        props: baseProps,
+        content: [
+          {
+            type: "text",
+            text: "The user is logged into the application.",
+            styles: {},
+          },
+        ],
+        children: [],
+      },
+      {
+        type: "bulletListItem",
+        props: baseProps,
+        content: [
+          {
+            type: "text",
+            text: "The user has the necessary permissions to receive notifications.",
+            styles: {},
+          },
+        ],
+        children: [],
+      },
+      {
+        type: "bulletListItem",
+        props: baseProps,
+        content: [
+          {
+            type: "text",
+            text: "The application is configured to send real-time notifications.",
+            styles: {},
+          },
+        ],
+        children: [],
+      },
     ]);
   });
 
