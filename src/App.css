@@ -337,6 +337,10 @@
   word-break: break-word;
 }
 
+.bn-step-editor[data-multiline="true"] {
+  min-height: 4rem;
+}
+
 .bn-step-editor:focus-visible {
   outline: none;
   border-color: rgba(37, 99, 235, 0.7);

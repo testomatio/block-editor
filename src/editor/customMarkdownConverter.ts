@@ -342,6 +342,8 @@ function serializeBlock(
           const trimmedLine = dataLine.trim();
           if (trimmedLine.length > 0) {
             lines.push(`  ${trimmedLine}`);
+          } else {
+            lines.push("  ");
           }
         });
       }
@@ -745,21 +747,23 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
   }
 
   const stepTitle = unescapeMarkdown(trimmed.slice(2)).trim();
-  let stepData = "";
+  const stepDataLines: string[] = [];
   let expectedResult = "";
   let next = index + 1;
   let inExpectedResult = false;
 
   while (next < lines.length) {
     const line = lines[next];
+    const hasIndent = /^\s{2,}/.test(line);
     const rawTrimmed = line.trim();
 
     if (!rawTrimmed) {
+      if (stepDataLines.length > 0) {
+        stepDataLines.push("");
+      }
       next += 1;
       continue;
     }
-
-    const hasIndent = /^\s{2,}/.test(line);
     const isNumberedStep = NUMBERED_STEP_REGEX.test(rawTrimmed);
     const isNewStep =
       (!hasIndent && (rawTrimmed.startsWith("* ") || rawTrimmed.startsWith("- "))) ||
@@ -772,7 +776,6 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
     if (
       rawTrimmed.startsWith("#") ||
       rawTrimmed.startsWith(":::") ||
-      rawTrimmed.startsWith("```") ||
       rawTrimmed.startsWith(">") ||
       rawTrimmed.startsWith("|")
     ) {
@@ -787,6 +790,21 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
       continue;
     }
 
+    if (rawTrimmed.startsWith("```")) {
+      stepDataLines.push(unescapeMarkdown(rawTrimmed));
+      next += 1;
+      while (next < lines.length) {
+        const fenceLine = lines[next];
+        const fenceTrimmed = fenceLine.trim();
+        stepDataLines.push(unescapeMarkdown(fenceTrimmed));
+        next += 1;
+        if (fenceTrimmed.startsWith("```")) {
+          break;
+        }
+      }
+      continue;
+    }
+
     if (inExpectedResult) {
       const withoutLabel = stripExpectedPrefix(rawTrimmed);
       expectedResult += "\n" + unescapeMarkdown(withoutLabel);
@@ -796,15 +814,18 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
 
     if (STEP_DATA_LINE_REGEX.test(rawTrimmed)) {
       const content = unescapeMarkdown(rawTrimmed);
-      if (content.length > 0) {
-        stepData += (stepData ? "\n" : "") + content;
-      }
+      stepDataLines.push(content);
       next += 1;
       continue;
     }
 
     break;
   }
+
+  const stepData = stepDataLines
+    .map((line) => line.trimEnd())
+    .join("\n")
+    .trim();
 
   // Only parse as test step if there's expected result or data content
   if (expectedResult || stepData) {

@@ -140,15 +140,61 @@ describe("blocksToMarkdown", () => {
        },
      ];
 
-     expect(blocksToMarkdown(blocks)).toBe(
-       [
-         "* Navigate to login",
-         "  Open browser",
-         "  Go to login page",
-         "  *Expected Result*: Login form visible",
-       ].join("\n"),
-     );
-   });
+   expect(blocksToMarkdown(blocks)).toBe(
+     [
+       "* Navigate to login",
+       "  Open browser",
+       "  Go to login page",
+       "  *Expected Result*: Login form visible",
+     ].join("\n"),
+   );
+  });
+
+  it("serializes step data containing code fences, blank lines, and images", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "s5",
+        type: "testStep",
+        props: {
+          stepTitle: "Update an order status.",
+          stepData: [
+            "```",
+            "SQL CREATE bnbmnbm mnbmb mm",
+            "mn,nm nm, m,nm,n,nn,m,",
+            ",n,n,mnm,n asdsad",
+            "asdsadsa",
+            "",
+            "asdsadsadsadsad",
+            "",
+            "asdsadas",
+            "```",
+            "![](/attachments/HMhkVtlDrO.png)",
+          ].join("\n"),
+          expectedResult: "The user receives a real-time notification for the order update.",
+        },
+        content: undefined,
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      [
+        "* Update an order status.",
+        "  ```",
+        "  SQL CREATE bnbmnbm mnbmb mm",
+        "  mn,nm nm, m,nm,n,nn,m,",
+        "  ,n,n,mnm,n asdsad",
+        "  asdsadsa",
+        "  ",
+        "  asdsadsadsadsad",
+        "  ",
+        "  asdsadas",
+        "  ```",
+        "  ![](/attachments/HMhkVtlDrO.png)",
+        "  *Expected Result*: The user receives a real-time notification for the order update.",
+      ].join("\n"),
+    );
+  });
 
   it("exports the custom test case block", () => {
     const blocks: CustomEditorBlock[] = [
@@ -333,6 +379,82 @@ describe("markdownToBlocks", () => {
         children: [],
       },
     ]);
+  });
+
+  it("parses step data containing code fences, blank lines, and images", () => {
+    const markdown = [
+      "* Step 2: Update an order status.",
+      "  ```",
+      "  SQL CREATE bnbmnbm mnbmb mm",
+      "  mn,nm nm, m,nm,n,nn,m,",
+      "  ,n,n,mnm,n asdsad",
+      "  asdsadsa",
+      "  ",
+      "  asdsadsadsadsad",
+      "  ",
+      "  asdsadas",
+      "  ```",
+      "  ![](/attachments/HMhkVtlDrO.png)",
+      "**Expected Result**: The user receives a real-time notification for the order update.",
+    ].join("\n");
+
+    const expectedData = [
+      "```",
+      "SQL CREATE bnbmnbm mnbmb mm",
+      "mn,nm nm, m,nm,n,nn,m,",
+      ",n,n,mnm,n asdsad",
+      "asdsadsa",
+      "",
+      "asdsadsadsadsad",
+      "",
+      "asdsadas",
+      "```",
+      "![](/attachments/HMhkVtlDrO.png)",
+    ].join("\n");
+
+    expect(markdownToBlocks(markdown)).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Step 2: Update an order status.",
+          stepData: expectedData,
+          expectedResult: "The user receives a real-time notification for the order update.",
+        },
+        children: [],
+      },
+    ]);
+
+    const markdownRoundTrip = blocksToMarkdown([
+      {
+        id: "step2",
+        type: "testStep",
+        props: {
+          stepTitle: "Step 2: Update an order status.",
+          stepData: expectedData,
+          expectedResult: "The user receives a real-time notification for the order update.",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(markdownRoundTrip).toBe(
+      [
+        "* Step 2: Update an order status.",
+        "  ```",
+        "  SQL CREATE bnbmnbm mnbmb mm",
+        "  mn,nm nm, m,nm,n,nn,m,",
+        "  ,n,n,mnm,n asdsad",
+        "  asdsadsa",
+        "  ",
+        "  asdsadsadsadsad",
+        "  ",
+        "  asdsadas",
+        "  ```",
+        "  ![](/attachments/HMhkVtlDrO.png)",
+        "  *Expected Result*: The user receives a real-time notification for the order update.",
+      ].join("\n"),
+    );
   });
 
   it("parses bullet lists written with asterisk markers", () => {

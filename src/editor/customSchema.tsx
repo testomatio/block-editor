@@ -143,8 +143,10 @@ function htmlToMarkdown(html: string): string {
   return markdown.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+const MARKDOWN_ESCAPE_REGEX = /([*_\\])/g;
+
 function escapeMarkdownText(text: string): string {
-  return text.replace(/([*_`\\])/g, "\\$1");
+  return text.replace(MARKDOWN_ESCAPE_REGEX, "\\$1");
 }
 
 type StepFieldProps = {
@@ -153,9 +155,10 @@ type StepFieldProps = {
   placeholder: string;
   onChange: (nextValue: string) => void;
   autoFocus?: boolean;
+  multiline?: boolean;
 };
 
-function StepField({ label, value, placeholder, onChange, autoFocus }: StepFieldProps) {
+function StepField({ label, value, placeholder, onChange, autoFocus, multiline = false }: StepFieldProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
   const autoFocusRef = useRef(false);
@@ -263,6 +266,7 @@ function StepField({ label, value, placeholder, onChange, autoFocus }: StepField
         contentEditable
         suppressContentEditableWarning
         data-placeholder={placeholder}
+        data-multiline={multiline ? "true" : "false"}
         onFocus={() => setIsFocused(true)}
         onBlur={() => {
           setIsFocused(false);
@@ -273,7 +277,12 @@ function StepField({ label, value, placeholder, onChange, autoFocus }: StepField
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            document.execCommand("insertLineBreak");
+            if (multiline && event.shiftKey) {
+              document.execCommand("insertLineBreak");
+              document.execCommand("insertLineBreak");
+            } else {
+              document.execCommand("insertLineBreak");
+            }
             syncValue();
           }
         }}
@@ -414,6 +423,7 @@ const testStepBlock = createReactBlockSpec(
               placeholder="Provide additional data about the step"
               onChange={handleStepDataChange}
               autoFocus={shouldFocusDataField}
+              multiline
             />
           )}
           {showExpectedField && (
