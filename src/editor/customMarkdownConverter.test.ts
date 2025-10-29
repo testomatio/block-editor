@@ -72,7 +72,7 @@ describe("blocksToMarkdown", () => {
         type: "testStep",
         props: {
           stepTitle: "Open the Login page.",
-          stepsDescription: "",
+          stepData: "",
           expectedResult: "The Login page loads successfully.",
         },
         content: undefined,
@@ -83,7 +83,7 @@ describe("blocksToMarkdown", () => {
         type: "testStep",
         props: {
           stepTitle: "Enter a valid username.",
-          stepsDescription: "",
+          stepData: "",
           expectedResult: "The username is accepted.",
         },
         content: undefined,
@@ -108,7 +108,7 @@ describe("blocksToMarkdown", () => {
          type: "testStep",
          props: {
            stepTitle: "**Click** the _Login_ button",
-           stepsDescription: "",
+           stepData: "",
            expectedResult: "**Success** is shown\nSecond line with <u>underline</u>",
          },
          content: undefined,
@@ -125,14 +125,14 @@ describe("blocksToMarkdown", () => {
      );
    });
 
-   it("serializes test step with description", () => {
+   it("serializes test step with data", () => {
      const blocks: CustomEditorBlock[] = [
        {
          id: "s4",
          type: "testStep",
          props: {
            stepTitle: "Navigate to login",
-           stepsDescription: "Open browser\nGo to login page",
+           stepData: "Open browser\nGo to login page",
            expectedResult: "Login form visible",
          },
          content: undefined,
@@ -247,7 +247,7 @@ describe("markdownToBlocks", () => {
         type: "testStep",
         props: {
           stepTitle: "Open the Login page.",
-          stepsDescription: "",
+          stepData: "",
           expectedResult: "The Login page loads successfully.",
         },
         children: [],
@@ -300,7 +300,7 @@ describe("markdownToBlocks", () => {
         type: "testStep",
         props: {
           stepTitle: "Step 1: Send a chat message to the user.",
-          stepsDescription: "",
+          stepData: "",
           expectedResult: "The user receives a real-time notification for the chat message.",
         },
         children: [],
@@ -309,7 +309,7 @@ describe("markdownToBlocks", () => {
         type: "testStep",
         props: {
           stepTitle: "Step 2: Update an order status.",
-          stepsDescription: "",
+          stepData: "",
           expectedResult: "The user receives a real-time notification for the order update.",
         },
         children: [],
@@ -318,7 +318,7 @@ describe("markdownToBlocks", () => {
         type: "testStep",
         props: {
           stepTitle: "Step 3: Send a file to the user.",
-          stepsDescription: "",
+          stepData: "",
           expectedResult: "The user receives a real-time notification for the file received.",
         },
         children: [],
@@ -327,7 +327,7 @@ describe("markdownToBlocks", () => {
         type: "testStep",
         props: {
           stepTitle: "Step 4: Verify that the notifications are displayed correctly in the application's notification panel.",
-          stepsDescription: "",
+          stepData: "",
           expectedResult: "All notifications (chat message, order update, file received) are listed in the notification panel with the correct information (e.g., timestamp, message content).",
         },
         children: [],
@@ -402,7 +402,7 @@ describe("markdownToBlocks", () => {
          type: "testStep",
          props: {
            stepTitle: "Open the form.",
-           stepsDescription: "",
+           stepData: "",
            expectedResult: "Fields are empty.",
          },
          children: [],
@@ -410,7 +410,7 @@ describe("markdownToBlocks", () => {
      ]);
    });
 
-   it("parses test step with description", () => {
+   it("parses test step with data", () => {
      const markdown = [
        "* Navigate to login",
        "  Open browser",
@@ -423,13 +423,34 @@ describe("markdownToBlocks", () => {
          type: "testStep",
          props: {
            stepTitle: "Navigate to login",
-           stepsDescription: "Open browser\nGo to login page",
+           stepData: "Open browser\nGo to login page",
            expectedResult: "Login form visible",
          },
          children: [],
        },
-     ]);
-   });
+   ]);
+  });
+
+  it("parses unindented step data between the title and expected result", () => {
+    const markdown = [
+      "* Prepare test fixtures",
+      "Collect user accounts from staging.",
+      "Reset passwords for all test accounts.",
+      "*Expected Result*: Test accounts are ready for execution.",
+    ].join("\n");
+
+    expect(markdownToBlocks(markdown)).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Prepare test fixtures",
+          stepData: "Collect user accounts from staging.\nReset passwords for all test accounts.",
+          expectedResult: "Test accounts are ready for execution.",
+        },
+        children: [],
+      },
+    ]);
+  });
 
   it("round-trips simple blocks", () => {
     const blocks: CustomEditorBlock[] = [

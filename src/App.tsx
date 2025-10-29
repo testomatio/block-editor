@@ -50,7 +50,7 @@ function CustomSlashMenu() {
           type: "testStep",
           props: {
             stepTitle: "",
-            stepsDescription: "",
+            stepData: "",
             expectedResult: "",
           },
         });
@@ -159,7 +159,7 @@ function App() {
       type: "testStep",
       props: {
         stepTitle: "",
-        stepsDescription: "",
+        stepData: "",
         expectedResult: "",
       },
       children: [],

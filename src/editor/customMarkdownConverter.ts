@@ -72,6 +72,10 @@ const SPECIAL_CHAR_REGEX = /([*_`~\[\]()<>\\])/g;
 const HTML_SPAN_REGEX = /<\/?span[^>]*>/g;
 const HTML_UNDERLINE_REGEX = /<\/?u>/g;
 const EXPECTED_LABEL_REGEX = /^(?:[*_`]*\s*)?(expected(?:\s+result)?)\s*(?:[*_`]*\s*)?(?:\s*[:\-–—]?\s*)/i;
+// Matches any non-empty line that falls between the step title and the expected result line.
+const STEP_DATA_LINE_REGEX =
+  /^(?!\s*(?:[*_`]*\s*)?(?:expected(?:\s+result)?)\b).+/i;
+const NUMBERED_STEP_REGEX = /^\d+[.)]\s+/;
 
 function escapeMarkdown(text: string): string {
   return text.replace(SPECIAL_CHAR_REGEX, "\\$1");
@@ -317,7 +321,7 @@ function serializeBlock(
     }
     case "testStep": {
       const stepTitle = ((block.props as any).stepTitle ?? "").trim();
-      const stepsDescription = ((block.props as any).stepsDescription ?? "").trim();
+      const stepData = ((block.props as any).stepData ?? "").trim();
       const expectedResult = ((block.props as any).expectedResult ?? "").trim();
 
       if (stepTitle.length > 0) {
@@ -332,10 +336,10 @@ function serializeBlock(
         }
       }
 
-      if (stepsDescription.length > 0) {
-        const descriptionLines = stepsDescription.split(/\r?\n/);
-        descriptionLines.forEach((descriptionLine: string) => {
-          const trimmedLine = descriptionLine.trim();
+      if (stepData.length > 0) {
+        const dataLines = stepData.split(/\r?\n/);
+        dataLines.forEach((dataLine: string) => {
+          const trimmedLine = dataLine.trim();
           if (trimmedLine.length > 0) {
             lines.push(`  ${trimmedLine}`);
           }
@@ -741,7 +745,7 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
   }
 
   const stepTitle = unescapeMarkdown(trimmed.slice(2)).trim();
-  let stepsDescription = "";
+  let stepData = "";
   let expectedResult = "";
   let next = index + 1;
   let inExpectedResult = false;
@@ -755,7 +759,13 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
       continue;
     }
 
-    if (rawTrimmed.startsWith("* ") || rawTrimmed.startsWith("- ")) {
+    const hasIndent = /^\s{2,}/.test(line);
+    const isNumberedStep = NUMBERED_STEP_REGEX.test(rawTrimmed);
+    const isNewStep =
+      (!hasIndent && (rawTrimmed.startsWith("* ") || rawTrimmed.startsWith("- "))) ||
+      (!hasIndent && isNumberedStep);
+
+    if (isNewStep) {
       break;
     }
 
@@ -763,40 +773,47 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
       rawTrimmed.startsWith("#") ||
       rawTrimmed.startsWith(":::") ||
       rawTrimmed.startsWith("```") ||
-      rawTrimmed.startsWith(">")
+      rawTrimmed.startsWith(">") ||
+      rawTrimmed.startsWith("|")
     ) {
       break;
     }
 
-    const hasIndent = line.startsWith("  ");
-    const matchesExpected = !!rawTrimmed.match(EXPECTED_LABEL_REGEX) ||
-      rawTrimmed.toLowerCase().includes("expected");
-
-    if (!hasIndent && !matchesExpected && !inExpectedResult) {
-      break;
-    }
-
-    if (matchesExpected) {
+    if (rawTrimmed.match(EXPECTED_LABEL_REGEX)) {
       inExpectedResult = true;
       const withoutLabel = stripExpectedPrefix(rawTrimmed);
       expectedResult = unescapeMarkdown(withoutLabel);
-    } else if (inExpectedResult) {
+      next += 1;
+      continue;
+    }
+
+    if (inExpectedResult) {
       const withoutLabel = stripExpectedPrefix(rawTrimmed);
       expectedResult += "\n" + unescapeMarkdown(withoutLabel);
-    } else {
-      stepsDescription += (stepsDescription ? "\n" : "") + unescapeMarkdown(rawTrimmed);
+      next += 1;
+      continue;
     }
-    next += 1;
+
+    if (STEP_DATA_LINE_REGEX.test(rawTrimmed)) {
+      const content = unescapeMarkdown(rawTrimmed);
+      if (content.length > 0) {
+        stepData += (stepData ? "\n" : "") + content;
+      }
+      next += 1;
+      continue;
+    }
+
+    break;
   }
 
-  // Only parse as test step if there's expected result or description content
-  if (expectedResult || stepsDescription) {
+  // Only parse as test step if there's expected result or data content
+  if (expectedResult || stepData) {
     return {
       block: {
         type: "testStep",
         props: {
           stepTitle,
-          stepsDescription,
+          stepData,
           expectedResult,
         },
         children: [],

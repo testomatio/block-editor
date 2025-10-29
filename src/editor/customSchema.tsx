@@ -306,7 +306,7 @@ const testStepBlock = createReactBlockSpec(
       stepTitle: {
         default: "",
       },
-      stepsDescription: {
+      stepData: {
         default: "",
       },
       expectedResult: {
@@ -317,10 +317,26 @@ const testStepBlock = createReactBlockSpec(
   {
     render: ({ block, editor }) => {
       const stepTitle = (block.props.stepTitle as string) || "";
-      const stepsDescription = (block.props.stepsDescription as string) || "";
+      const stepData = (block.props.stepData as string) || "";
       const expectedResult = (block.props.expectedResult as string) || "";
       const showExpectedField =
-        stepTitle.trim().length > 0 || stepsDescription.trim().length > 0 || expectedResult.trim().length > 0;
+        stepTitle.trim().length > 0 || stepData.trim().length > 0 || expectedResult.trim().length > 0;
+      const [isDataVisible, setIsDataVisible] = useState(() => stepData.trim().length > 0);
+      const [shouldFocusDataField, setShouldFocusDataField] = useState(false);
+
+      useEffect(() => {
+        if (stepData.trim().length > 0 && !isDataVisible) {
+          setIsDataVisible(true);
+        }
+      }, [isDataVisible, stepData]);
+
+      useEffect(() => {
+        if (shouldFocusDataField && isDataVisible) {
+          const timer = setTimeout(() => setShouldFocusDataField(false), 0);
+          return () => clearTimeout(timer);
+        }
+        return undefined;
+      }, [isDataVisible, shouldFocusDataField]);
 
       const handleStepTitleChange = useCallback(
         (next: string) => {
@@ -337,20 +353,25 @@ const testStepBlock = createReactBlockSpec(
         [editor, block.id, stepTitle],
       );
 
-      const handleStepsDescriptionChange = useCallback(
+      const handleStepDataChange = useCallback(
         (next: string) => {
-          if (next === stepsDescription) {
+          if (next === stepData) {
             return;
           }
 
           editor.updateBlock(block.id, {
             props: {
-              stepsDescription: next,
+              stepData: next,
             },
           });
         },
-        [editor, block.id, stepsDescription],
+        [editor, block.id, stepData],
       );
+
+      const handleShowDataField = useCallback(() => {
+        setIsDataVisible(true);
+        setShouldFocusDataField(true);
+      }, []);
 
       const handleExpectedChange = useCallback(
         (next: string) => {
@@ -376,12 +397,25 @@ const testStepBlock = createReactBlockSpec(
             onChange={handleStepTitleChange}
             autoFocus={stepTitle.length === 0}
           />
-          <StepField
-            label="Steps Description"
-            value={stepsDescription}
-            placeholder="Provide additional details about the step"
-            onChange={handleStepsDescriptionChange}
-          />
+          {!isDataVisible && (
+            <button
+              type="button"
+              className="bn-teststep__toggle"
+              onClick={handleShowDataField}
+              aria-expanded="false"
+            >
+              [+ Data]
+            </button>
+          )}
+          {isDataVisible && (
+            <StepField
+              label="Step Data"
+              value={stepData}
+              placeholder="Provide additional data about the step"
+              onChange={handleStepDataChange}
+              autoFocus={shouldFocusDataField}
+            />
+          )}
           {showExpectedField && (
             <StepField
               label="Expected Result"
