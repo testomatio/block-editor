@@ -347,6 +347,14 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
+.bn-inline-image {
+  display: block;
+  max-width: 100%;
+  border-radius: 0.65rem;
+  margin: 0.5rem 0;
+  pointer-events: none;
+}
+
 .bn-step-editor:empty::before {
   content: attr(data-placeholder);
   color: rgba(15, 23, 42, 0.45);

@@ -574,6 +574,83 @@ describe("markdownToBlocks", () => {
     ]);
   });
 
+  it("parses expected result containing a markdown image", () => {
+    const markdown = [
+      "* Display the generated report.",
+      "  *Expected Result*: ![](/attachments/report.png)",
+    ].join("\n");
+
+    expect(markdownToBlocks(markdown)).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Display the generated report.",
+          stepData: "",
+          expectedResult: "![](/attachments/report.png)",
+        },
+        children: [],
+      },
+    ]);
+
+    const markdownRoundTrip = blocksToMarkdown([
+      {
+        id: "step-image",
+        type: "testStep",
+        props: {
+          stepTitle: "Display the generated report.",
+          stepData: "",
+          expectedResult: "![](/attachments/report.png)",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(markdownRoundTrip).toBe(markdown);
+  });
+
+  it("parses expected result with short expected label and image", () => {
+    const markdown = [
+      "* Should open login screen",
+      "  *Expected*: Login should look like this",
+      "  ![](/login.png)",
+    ].join("\n");
+
+    expect(markdownToBlocks(markdown)).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Should open login screen",
+          stepData: "",
+          expectedResult: "Login should look like this\n![](/login.png)",
+        },
+        children: [],
+      },
+    ]);
+
+    const roundTrip = blocksToMarkdown([
+      {
+        id: "step-login",
+        type: "testStep",
+        props: {
+          stepTitle: "Should open login screen",
+          stepData: "",
+          expectedResult: "Login should look like this\n![](/login.png)",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(roundTrip).toBe(
+      [
+        "* Should open login screen",
+        "  *Expected Result*: Login should look like this",
+        "  ![](/login.png)",
+      ].join("\n"),
+    );
+  });
+
   it("round-trips simple blocks", () => {
     const blocks: CustomEditorBlock[] = [
       {

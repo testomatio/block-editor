@@ -22,6 +22,7 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
+const IMAGE_MARKDOWN_REGEX = /!\[([^\]]*)\]\(([^)]+)\)/g;
 function markdownToHtml(markdown: string): string {
   if (!markdown) {
     return "";
@@ -30,7 +31,16 @@ function markdownToHtml(markdown: string): string {
   const lines = markdown.split(/\n/);
   const htmlLines = lines.map((line) => {
     const inline = parseInlineMarkdown(line);
-    return inlineToHtml(inline);
+    const html = inlineToHtml(inline);
+    if (!html) {
+      return html;
+    }
+
+    return html.replace(
+      IMAGE_MARKDOWN_REGEX,
+      (_match, alt = "", src = "") =>
+        `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" class="bn-inline-image" contenteditable="false" draggable="false" />`,
+    );
   });
   return htmlLines.join("<br />");
 }
@@ -102,6 +112,10 @@ function restoreEscapes(text: string): string {
 }
 
 function htmlToMarkdown(html: string): string {
+  if (typeof document === "undefined") {
+    return fallbackHtmlToMarkdown(html);
+  }
+
   const temp = document.createElement("div");
   temp.innerHTML = html;
 
@@ -134,6 +148,11 @@ function htmlToMarkdown(html: string): string {
       case "div":
       case "p":
         return children + "\n";
+      case "img": {
+        const src = element.getAttribute("src") ?? "";
+        const alt = element.getAttribute("alt") ?? "";
+        return `![${alt}](${src})`;
+      }
       default:
         return children;
     }
@@ -141,6 +160,38 @@ function htmlToMarkdown(html: string): string {
 
   const markdown = Array.from(temp.childNodes).map(traverse).join("");
   return markdown.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function fallbackHtmlToMarkdown(html: string): string {
+  if (!html) {
+    return "";
+  }
+
+  let result = html;
+
+  result = result.replace(/<img[^>]*>/gi, (match) => {
+    const src = match.match(/src="([^"]*)"/i)?.[1] ?? "";
+    const alt = match.match(/alt="([^"]*)"/i)?.[1] ?? "";
+    return `![${alt}](${src})`;
+  });
+
+  result = result
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/?(div|p)>/gi, "\n")
+    .replace(/<strong>(.*?)<\/strong>/gis, (_m, content) => `**${content}**`)
+    .replace(/<(em|i)>(.*?)<\/(em|i)>/gis, (_m, _tag, content) => `*${content}*`)
+    .replace(/<span[^>]*>/gi, "")
+    .replace(/<\/span>/gi, "")
+    .replace(/<u>(.*?)<\/u>/gis, (_m, content) => `<u>${content}</u>`);
+
+  result = result.replace(/<\/?[^>]+>/g, "");
+
+  return result
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 const MARKDOWN_ESCAPE_REGEX = /([*_\\])/g;
@@ -432,6 +483,7 @@ const testStepBlock = createReactBlockSpec(
               value={expectedResult}
               placeholder="What should happen?"
               onChange={handleExpectedChange}
+              multiline
             />
           )}
         </div>
@@ -535,3 +587,8 @@ export const customSchema = BlockNoteSchema.create({
 export type CustomSchema = typeof customSchema;
 export type CustomBlock = CustomSchema["Block"];
 export type CustomEditor = CustomSchema["BlockNoteEditor"];
+
+export const __markdownTestUtils = {
+  markdownToHtml,
+  htmlToMarkdown,
+};
