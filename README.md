@@ -1,6 +1,9 @@
-# Block Editor Playground
+# Testomatio Editor Blocks
 
-This package hosts the BlockNote playground used for experimenting with Test Case and Test Step blocks, Markdown conversion, and the live preview tools.
+Custom BlockNote blocks, schema, and Markdown conversion helpers for Testomatio-style test cases and steps. The repository bundles two things:
+
+- A Vite playground (`npm run dev`) for trying the blocks in isolation.
+- A publishable package (`npm run build:package`) that writes the distributable files to `dist/`.
 
 ## Prerequisites
 
@@ -22,6 +25,70 @@ npm run dev
 ```
 
 The app defaults to `http://localhost:5173`. Paste Markdown (including tables or step blocks) directly into the editor to see it converted into structured blocks, while the right-hand panels display the Markdown and block JSON previews.
+
+## Building the Package
+
+Create the publishable bundle (JavaScript, type declarations, and stylesheet) by running:
+
+```bash
+npm run build:package
+```
+
+The compiled files land in `dist/`:
+
+- `dist/index.js` and `dist/index.d.ts` export the schema plus converters.
+- `dist/editor/...` contains the underlying source hierarchy for easier debugging.
+- `dist/styles.css` ships all required styles for the blocks.
+
+## Using Inside Any BlockNote Editor
+
+1. **Install**
+
+   Add `testomatio-editor-blocks` alongside the BlockNote packages you already use:
+
+   ```bash
+   npm install testomatio-editor-blocks @blocknote/react @blocknote/core
+   ```
+
+   (If you are working locally before publishing, use `npm install ../path/to/testomatio-editor-blocks --save`.)
+
+2. **Load the schema and helpers**
+
+   ```tsx
+   import {
+     customSchema,
+     markdownToBlocks,
+     blocksToMarkdown,
+   } from "testomatio-editor-blocks";
+   import "testomatio-editor-blocks/styles.css";
+
+    const editor = useCreateBlockNote({
+      schema: customSchema,
+      pasteHandler: ({ event, editor, defaultPasteHandler }) => {
+        const text = event.clipboardData?.getData("text/plain") ?? "";
+        if (!text.trim()) {
+          return defaultPasteHandler();
+        }
+        try {
+          const blocks = markdownToBlocks(text);
+          editor.insertBlocks(blocks);
+          return true;
+        } catch {
+          return defaultPasteHandler();
+        }
+      },
+    });
+   ```
+
+3. **Work with Markdown**
+
+   - `markdownToBlocks(markdown: string)` converts Testomatio Markdown into BlockNote block definitions ready for insertion.
+   - `blocksToMarkdown(blocks)` serialises editor content back into Markdown for storing or syncing.
+
+4. **Blocks Available**
+
+   - `testCase`: rich-text wrapper with status and reference metadata.
+   - `testStep`: inline WYSIWYG inputs for Step Title, Data, and Expected Result with bold/italic/underline formatting.
 
 ## Running Tests
 
