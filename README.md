@@ -54,31 +54,34 @@ The compiled files land in `dist/`:
 
 2. **Load the schema and helpers**
 
-   ```tsx
-   import {
-     customSchema,
-     markdownToBlocks,
-     blocksToMarkdown,
-   } from "testomatio-editor-blocks";
-   import "testomatio-editor-blocks/styles.css";
+```jsx
+import { useCreateBlockNote, useEditorChange } from "@blocknote/react";
+import { customSchema, markdownToBlocks, blocksToMarkdown } from "testomatio-editor-blocks";
+import "testomatio-editor-blocks/styles.css";
 
-    const editor = useCreateBlockNote({
-      schema: customSchema,
-      pasteHandler: ({ event, editor, defaultPasteHandler }) => {
-        const text = event.clipboardData?.getData("text/plain") ?? "";
-        if (!text.trim()) {
-          return defaultPasteHandler();
-        }
-        try {
-          const blocks = markdownToBlocks(text);
-          editor.insertBlocks(blocks);
-          return true;
-        } catch {
-          return defaultPasteHandler();
-        }
-      },
-    });
-   ```
+const editor = useCreateBlockNote({
+  schema: customSchema,
+  pasteHandler: ({ event, editor, defaultPasteHandler }) => {
+    const text = event.clipboardData?.getData("text/plain") ?? "";
+    if (!text.trim()) {
+      return defaultPasteHandler();
+    }
+    try {
+      const blocks = markdownToBlocks(text);
+      editor.insertBlocks(blocks);
+      return true;
+    } catch {
+      return defaultPasteHandler();
+    }
+  },
+});
+
+useEditorChange((instance) => {
+  const markdown = blocksToMarkdown(instance.document);
+  // Persist markdown to your backend or trigger app logic.
+  console.log(markdown);
+}, editor);
+```
 
 3. **Work with Markdown**
 
