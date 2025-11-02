@@ -11,3 +11,5 @@ export {
   type CustomEditorBlock,
   type CustomPartialBlock,
 } from "./editor/customMarkdownConverter";
+
+export const testomatioEditorClassName = "markdown testomatio-editor";

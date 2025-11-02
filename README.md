@@ -3,7 +3,7 @@
 Custom BlockNote blocks, schema, and Markdown conversion helpers for Testomatio-style test cases and steps. The repository bundles two things:
 
 - A Vite playground (`npm run dev`) for trying the blocks in isolation.
-- A publishable package (`npm run build:package`) that writes the distributable files to `dist/`.
+- A publishable package (`npm run build:package`) that writes the distributable files to `package/`.
 
 ## Prerequisites
 
@@ -34,11 +34,13 @@ Create the publishable bundle (JavaScript, type declarations, and stylesheet) by
 npm run build:package
 ```
 
-The compiled files land in `dist/`:
+The compiled files land in `package/`:
 
-- `dist/index.js` and `dist/index.d.ts` export the schema plus converters.
-- `dist/editor/...` contains the underlying source hierarchy for easier debugging.
-- `dist/styles.css` ships all required styles for the blocks.
+- `package/index.js` and `package/index.d.ts` export the schema plus converters.
+- `package/editor/...` contains the underlying source hierarchy for easier debugging.
+- `package/styles.css` ships all required styles for the blocks.
+
+Running `npm run build` will also invoke Vite and place the playground site in `dist/`, which you can upload to Cloudflare Pages if you want a hosted demo.
 
 ## Using Inside Any BlockNote Editor
 
@@ -55,8 +57,14 @@ The compiled files land in `dist/`:
 2. **Load the schema and helpers**
 
 ```jsx
+import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote, useEditorChange } from "@blocknote/react";
-import { customSchema, markdownToBlocks, blocksToMarkdown } from "testomatio-editor-blocks";
+import {
+  customSchema,
+  markdownToBlocks,
+  blocksToMarkdown,
+  testomatioEditorClassName,
+} from "testomatio-editor-blocks";
 import "testomatio-editor-blocks/styles.css";
 
 const editor = useCreateBlockNote({
@@ -81,12 +89,21 @@ useEditorChange((instance) => {
   // Persist markdown to your backend or trigger app logic.
   console.log(markdown);
 }, editor);
+
+return (
+  <BlockNoteView
+    editor={editor}
+    className={testomatioEditorClassName}
+    slashMenu={false}
+  />
+);
 ```
 
 3. **Work with Markdown**
 
-   - `markdownToBlocks(markdown: string)` converts Testomatio Markdown into BlockNote block definitions ready for insertion.
-   - `blocksToMarkdown(blocks)` serialises editor content back into Markdown for storing or syncing.
+- `markdownToBlocks(markdown: string)` converts Testomatio Markdown into BlockNote block definitions ready for insertion.
+- `blocksToMarkdown(blocks)` serialises editor content back into Markdown for storing or syncing.
+- `testomatioEditorClassName` gives you the `markdown` wrapper class so the editor inherits the same Tailwind typography styles as your read-only view.
 
 4. **Blocks Available**
 

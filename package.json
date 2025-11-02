@@ -3,19 +3,19 @@
   "version": "0.1.0",
   "description": "Custom BlockNote schema, markdown conversion helpers, and UI for Testomatio-style test cases and steps.",
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./package/index.js",
+  "module": "./package/index.js",
+  "types": "./package/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./package/index.d.ts",
+      "import": "./package/index.js"
     },
-    "./styles.css": "./dist/styles.css",
+    "./styles.css": "./package/styles.css",
     "./package.json": "./package.json"
   },
   "files": [
-    "dist",
+    "package",
     "src",
     "README.md"
   ],

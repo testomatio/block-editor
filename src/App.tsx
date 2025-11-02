@@ -60,12 +60,7 @@ function CustomSlashMenu() {
     return filterSuggestionItems([...defaultItems, stepItem], query);
   };
 
-  return (
-    <SuggestionMenuController
-      triggerCharacter="/"
-      getItems={getItems}
-    />
-  );
+  return <SuggestionMenuController triggerCharacter="/" getItems={getItems} />;
 }
 
 function App() {
@@ -283,7 +278,12 @@ function App() {
 
       <section className="app__workspace">
         <div className="app__editor">
-          <BlockNoteView editor={editor} theme="light" slashMenu={false}>
+          <BlockNoteView
+            editor={editor}
+            theme="light"
+            slashMenu={false}
+            className="markdown testomatio-editor"
+          >
             <CustomSlashMenu />
           </BlockNoteView>
         </div>

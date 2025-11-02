@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
-const distDir = resolve(projectRoot, "dist");
+const distDir = resolve(projectRoot, "package");
 const stylesSource = resolve(projectRoot, "src/editor/styles.css");
 
 function run(command, args) {
