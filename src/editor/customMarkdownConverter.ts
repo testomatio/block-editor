@@ -677,7 +677,11 @@ function parseList(
       continue;
     }
 
-    const indent = countIndent(rawLine);
+    let indent = countIndent(rawLine);
+    const baseIndent = indentLevel * 2;
+    if (indent > baseIndent && indent <= baseIndent + 1) {
+      indent = baseIndent;
+    }
     if (indent < indentLevel * 2) {
       break;
     }

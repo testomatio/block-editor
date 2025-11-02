@@ -512,6 +512,28 @@ describe("markdownToBlocks", () => {
     ]);
   });
 
+  it("handles nested lists with uneven indentation", () => {
+    const markdown = [
+      "### Requirements",
+      "",
+      "* Verify that each individual unit test completes in ≤ 50 ms (target) and never exceeds 200 ms (hard limit).",
+      "",
+      "### Steps",
+      "",
+      "1. Execute the full unit test suite with a timer wrapper.",
+      "   * Each individual test case.",
+      "   * Each test file.",
+      "2. Collect timing data for the security-critical modules.",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const numbered = blocks.filter((block) => block.type === "numberedListItem");
+
+    expect(numbered).not.toHaveLength(0);
+    const nestedChildren = numbered.flatMap((block) => block.children ?? []);
+    expect(nestedChildren.some((child) => child.type === "bulletListItem")).toBe(true);
+  });
+
    it("parses expected result prefixes with emphasis", () => {
      const markdown = [
        "* Open the form.",
