@@ -147,6 +147,47 @@
   color: #f87171;
 }
 
+.app__panel--light {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.app__panel-text {
+  margin: 0;
+  color: rgba(15, 23, 42, 0.85);
+  font-size: 0.9rem;
+}
+
+.app__step-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.app__step-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.5rem;
+  background: rgba(37, 99, 235, 0.08);
+  color: inherit;
+  font-size: 0.95rem;
+}
+
+.app__step-title {
+  font-weight: 600;
+}
+
+.app__step-meta {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.6);
+}
+
 @media (max-width: 960px) {
   #root {
     padding: 1.5rem;

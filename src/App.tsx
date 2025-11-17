@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BlockNoteView } from "@blocknote/mantine";
 import {
   useCreateBlockNote,
@@ -17,8 +17,38 @@ import {
   type CustomEditorBlock,
   type CustomPartialBlock,
 } from "./editor/customMarkdownConverter";
-import { customSchema } from "./editor/customSchema";
+import { customSchema, type CustomEditor } from "./editor/customSchema";
+import { setGlobalStepSuggestionsFetcher, type StepJsonApiDocument } from "./editor/stepAutocomplete";
+import { setGlobalStepImageUploadHandler } from "./editor/stepImageUpload";
 import "./App.css";
+
+const focusTestStepTitle = (editor: CustomEditor | null | undefined, blockId?: string) => {
+  if (!editor || !blockId) {
+    return;
+  }
+
+  const focus = () => {
+    const stepTitle = document.querySelector<HTMLElement>(
+      `[data-block-id="${blockId}"] [data-step-field="title"]`,
+    );
+
+    if (stepTitle) {
+      stepTitle.focus();
+      return;
+    }
+
+    editor.setSelection(blockId, blockId);
+    editor.setTextCursorPosition(blockId, "end");
+    editor.focus();
+  };
+
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(focus);
+    return;
+  }
+
+  setTimeout(focus, 0);
+};
 
 type Schema = typeof customSchema;
 
@@ -26,6 +56,151 @@ const DEFAULT_BLOCK_PROPS = {
   textAlignment: "left" as const,
   textColor: "default" as const,
   backgroundColor: "default" as const,
+};
+
+const DEMO_STEP_FIXTURES: StepJsonApiDocument = {
+  data: [
+    {
+      id: "145",
+      type: "step",
+      attributes: {
+        labels: [],
+        title: "Donec placerat, dui vitae",
+        kind: "manual",
+        description: null,
+        keywords: [],
+        "is-snippet": null,
+        "usage-count": 23,
+        "comments-count": 0,
+      },
+    },
+    {
+      id: "146",
+      type: "step",
+      attributes: {
+        labels: [],
+        title: "Ut auctor mi erat ac dolor.",
+        kind: "manual",
+        description: null,
+        keywords: [],
+        "is-snippet": null,
+        "usage-count": 23,
+        "comments-count": 0,
+      },
+    },
+    {
+      id: "147",
+      type: "step",
+      attributes: {
+        labels: [],
+        title: "Lorem ipsum dolor sit amet, consectetuer adipiscing elit.",
+        kind: "manual",
+        description: null,
+        keywords: [],
+        "is-snippet": null,
+        "usage-count": 23,
+        "comments-count": 0,
+      },
+    },
+    {
+      id: "148",
+      type: "step",
+      attributes: {
+        labels: [],
+        title: "Felis libero varius orci, in vulputate",
+        kind: "manual",
+        description: null,
+        keywords: [],
+        "is-snippet": null,
+        "usage-count": 19,
+        "comments-count": 0,
+      },
+    },
+    {
+      id: "149",
+      type: "step",
+      attributes: {
+        labels: [],
+        title: "Massa turpis scelerisque diam.",
+        kind: "manual",
+        description: null,
+        keywords: [],
+        "is-snippet": null,
+        "usage-count": 19,
+        "comments-count": 0,
+      },
+    },
+    {
+      id: "150",
+      type: "step",
+      attributes: {
+        labels: [],
+        title: "Nunc et felis est. Phasellus laoreet nibh vel augue",
+        kind: "manual",
+        description: null,
+        keywords: [],
+        "is-snippet": null,
+        "usage-count": 19,
+        "comments-count": 0,
+      },
+    },
+    {
+      id: "151",
+      type: "step",
+      attributes: {
+        labels: [],
+        title: "Suspendisse interdum sem non sem cursus consequat.",
+        kind: "manual",
+        description: null,
+        keywords: [],
+        "is-snippet": null,
+        "usage-count": 17,
+        "comments-count": 0,
+      },
+    },
+    {
+      id: "152",
+      type: "step",
+      attributes: {
+        labels: [],
+        title: "Aliquam tempor, nibh sed facilisis lacinia, nisl velit aliquet nunc.",
+        kind: "manual",
+        description: null,
+        keywords: [],
+        "is-snippet": null,
+        "usage-count": 16,
+        "comments-count": 0,
+      },
+    },
+    {
+      id: "153",
+      type: "step",
+      attributes: {
+        labels: [],
+        title: "Praesent tellus neque, efficitur vel hendrerit sed, porta id sapien.",
+        kind: "manual",
+        description: null,
+        keywords: [],
+        "is-snippet": null,
+        "usage-count": 14,
+        "comments-count": 0,
+      },
+    },
+    {
+      id: "154",
+      type: "step",
+      attributes: {
+        labels: [],
+        title: "Maecenas suscipit lacus vitae viverra fermentum.",
+        kind: "manual",
+        description: null,
+        keywords: [],
+        "is-snippet": null,
+        "usage-count": 12,
+        "comments-count": 0,
+      },
+    },
+  ],
 };
 
 function CustomSlashMenu() {
@@ -46,7 +221,7 @@ function CustomSlashMenu() {
       icon: <span className="bn-suggestion-icon">TS</span>,
       aliases: ["step", "test step", "expected"],
       onItemClick: () => {
-        insertOrUpdateBlock(editor, {
+        const inserted = insertOrUpdateBlock(editor, {
           type: "testStep",
           props: {
             stepTitle: "",
@@ -54,6 +229,7 @@ function CustomSlashMenu() {
             expectedResult: "",
           },
         });
+        focusTestStepTitle(editor, inserted.id);
       },
     };
 
@@ -113,6 +289,9 @@ function App() {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">(
     "idle",
   );
+  const [copyBlocksStatus, setCopyBlocksStatus] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
 
   useEditorChange((editorInstance) => {
     try {
@@ -129,6 +308,53 @@ function App() {
       setCopyBlocksStatus("idle");
     }
   }, editor);
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    const unsubscribe = editor.onChange((instance, context) => {
+      const changes = context.getChanges();
+      const newlyInsertedStep = changes.find(({ type, block, source }) => {
+        if (type !== "insert") {
+          return false;
+        }
+
+        if (source?.type === "yjs-remote") {
+          return false;
+        }
+
+        return block.type === "testStep" && ((block.props as any)?.stepTitle ?? "") === "";
+      });
+
+      if (newlyInsertedStep) {
+        focusTestStepTitle(instance, newlyInsertedStep.block.id);
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [editor]);
+
+  const uploadStepImage = useMemo(
+    () => async (_image: Blob) => ({ url: `https://placehold.co/600x400?text=Uploaded+${Date.now()}` }),
+    [],
+  );
+
+  useEffect(() => {
+    // Demo defaults: configure global handlers so the editor works without manual providers.
+    setGlobalStepSuggestionsFetcher(() => DEMO_STEP_FIXTURES);
+    setGlobalStepImageUploadHandler(uploadStepImage);
+
+    return () => {
+      setGlobalStepSuggestionsFetcher(null);
+      setGlobalStepImageUploadHandler(null);
+    };
+  }, [uploadStepImage]);
 
   const createTestCaseBlock = useMemo<() => CustomPartialBlock>(() => {
     return () => ({
@@ -173,7 +399,11 @@ function App() {
       return;
     }
 
-    editor.insertBlocks([createBlock()], referenceId, "after");
+    const inserted = editor.insertBlocks([createBlock()], referenceId, "after");
+    const firstInserted = inserted[0];
+    if (firstInserted) {
+      focusTestStepTitle(editor, firstInserted.id);
+    }
   };
 
   const insertTestCase = () => insertBlockAfterSelection(createTestCaseBlock);
@@ -213,10 +443,6 @@ function App() {
       }
     }
   };
-
-  const [copyBlocksStatus, setCopyBlocksStatus] = useState<
-    "idle" | "copied" | "failed"
-  >("idle");
 
   const handleCopyBlocks = async () => {
     if (conversionError) {
@@ -316,6 +542,24 @@ function App() {
             ) : (
               <pre>{markdown}</pre>
             )}
+          </div>
+          <div className="app__panel app__panel--light">
+            <div className="app__panel-header">
+              <h2>Autocomplete Steps</h2>
+            </div>
+            <p className="app__panel-text">
+              Start typing in the Step Title field to filter this list instantly.
+            </p>
+            <ol className="app__step-list">
+              {(DEMO_STEP_FIXTURES.data ?? []).map((step) => (
+                <li key={step.id ?? step.attributes?.title}>
+                  <span className="app__step-title">{step.attributes?.title}</span>
+                  {typeof step.attributes?.["usage-count"] === "number" && (
+                    <span className="app__step-meta">{step.attributes?.["usage-count"]} uses</span>
+                  )}
+                </li>
+              ))}
+            </ol>
           </div>
           <div className="app__panel">
             <div className="app__panel-header">

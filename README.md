@@ -110,6 +110,57 @@ return (
    - `testCase`: rich-text wrapper with status and reference metadata.
    - `testStep`: inline WYSIWYG inputs for Step Title, Data, and Expected Result with bold/italic/underline formatting.
 
+## Step Autocomplete & Image Upload Hooks
+
+Configure everything via JS—no React providers required:
+
+```ts
+import {
+  customSchema,
+  setGlobalStepSuggestionsFetcher,
+  setGlobalStepImageUploadHandler,
+} from "testomatio-editor-blocks";
+
+// Step suggestions (fetch or return an array of { id, title, ... })
+setGlobalStepSuggestionsFetcher(async () => {
+  const res = await fetch("https://api.testomatio.com/v1/steps");
+  return res.json();
+});
+
+// Image upload handler used by Step Data / Expected fields
+setGlobalStepImageUploadHandler(async (image: Blob) => {
+  const formData = new FormData();
+  formData.append("file", image);
+  const res = await fetch("https://api.testomatio.com/v1/uploads", { method: "POST", body: formData });
+  return res.json(); // must resolve to { url: "https://..." }
+});
+```
+
+Step suggestions accept either an array of `{ id, title, ... }` or the JSON:API shape:
+
+```json
+{
+  "data": [
+    {
+      "id": "145",
+      "type": "step",
+      "attributes": {
+        "title": "Donec placerat, dui vitae",
+        "description": null,
+        "kind": "manual",
+        "labels": [],
+        "keywords": [],
+        "usage-count": 23,
+        "comments-count": 0,
+        "is-snippet": null
+      }
+    }
+  ]
+}
+```
+
+When a user types in Step Title, autocomplete filters these titles; Tab/Enter/Ctrl/Cmd+Space or the ⌄ button will insert the selection.
+
 ## Running Tests
 
 Vitest covers the Markdown/block converter. Run the suite with:

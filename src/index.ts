@@ -12,4 +12,19 @@ export {
   type CustomPartialBlock,
 } from "./editor/customMarkdownConverter";
 
+export {
+  useStepAutocomplete,
+  parseStepsFromJsonApi,
+  setGlobalStepSuggestionsFetcher,
+  type StepSuggestion,
+  type StepJsonApiDocument,
+  type StepJsonApiResource,
+} from "./editor/stepAutocomplete";
+
+export {
+  useStepImageUpload,
+  setGlobalStepImageUploadHandler,
+  type StepImageUploadHandler,
+} from "./editor/stepImageUpload";
+
 export const testomatioEditorClassName = "markdown testomatio-editor";

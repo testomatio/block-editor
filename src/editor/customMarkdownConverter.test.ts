@@ -94,9 +94,9 @@ describe("blocksToMarkdown", () => {
     expect(blocksToMarkdown(blocks)).toBe(
       [
         "* Open the Login page.",
-        "  *Expected Result*: The Login page loads successfully.",
+        "  *Expected*: The Login page loads successfully.",
         "* Enter a valid username.",
-        "  *Expected Result*: The username is accepted.",
+        "  *Expected*: The username is accepted.",
       ].join("\n"),
     );
   });
@@ -119,7 +119,7 @@ describe("blocksToMarkdown", () => {
      expect(blocksToMarkdown(blocks)).toBe(
        [
          "* **Click** the _Login_ button",
-         "  *Expected Result*: **Success** is shown",
+        "  *Expected*: **Success** is shown",
          "  Second line with <u>underline</u>",
        ].join("\n"),
      );
@@ -140,15 +140,15 @@ describe("blocksToMarkdown", () => {
        },
      ];
 
-   expect(blocksToMarkdown(blocks)).toBe(
-     [
-       "* Navigate to login",
-       "  Open browser",
-       "  Go to login page",
-       "  *Expected Result*: Login form visible",
-     ].join("\n"),
-   );
-  });
+  expect(blocksToMarkdown(blocks)).toBe(
+    [
+      "* Navigate to login",
+      "  Open browser",
+      "  Go to login page",
+      "  *Expected*: Login form visible",
+    ].join("\n"),
+  );
+ });
 
   it("serializes step data containing code fences, blank lines, and images", () => {
     const blocks: CustomEditorBlock[] = [
@@ -191,7 +191,7 @@ describe("blocksToMarkdown", () => {
         "  asdsadas",
         "  ```",
         "  ![](/attachments/HMhkVtlDrO.png)",
-        "  *Expected Result*: The user receives a real-time notification for the order update.",
+        "  *Expected*: The user receives a real-time notification for the order update.",
       ].join("\n"),
     );
   });
@@ -275,13 +275,28 @@ describe("blocksToMarkdown", () => {
       ].join("\n"),
     );
   });
+
+  it("parses a test step with inline image in the title, moving the image to step data", () => {
+    const markdown = [
+      "## Steps",
+      "* asdsadsad aaaaa  asd ![](https://placehold.co/600x400?text=Uploaded+1763329962213)",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const step = blocks.find((b) => b.type === "testStep") as any;
+
+    expect(step).toBeTruthy();
+    expect(step.props.stepTitle).toBe("asdsadsad aaaaa asd !");
+    expect(step.props.stepData).toBe("![](https://placehold.co/600x400?text=Uploaded+1763329962213)");
+    expect(step.props.expectedResult).toBe("");
+  });
 });
 
 describe("markdownToBlocks", () => {
   it("parses test steps and test cases", () => {
     const markdown = [
       "* Open the Login page.",
-      "  *Expected Result*: The Login page loads successfully.",
+      "  *Expected*: The Login page loads successfully.",
       "",
       ":::test-case status=\"ready\" reference=\"QA-7\"",
       "Run the smoke tests.",
@@ -325,13 +340,13 @@ describe("markdownToBlocks", () => {
       "### Steps",
       "",
       "* Step 1: Send a chat message to the user.",
-      "**Expected Result**: The user receives a real-time notification for the chat message.",
+      "**Expected**: The user receives a real-time notification for the chat message.",
       "* Step 2: Update an order status.",
-      "**Expected Result**: The user receives a real-time notification for the order update.",
+      "**Expected**: The user receives a real-time notification for the order update.",
       "* Step 3: Send a file to the user.",
-      "**Expected Result**: The user receives a real-time notification for the file received.",
+      "**Expected**: The user receives a real-time notification for the file received.",
       "* Step 4: Verify that the notifications are displayed correctly in the application's notification panel.",
-      "**Expected Result**: All notifications (chat message, order update, file received) are listed in the notification panel with the correct information (e.g., timestamp, message content).",
+      "**Expected**: All notifications (chat message, order update, file received) are listed in the notification panel with the correct information (e.g., timestamp, message content).",
       "",
       "### Postconditions",
       "* The user has received and viewed the notifications.",
@@ -395,7 +410,7 @@ describe("markdownToBlocks", () => {
       "  asdsadas",
       "  ```",
       "  ![](/attachments/HMhkVtlDrO.png)",
-      "**Expected Result**: The user receives a real-time notification for the order update.",
+      "**Expected**: The user receives a real-time notification for the order update.",
     ].join("\n");
 
     const expectedData = [
@@ -452,7 +467,7 @@ describe("markdownToBlocks", () => {
         "  asdsadas",
         "  ```",
         "  ![](/attachments/HMhkVtlDrO.png)",
-        "  *Expected Result*: The user receives a real-time notification for the order update.",
+        "  *Expected*: The user receives a real-time notification for the order update.",
       ].join("\n"),
     );
   });
@@ -537,7 +552,7 @@ describe("markdownToBlocks", () => {
    it("parses expected result prefixes with emphasis", () => {
      const markdown = [
        "* Open the form.",
-       "  **Expected Result:** The form opens.",
+       "  **Expected:** The form opens.",
        "  Expected: Fields are empty.",
      ].join("\n");
 
@@ -559,7 +574,7 @@ describe("markdownToBlocks", () => {
        "* Navigate to login",
        "  Open browser",
        "  Go to login page",
-       "  *Expected Result*: Login form visible",
+       "  *Expected*: Login form visible",
      ].join("\n");
 
      expect(markdownToBlocks(markdown)).toEqual([
@@ -580,7 +595,7 @@ describe("markdownToBlocks", () => {
       "* Prepare test fixtures",
       "Collect user accounts from staging.",
       "Reset passwords for all test accounts.",
-      "*Expected Result*: Test accounts are ready for execution.",
+      "*Expected*: Test accounts are ready for execution.",
     ].join("\n");
 
     expect(markdownToBlocks(markdown)).toEqual([
@@ -599,7 +614,7 @@ describe("markdownToBlocks", () => {
   it("parses expected result containing a markdown image", () => {
     const markdown = [
       "* Display the generated report.",
-      "  *Expected Result*: ![](/attachments/report.png)",
+      "  *Expected*: ![](/attachments/report.png)",
     ].join("\n");
 
     expect(markdownToBlocks(markdown)).toEqual([
@@ -667,7 +682,7 @@ describe("markdownToBlocks", () => {
     expect(roundTrip).toBe(
       [
         "* Should open login screen",
-        "  *Expected Result*: Login should look like this",
+        "  *Expected*: Login should look like this",
         "  ![](/login.png)",
       ].join("\n"),
     );
@@ -741,6 +756,25 @@ describe("markdownToBlocks", () => {
               ],
             },
           ],
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("parses expected result lines written with bold 'Expected Result' prefix for compatibility", () => {
+    const markdown = [
+      "* Step 1: Send a chat message to the user.",
+      "**Expected Result**: The user receives a real-time notification for the chat message.",
+    ].join("\n");
+
+    expect(markdownToBlocks(markdown)).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Step 1: Send a chat message to the user.",
+          stepData: "",
+          expectedResult: "The user receives a real-time notification for the chat message.",
         },
         children: [],
       },

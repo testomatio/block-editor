@@ -351,7 +351,7 @@ function serializeBlock(
       const normalizedExpected = stripExpectedPrefix(expectedResult).trim();
       if (normalizedExpected.length > 0) {
         const expectedLines = normalizedExpected.split(/\r?\n/);
-        const label = "*Expected Result*";
+        const label = "*Expected*";
         expectedLines.forEach((expectedLine: string, index: number) => {
           const trimmedLine = expectedLine.trim();
           if (trimmedLine.length === 0) {
@@ -750,7 +750,17 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
     return null;
   }
 
-  const stepTitle = unescapeMarkdown(trimmed.slice(2)).trim();
+  const rawTitle = unescapeMarkdown(trimmed.slice(2)).trim();
+  const titleImages: string[] = [];
+  const titleWithPlaceholders = rawTitle
+    .replace(/!\[[^\]]*\]\(([^)]+)\)/g, (match) => {
+      titleImages.push(match);
+      return "!";
+    })
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  const isLikelyStep = /^step\b/i.test(titleWithPlaceholders) || titleImages.length > 0;
   const stepDataLines: string[] = [];
   let expectedResult = "";
   let next = index + 1;
@@ -831,23 +841,26 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
     .join("\n")
     .trim();
 
-  // Only parse as test step if there's expected result or data content
-  if (expectedResult || stepData) {
-    return {
-      block: {
-        type: "testStep",
-        props: {
-          stepTitle,
-          stepData,
-          expectedResult,
-        },
-        children: [],
-      },
-      nextIndex: next,
-    };
+  if (!isLikelyStep && !expectedResult && stepDataLines.length === 0) {
+    return null;
   }
 
-  return null;
+  const stepDataWithImages = [stepData, titleImages.join("\n")]
+    .filter(Boolean)
+    .join(stepData ? "\n" : "");
+
+  return {
+    block: {
+      type: "testStep",
+      props: {
+        stepTitle: titleWithPlaceholders,
+        stepData: stepDataWithImages,
+        expectedResult,
+      },
+      children: [],
+    },
+    nextIndex: next,
+  };
 }
 
 function parseTestCase(lines: string[], index: number): { block: CustomPartialBlock; nextIndex: number } | null {
