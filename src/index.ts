@@ -23,7 +23,7 @@ export {
 
 export {
   useStepImageUpload,
-  setGlobalStepImageUploadHandler,
+  setImageUploadHandler,
   type StepImageUploadHandler,
 } from "./editor/stepImageUpload";
 

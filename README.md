@@ -127,13 +127,8 @@ setGlobalStepSuggestionsFetcher(async () => {
   return res.json();
 });
 
-// Image upload handler used by Step Data / Expected fields
-setGlobalStepImageUploadHandler(async (image: Blob) => {
-  const formData = new FormData();
-  formData.append("file", image);
-  const res = await fetch("https://api.testomatio.com/v1/uploads", { method: "POST", body: formData });
-  return res.json(); // must resolve to { url: "https://..." }
-});
+// Image upload uses BlockNote's `uploadFile` handler you pass to `useCreateBlockNote`.
+// No extra setup is required for step fields.
 ```
 
 Step suggestions accept either an array of `{ id, title, ... }` or the JSON:API shape:

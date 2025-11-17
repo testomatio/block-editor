@@ -46,7 +46,20 @@ export function setGlobalStepSuggestionsFetcher(fetcher: StepSuggestionsFetcher 
 }
 
 export function useStepAutocomplete(): StepSuggestion[] {
-  const [suggestions, setSuggestions] = useState<StepSuggestion[]>(cachedSuggestions);
+  const [suggestions, setSuggestions] = useState<StepSuggestion[]>(() => {
+    if (cachedSuggestions.length > 0) {
+      return cachedSuggestions;
+    }
+    if (globalFetcher) {
+      const result = globalFetcher();
+      if (!result || typeof (result as Promise<unknown>).then !== "function") {
+        const normalized = normalizeStepSuggestions(result as StepInput);
+        cachedSuggestions = normalized;
+        return normalized;
+      }
+    }
+    return [];
+  });
 
   useEffect(() => {
     if (suggestions.length > 0) {

@@ -19,7 +19,7 @@ import {
 } from "./editor/customMarkdownConverter";
 import { customSchema, type CustomEditor } from "./editor/customSchema";
 import { setGlobalStepSuggestionsFetcher, type StepJsonApiDocument } from "./editor/stepAutocomplete";
-import { setGlobalStepImageUploadHandler } from "./editor/stepImageUpload";
+import { setImageUploadHandler } from "./editor/stepImageUpload";
 import "./App.css";
 
 const focusTestStepTitle = (editor: CustomEditor | null | undefined, blockId?: string) => {
@@ -348,13 +348,27 @@ function App() {
   useEffect(() => {
     // Demo defaults: configure global handlers so the editor works without manual providers.
     setGlobalStepSuggestionsFetcher(() => DEMO_STEP_FIXTURES);
-    setGlobalStepImageUploadHandler(uploadStepImage);
+
+    const handler = editor?.uploadFile
+      ? async (file: Blob) => {
+          const result = await editor.uploadFile!(file as File);
+          if (typeof result === "string") {
+            return { url: result };
+          }
+          if (result && typeof result === "object" && "url" in result && typeof (result as any).url === "string") {
+            return { url: (result as any).url as string };
+          }
+          throw new Error("uploadFile did not return a URL");
+        }
+      : uploadStepImage;
+
+    setImageUploadHandler(handler);
 
     return () => {
       setGlobalStepSuggestionsFetcher(null);
-      setGlobalStepImageUploadHandler(null);
+      setImageUploadHandler(null);
     };
-  }, [uploadStepImage]);
+  }, [editor, uploadStepImage]);
 
   const createTestCaseBlock = useMemo<() => CustomPartialBlock>(() => {
     return () => ({
