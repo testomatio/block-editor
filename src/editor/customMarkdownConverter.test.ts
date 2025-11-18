@@ -101,6 +101,62 @@ describe("blocksToMarkdown", () => {
     );
   });
 
+  it("serializes a snippet block with prefixed title", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "sn1",
+        type: "snippet",
+        props: {
+          snippetId: "501",
+          snippetTitle: "Open the login page",
+          snippetData: "Navigate to /login",
+          snippetExpectedResult: "Login form renders",
+        },
+        content: undefined,
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      [
+        "<!-- begin snippet #501 -->",
+        "Navigate to /login",
+        "<!-- end snippet #501 -->",
+      ].join("\n"),
+    );
+  });
+
+  it("serializes snippet bodies without duplicating wrapper comments", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "sn2",
+        type: "snippet",
+        props: {
+          snippetId: "777",
+          snippetTitle: "Has inline wrappers",
+          snippetData: [
+            "<!-- begin snippet #777 -->",
+            "Line 1",
+            "Line 2",
+            "<!-- end snippet #777 -->",
+          ].join("\n"),
+          snippetExpectedResult: "",
+        },
+        content: undefined,
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      [
+        "<!-- begin snippet #777 -->",
+        "Line 1",
+        "Line 2",
+        "<!-- end snippet #777 -->",
+      ].join("\n"),
+    );
+  });
+
    it("keeps inline formatting inside step fields", () => {
      const blocks: CustomEditorBlock[] = [
        {
@@ -196,32 +252,6 @@ describe("blocksToMarkdown", () => {
     );
   });
 
-  it("exports the custom test case block", () => {
-    const blocks: CustomEditorBlock[] = [
-      {
-        id: "tc1",
-        type: "testCase",
-        props: {
-          ...baseProps,
-          status: "ready",
-          reference: "QA-7",
-        },
-        content: [
-          {
-            type: "text",
-            text: "Run the smoke tests.",
-            styles: {},
-          },
-        ],
-        children: [],
-      },
-    ];
-
-    expect(blocksToMarkdown(blocks)).toBe(
-      ":::test-case status=\"ready\" reference=\"QA-7\"\nRun the smoke tests.\n:::",
-    );
-  });
-
   it("serializes tables", () => {
     const blocks: CustomEditorBlock[] = [
       {
@@ -297,10 +327,6 @@ describe("markdownToBlocks", () => {
     const markdown = [
       "* Open the Login page.",
       "  *Expected*: The Login page loads successfully.",
-      "",
-      ":::test-case status=\"ready\" reference=\"QA-7\"",
-      "Run the smoke tests.",
-      ":::",
     ].join("\n");
 
     expect(markdownToBlocks(markdown)).toEqual([
@@ -313,17 +339,76 @@ describe("markdownToBlocks", () => {
         },
         children: [],
       },
+    ]);
+  });
+
+  it("parses snippet markdown into snippet blocks", () => {
+    const markdown = [
+      "<!-- begin snippet #501 -->",
+      "Run the seeder",
+      "<!-- end snippet #501 -->",
+    ].join("\n");
+
+    expect(markdownToBlocks(markdown)).toEqual([
       {
-        type: "testCase",
+        type: "snippet",
         props: {
-          ...baseProps,
-          status: "ready",
-          reference: "QA-7",
+          snippetId: "501",
+          snippetTitle: "",
+          snippetData: "Run the seeder",
+          snippetExpectedResult: "",
         },
-        content: [{ type: "text", text: "Run the smoke tests.", styles: {} }],
         children: [],
       },
-   ]);
+    ]);
+  });
+
+  it("parses snippet bodies and ignores nested snippet markers", () => {
+    const markdown = [
+      "<!-- begin snippet #888 -->",
+      "Prep DB",
+      "<!-- begin snippet #ignored -->",
+      "Do not keep this marker",
+      "<!-- end snippet #ignored -->",
+      "<!-- end snippet #888 -->",
+    ].join("\n");
+
+    expect(markdownToBlocks(markdown)).toEqual([
+      {
+        type: "snippet",
+        props: {
+          snippetId: "888",
+          snippetTitle: "",
+          snippetData: "Prep DB\nDo not keep this marker",
+          snippetExpectedResult: "",
+        },
+        children: [],
+      },
+    ]);
+
+    const roundTrip = blocksToMarkdown([
+      {
+        id: "sn888",
+        type: "snippet",
+        props: {
+          snippetId: "888",
+          snippetTitle: "",
+          snippetData: "Prep DB\nDo not keep this marker",
+          snippetExpectedResult: "",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(roundTrip).toBe(
+      [
+        "<!-- begin snippet #888 -->",
+        "Prep DB",
+        "Do not keep this marker",
+        "<!-- end snippet #888 -->",
+      ].join("\n"),
+    );
   });
 
   it("parses step lists with inline expected results label", () => {

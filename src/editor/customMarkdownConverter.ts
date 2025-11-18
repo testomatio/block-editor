@@ -58,16 +58,6 @@ const headingPrefixes: Record<number, string> = {
   6: "######",
 };
 
-const STEP_STATUSES = new Set(["draft", "ready", "blocked"] as const);
-type StepStatus = "draft" | "ready" | "blocked";
-
-function normalizeStatus(value: string | undefined): StepStatus {
-  if (value && STEP_STATUSES.has(value as StepStatus)) {
-    return value as StepStatus;
-  }
-  return "draft";
-}
-
 const SPECIAL_CHAR_REGEX = /([*_`~\[\]()<>\\])/g;
 const HTML_SPAN_REGEX = /<\/?span[^>]*>/g;
 const HTML_UNDERLINE_REGEX = /<\/?u>/g;
@@ -304,25 +294,38 @@ function serializeBlock(
       lines.push(...serializeChildren(block, ctx));
       return lines;
     }
-    case "testCase": {
-      const status = (block.props as any).status ?? "draft";
-      const reference = (block.props as any).reference;
-      const attrs = [`status="${status}"`];
-      if (reference) {
-        attrs.push(`reference="${escapeMarkdown(reference)}"`);
+    case "testStep":
+    case "snippet": {
+      const isSnippet = block.type === "snippet";
+      const snippetId = isSnippet ? (((block.props as any).snippetId ?? "") as string).trim() : "";
+      const stepTitle = isSnippet
+        ? ((block.props as any).snippetTitle ?? "").trim()
+        : ((block.props as any).stepTitle ?? "").trim();
+      const stepData = isSnippet
+        ? ((block.props as any).snippetData ?? "").trim()
+        : ((block.props as any).stepData ?? "").trim();
+      const expectedResult = isSnippet
+        ? ((block.props as any).snippetExpectedResult ?? "").trim()
+        : ((block.props as any).expectedResult ?? "").trim();
+
+      if (isSnippet) {
+        if (snippetId) {
+          lines.push(`<!-- begin snippet #${snippetId} -->`);
+        }
+
+        const dataLines = stepData
+          .split(/\r?\n/)
+          .filter((line: string) => !/^<!--\s*(begin|end)\s+snippet/i.test(line.trim()));
+        if (dataLines.length > 0) {
+          lines.push(...dataLines);
+        }
+
+        if (snippetId) {
+          lines.push(`<!-- end snippet #${snippetId} -->`);
+        }
+
+        return flattenWithBlankLine(lines, true);
       }
-      lines.push(`:::test-case ${attrs.join(" ")}`.trimEnd());
-      const body = inlineToMarkdown(block.content);
-      if (body.length > 0) {
-        lines.push(body);
-      }
-      lines.push(":::");
-      return flattenWithBlankLine(lines, true);
-    }
-    case "testStep": {
-      const stepTitle = ((block.props as any).stepTitle ?? "").trim();
-      const stepData = ((block.props as any).stepData ?? "").trim();
-      const expectedResult = ((block.props as any).expectedResult ?? "").trim();
 
       if (stepTitle.length > 0) {
         const normalizedTitle = stepTitle
@@ -743,14 +746,24 @@ function parseList(
   return { items, nextIndex: index };
 }
 
-function parseTestStep(lines: string[], index: number): { block: CustomPartialBlock; nextIndex: number } | null {
+function parseTestStep(
+  lines: string[],
+  index: number,
+  snippetId?: string,
+): { block: CustomPartialBlock; nextIndex: number } | null {
   const current = lines[index];
   const trimmed = current.trim();
   if (!trimmed.startsWith("* ") && !trimmed.startsWith("- ")) {
     return null;
   }
 
-  const rawTitle = unescapeMarkdown(trimmed.slice(2)).trim();
+  let rawTitle = unescapeMarkdown(trimmed.slice(2)).trim();
+  let blockType: "testStep" | "snippet" = "testStep";
+  const snippetMatch = rawTitle.match(/^snippet\s*[:\-–—]?\s*(.*)$/i);
+  if (snippetMatch) {
+    blockType = "snippet";
+    rawTitle = snippetMatch[1].trim();
+  }
   const titleImages: string[] = [];
   const titleWithPlaceholders = rawTitle
     .replace(/!\[[^\]]*\]\(([^)]+)\)/g, (match) => {
@@ -760,7 +773,10 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
     .replace(/\s{2,}/g, " ")
     .trim();
 
-  const isLikelyStep = /^step\b/i.test(titleWithPlaceholders) || titleImages.length > 0;
+  const isLikelyStep =
+    blockType === "snippet" ||
+    /^step\b/i.test(titleWithPlaceholders) ||
+    titleImages.length > 0;
   const stepDataLines: string[] = [];
   let expectedResult = "";
   let next = index + 1;
@@ -849,55 +865,28 @@ function parseTestStep(lines: string[], index: number): { block: CustomPartialBl
     .filter(Boolean)
     .join(stepData ? "\n" : "");
 
-  return {
-    block: {
-      type: "testStep",
-      props: {
-        stepTitle: titleWithPlaceholders,
-        stepData: stepDataWithImages,
-        expectedResult,
-      },
-      children: [],
-    },
-    nextIndex: next,
+  const blockProps =
+    blockType === "snippet"
+      ? {
+          snippetId: snippetId ?? "",
+          snippetTitle: titleWithPlaceholders,
+          snippetData: stepDataWithImages,
+          snippetExpectedResult: expectedResult,
+        }
+      : {
+          stepTitle: titleWithPlaceholders,
+          stepData: stepDataWithImages,
+          expectedResult,
+        };
+
+  const parsedBlock: CustomPartialBlock = {
+    type: blockType as any,
+    props: blockProps as any,
+    children: [],
   };
-}
-
-function parseTestCase(lines: string[], index: number): { block: CustomPartialBlock; nextIndex: number } | null {
-  const trimmed = lines[index].trim();
-  if (!trimmed.startsWith(":::test-case")) {
-    return null;
-  }
-
-  const statusMatch = trimmed.match(/status="([^"]*)"/);
-  const referenceMatch = trimmed.match(/reference="([^"]*)"/);
-
-  let bodyLines: string[] = [];
-  let next = index + 1;
-  while (next < lines.length && lines[next].trim() !== ":::") {
-    bodyLines.push(lines[next]);
-    next += 1;
-  }
-
-  if (next < lines.length && lines[next].trim() === ":::") {
-    next += 1;
-  }
-
-  const contentText = bodyLines.join("\n").trim();
 
   return {
-    block: {
-      type: "testCase",
-      props: {
-        ...cloneBaseProps(),
-        status: normalizeStatus(statusMatch?.[1]),
-        reference: referenceMatch?.[1] ?? "",
-      },
-      content: contentText
-        ? [{ type: "text", text: unescapeMarkdown(contentText), styles: {} }]
-        : undefined,
-      children: [],
-    },
+    block: parsedBlock,
     nextIndex: next,
   };
 }
@@ -1047,6 +1036,60 @@ function parseParagraph(lines: string[], index: number): { block: CustomPartialB
   };
 }
 
+function parseSnippetWrapper(
+  lines: string[],
+  index: number,
+): { block: CustomPartialBlock; nextIndex: number } | null {
+  const trimmed = lines[index].trim();
+  const startMatch = trimmed.match(/^<!--\s*begin snippet\s*#?([^\s>]+)\s*-->/i);
+  if (!startMatch) {
+    return null;
+  }
+
+  const snippetId = startMatch[1];
+  const innerLines: string[] = [];
+  let next = index + 1;
+
+  while (next < lines.length) {
+    const maybeEnd = lines[next].trim();
+    const endMatch = maybeEnd.match(/^<!--\s*end snippet\s*#?([^\s>]+)?\s*-->/i);
+    if (endMatch) {
+      const endId = endMatch[1];
+      if (!endId || endId === snippetId) {
+        next += 1;
+        break;
+      }
+      // Ignore unrelated snippet end markers but keep scanning.
+      next += 1;
+      continue;
+    }
+    const otherStart = maybeEnd.match(/^<!--\s*begin snippet\s*#?([^\s>]+)\s*-->/i);
+    if (otherStart) {
+      // Skip nested snippet wrappers from the body entirely.
+      next += 1;
+      continue;
+    }
+    innerLines.push(lines[next]);
+    next += 1;
+  }
+
+  const snippetBlock: CustomPartialBlock = {
+    type: "snippet",
+    props: {
+      snippetId,
+      snippetTitle: "",
+      snippetData: innerLines.join("\n").trim(),
+      snippetExpectedResult: "",
+    },
+    children: [],
+  };
+
+  return {
+    block: snippetBlock,
+    nextIndex: next,
+  };
+}
+
 export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
   const normalized = markdown.replace(/\r\n/g, "\n");
   const lines = normalized.split("\n");
@@ -1060,17 +1103,17 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
       continue;
     }
 
-    const testCase = parseTestCase(lines, index);
-    if (testCase) {
-      blocks.push(testCase.block);
-      index = testCase.nextIndex;
+    const snippetWrapper = parseSnippetWrapper(lines, index);
+    if (snippetWrapper) {
+      blocks.push(snippetWrapper.block);
+      index = snippetWrapper.nextIndex;
       continue;
     }
 
-    const testStep = parseTestStep(lines, index);
-    if (testStep) {
-      blocks.push(testStep.block);
-      index = testStep.nextIndex;
+    const stepLikeBlock = parseTestStep(lines, index);
+    if (stepLikeBlock) {
+      blocks.push(stepLikeBlock.block);
+      index = stepLikeBlock.nextIndex;
       continue;
     }
 

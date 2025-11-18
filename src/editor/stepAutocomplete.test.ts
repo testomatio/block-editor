@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseStepsFromJsonApi } from "./stepAutocomplete";
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
-import { setGlobalStepSuggestionsFetcher, useStepAutocomplete } from "./stepAutocomplete";
+import { setStepsFetcher, useStepAutocomplete } from "./stepAutocomplete";
 
 describe("parseStepsFromJsonApi", () => {
   it("converts JSON:API resources into step suggestions", () => {
@@ -85,7 +85,7 @@ describe("parseStepsFromJsonApi", () => {
   });
 
   it("reads suggestions from the global fetcher via useStepAutocomplete", () => {
-    setGlobalStepSuggestionsFetcher(() => [{ id: "1", title: "Global step" }]);
+    setStepsFetcher(() => [{ id: "1", title: "Global step" }]);
 
     let seen: any[] = [];
     const Probe = () => {
@@ -98,6 +98,6 @@ describe("parseStepsFromJsonApi", () => {
     expect(seen).toEqual([{ id: "1", title: "Global step" }]);
 
     // reset for other tests
-    setGlobalStepSuggestionsFetcher(null);
+    setStepsFetcher(null);
   });
 });

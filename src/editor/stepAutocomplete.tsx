@@ -40,7 +40,7 @@ type StepInput = StepSuggestion[] | StepJsonApiDocument | StepJsonApiResource[] 
 let globalFetcher: StepSuggestionsFetcher | null = null;
 let cachedSuggestions: StepSuggestion[] = [];
 
-export function setGlobalStepSuggestionsFetcher(fetcher: StepSuggestionsFetcher | null) {
+export function setStepsFetcher(fetcher: StepSuggestionsFetcher | null) {
   globalFetcher = fetcher;
   cachedSuggestions = [];
 }

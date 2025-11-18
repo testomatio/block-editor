@@ -107,8 +107,8 @@ return (
 
 4. **Blocks Available**
 
-   - `testCase`: rich-text wrapper with status and reference metadata.
-   - `testStep`: inline WYSIWYG inputs for Step Title, Data, and Expected Result with bold/italic/underline formatting.
+   - `testStep`: inline WYSIWYG inputs for Step Title, Data, and Expected Result with bold/italic/underline formatting/images.
+   - `snippet`: dropdown to pick a reusable snippet and editable body (no formatting buttons).
 
 ## Step Autocomplete & Image Upload Hooks
 
@@ -117,19 +117,26 @@ Configure everything via JS—no React providers required:
 ```ts
 import {
   customSchema,
-  setGlobalStepSuggestionsFetcher,
-  setGlobalStepImageUploadHandler,
+  setStepsFetcher,
 } from "testomatio-editor-blocks";
+import { setSnippetFetcher } from "testomatio-editor-blocks/snippets";
 
 // Step suggestions (fetch or return an array of { id, title, ... })
-setGlobalStepSuggestionsFetcher(async () => {
+setStepsFetcher(async () => {
   const res = await fetch("https://api.testomatio.com/v1/steps");
   return res.json();
 });
 
+setSnippetFetcher(async () => {
+  const res = await fetch("https://api.testomatio.com/v1/snippets");
+  return res.json();
+});
+
 // Image upload uses BlockNote's `uploadFile` handler you pass to `useCreateBlockNote`.
-// No extra setup is required for step fields.
+// No extra setup is required for step/snippet fields.
 ```
+
+For snippets, provide a suggestions fetcher that returns `{ id, title, body, ... }` or a JSON:API document and map it with `setSnippetFetcher`. Selecting a snippet fills its body; Markdown is wrapped with `<!-- begin snippet #id --> ... <!-- end snippet #id -->`.
 
 Step suggestions accept either an array of `{ id, title, ... }` or the JSON:API shape:
 

@@ -15,7 +15,7 @@ export {
 export {
   useStepAutocomplete,
   parseStepsFromJsonApi,
-  setGlobalStepSuggestionsFetcher,
+  setStepsFetcher,
   type StepSuggestion,
   type StepJsonApiDocument,
   type StepJsonApiResource,

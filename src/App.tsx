@@ -18,18 +18,23 @@ import {
   type CustomPartialBlock,
 } from "./editor/customMarkdownConverter";
 import { customSchema, type CustomEditor } from "./editor/customSchema";
-import { setGlobalStepSuggestionsFetcher, type StepJsonApiDocument } from "./editor/stepAutocomplete";
+import { setStepsFetcher, type StepJsonApiDocument } from "./editor/stepAutocomplete";
+import { setSnippetFetcher, type SnippetJsonApiDocument } from "./editor/snippetAutocomplete";
 import { setImageUploadHandler } from "./editor/stepImageUpload";
 import "./App.css";
 
-const focusTestStepTitle = (editor: CustomEditor | null | undefined, blockId?: string) => {
+const focusStepField = (
+  editor: CustomEditor | null | undefined,
+  blockId?: string,
+  fieldName = "title",
+) => {
   if (!editor || !blockId) {
     return;
   }
 
   const focus = () => {
     const stepTitle = document.querySelector<HTMLElement>(
-      `[data-block-id="${blockId}"] [data-step-field="title"]`,
+      `[data-block-id="${blockId}"] [data-step-field="${fieldName}"]`,
     );
 
     if (stepTitle) {
@@ -51,12 +56,6 @@ const focusTestStepTitle = (editor: CustomEditor | null | undefined, blockId?: s
 };
 
 type Schema = typeof customSchema;
-
-const DEFAULT_BLOCK_PROPS = {
-  textAlignment: "left" as const,
-  textColor: "default" as const,
-  backgroundColor: "default" as const,
-};
 
 const DEMO_STEP_FIXTURES: StepJsonApiDocument = {
   data: [
@@ -200,6 +199,83 @@ const DEMO_STEP_FIXTURES: StepJsonApiDocument = {
         "comments-count": 0,
       },
     },
+    {
+      id: "301",
+      type: "step",
+      attributes: {
+        labels: ["snippet"],
+        title: "Open login page and wait for ready state",
+        kind: "snippet",
+        description: "Reusable login navigation snippet",
+        keywords: ["login", "auth"],
+        "is-snippet": true,
+        "usage-count": 41,
+        "comments-count": 2,
+      },
+    },
+    {
+      id: "302",
+      type: "step",
+      attributes: {
+        labels: ["snippet"],
+        title: "Fill credentials with provided user object",
+        kind: "snippet",
+        description: "Populate form fields from test data",
+        keywords: ["form", "user"],
+        "is-snippet": true,
+        "usage-count": 35,
+        "comments-count": 1,
+      },
+    },
+    {
+      id: "303",
+      type: "step",
+      attributes: {
+        labels: ["snippet"],
+        title: "Verify toast message disappears",
+        kind: "snippet",
+        description: "Shared assertion for ephemeral UI",
+        keywords: ["toast", "assertion"],
+        "is-snippet": true,
+        "usage-count": 18,
+        "comments-count": 0,
+      },
+    },
+  ],
+};
+
+const DEMO_SNIPPET_FIXTURES: SnippetJsonApiDocument = {
+  data: [
+    {
+      id: "501",
+      type: "snippet",
+      attributes: {
+        title: "Login setup",
+        body: "Open /login\nWait for form to render\nEnsure no console errors",
+        description: "Navigate to login and wait for readiness",
+        "usage-count": 12,
+      },
+    },
+    {
+      id: "502",
+      type: "snippet",
+      attributes: {
+        title: "Fill credentials",
+        body: "Type email\nType password\nClick Sign In",
+        description: "Reusable credentials filler",
+        "usage-count": 9,
+      },
+    },
+    {
+      id: "503",
+      type: "snippet",
+      attributes: {
+        title: "Verify toast disappears",
+        body: "Assert toast visible\nWait 3s\nAssert toast removed",
+        description: "Shared assertion for ephemeral notifications",
+        "usage-count": 7,
+      },
+    },
   ],
 };
 
@@ -229,11 +305,32 @@ function CustomSlashMenu() {
             expectedResult: "",
           },
         });
-        focusTestStepTitle(editor, inserted.id);
+        focusStepField(editor, inserted.id, "title");
       },
     };
 
-    return filterSuggestionItems([...defaultItems, stepItem], query);
+    const snippetItem = {
+      key: "snippet" as any,
+      title: "Snippet",
+      subtext: "Insert a reusable snippet with data and an expected result",
+      group: "Test documentation",
+      icon: <span className="bn-suggestion-icon">SN</span>,
+      aliases: ["snippet", "reusable step"],
+      onItemClick: () => {
+        const inserted = insertOrUpdateBlock(editor, {
+          type: "snippet",
+          props: {
+            snippetId: "",
+            snippetTitle: "",
+            snippetData: "",
+            snippetExpectedResult: "",
+          },
+        });
+        focusStepField(editor, inserted.id, "snippet-title");
+      },
+    };
+
+    return filterSuggestionItems([...defaultItems, stepItem, snippetItem], query);
   };
 
   return <SuggestionMenuController triggerCharacter="/" getItems={getItems} />;
@@ -316,7 +413,7 @@ function App() {
 
     const unsubscribe = editor.onChange((instance, context) => {
       const changes = context.getChanges();
-      const newlyInsertedStep = changes.find(({ type, block, source }) => {
+      const newlyInsertedAction = changes.find(({ type, block, source }) => {
         if (type !== "insert") {
           return false;
         }
@@ -325,11 +422,20 @@ function App() {
           return false;
         }
 
-        return block.type === "testStep" && ((block.props as any)?.stepTitle ?? "") === "";
+        if (block.type === "testStep") {
+          return ((block.props as any)?.stepTitle ?? "") === "";
+        }
+
+        if (block.type === "snippet") {
+          return ((block.props as any)?.snippetTitle ?? "") === "";
+        }
+
+        return false;
       });
 
-      if (newlyInsertedStep) {
-        focusTestStepTitle(instance, newlyInsertedStep.block.id);
+      if (newlyInsertedAction) {
+        const fieldName = newlyInsertedAction.block.type === "snippet" ? "snippet-title" : "title";
+        focusStepField(instance, newlyInsertedAction.block.id, fieldName);
       }
     });
 
@@ -347,7 +453,8 @@ function App() {
 
   useEffect(() => {
     // Demo defaults: configure global handlers so the editor works without manual providers.
-    setGlobalStepSuggestionsFetcher(() => DEMO_STEP_FIXTURES);
+    setStepsFetcher(() => DEMO_STEP_FIXTURES);
+    setSnippetFetcher(() => DEMO_SNIPPET_FIXTURES);
 
     const handler = editor?.uploadFile
       ? async (file: Blob) => {
@@ -365,29 +472,11 @@ function App() {
     setImageUploadHandler(handler);
 
     return () => {
-      setGlobalStepSuggestionsFetcher(null);
+      setStepsFetcher(null);
+      setSnippetFetcher(null);
       setImageUploadHandler(null);
     };
   }, [editor, uploadStepImage]);
-
-  const createTestCaseBlock = useMemo<() => CustomPartialBlock>(() => {
-    return () => ({
-      type: "testCase",
-      props: {
-        ...DEFAULT_BLOCK_PROPS,
-        status: "draft",
-        reference: "",
-      },
-      content: [
-        {
-          type: "text",
-          text: "Write the expected result, steps, and assertions here…",
-          styles: {},
-        },
-      ],
-      children: [],
-    });
-  }, []);
 
   const createTestStepBlock = useMemo<() => CustomPartialBlock>(() => {
     return () => ({
@@ -401,7 +490,20 @@ function App() {
     });
   }, []);
 
-  const insertBlockAfterSelection = (createBlock: () => CustomPartialBlock) => {
+  const createSnippetBlock = useMemo<() => CustomPartialBlock>(() => {
+    return () => ({
+      type: "snippet",
+      props: {
+        snippetId: "",
+        snippetTitle: "",
+        snippetData: "",
+        snippetExpectedResult: "",
+      },
+      children: [],
+    });
+  }, []);
+
+  const insertBlockAfterSelection = (createBlock: () => CustomPartialBlock, focusFieldName?: string) => {
     const selection = editor.getSelection();
     const selectedBlocks = selection?.blocks ?? [];
     const selectedBlock = selectedBlocks[selectedBlocks.length - 1];
@@ -415,13 +517,13 @@ function App() {
 
     const inserted = editor.insertBlocks([createBlock()], referenceId, "after");
     const firstInserted = inserted[0];
-    if (firstInserted) {
-      focusTestStepTitle(editor, firstInserted.id);
+    if (firstInserted && focusFieldName) {
+      focusStepField(editor, firstInserted.id, focusFieldName);
     }
   };
 
-  const insertTestCase = () => insertBlockAfterSelection(createTestCaseBlock);
-  const insertTestStep = () => insertBlockAfterSelection(createTestStepBlock);
+  const insertTestStep = () => insertBlockAfterSelection(createTestStepBlock, "title");
+  const insertSnippet = () => insertBlockAfterSelection(createSnippetBlock, "snippet-title");
 
   const handleCopyMarkdown = async () => {
     if (conversionError) {
@@ -509,9 +611,9 @@ function App() {
           <button
             type="button"
             className="app__action app__action--ghost"
-            onClick={insertTestCase}
+            onClick={insertSnippet}
           >
-            Insert Test Case
+            Insert Snippet
           </button>
         </div>
       </header>

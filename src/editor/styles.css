@@ -112,6 +112,63 @@
   box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.08);
 }
 
+.bn-snippet {
+  border-left-color: rgba(16, 185, 129, 0.75);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.bn-snippet::after {
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.16);
+}
+
+.bn-snippet .bn-teststep__toggle {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.1);
+  color: #0f766e;
+}
+
+.bn-snippet .bn-teststep__toggle:hover {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.55);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+.bn-snippet .bn-step-field__label {
+  color: #0f766e;
+}
+
+.bn-snippet .bn-step-toolbar__button {
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #0f766e;
+}
+
+.bn-snippet .bn-step-toolbar__button:hover {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.55);
+}
+
+.bn-snippet .bn-step-editor {
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.bn-snippet .bn-step-editor:focus-visible {
+  border-color: rgba(16, 185, 129, 0.7);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.bn-snippet .bn-step-suggestions {
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.bn-snippet .bn-step-suggestion:hover,
+.bn-snippet .bn-step-suggestion--active {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.bn-snippet .bn-step-suggestion__meta {
+  color: rgba(15, 118, 110, 0.65);
+}
+
 .bn-teststep__toggle {
   align-self: flex-start;
   padding: 0.35rem 0.6rem;

@@ -1,0 +1,133 @@
+import { useEffect, useState } from "react";
+
+export type SnippetSuggestion = {
+  id: string;
+  title: string;
+  body?: string | null;
+  description?: string | null;
+  usageCount?: number | null;
+  isSnippet?: boolean | null;
+};
+
+export type SnippetJsonApiAttributes = {
+  title?: string | null;
+  body?: string | null;
+  description?: string | null;
+  "usage-count"?: number | string | null;
+};
+
+export type SnippetJsonApiResource = {
+  id?: string | number | null;
+  type?: string | null;
+  attributes?: SnippetJsonApiAttributes | null;
+};
+
+export type SnippetJsonApiDocument = {
+  data?: SnippetJsonApiResource[] | null;
+};
+
+export type SnippetSuggestionsFetcher = () => Promise<SnippetInput> | SnippetInput;
+
+type SnippetInput = SnippetSuggestion[] | SnippetJsonApiDocument | SnippetJsonApiResource[] | null | undefined;
+
+let globalFetcher: SnippetSuggestionsFetcher | null = null;
+let cachedSuggestions: SnippetSuggestion[] = [];
+
+export function setSnippetFetcher(fetcher: SnippetSuggestionsFetcher | null) {
+  globalFetcher = fetcher;
+  cachedSuggestions = [];
+}
+
+export function useSnippetAutocomplete(): SnippetSuggestion[] {
+  const [suggestions, setSuggestions] = useState<SnippetSuggestion[]>(() => {
+    if (cachedSuggestions.length > 0) {
+      return cachedSuggestions;
+    }
+    if (globalFetcher) {
+      const result = globalFetcher();
+      if (!result || typeof (result as Promise<unknown>).then !== "function") {
+        const normalized = normalizeSnippetSuggestions(result as SnippetInput);
+        cachedSuggestions = normalized;
+        return normalized;
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (suggestions.length > 0) {
+      return;
+    }
+    if (!globalFetcher) {
+      return;
+    }
+
+    let cancelled = false;
+    Promise.resolve(globalFetcher())
+      .then((result) => normalizeSnippetSuggestions(result))
+      .then((items) => {
+        if (cancelled) return;
+        cachedSuggestions = items;
+        setSuggestions(items);
+      })
+      .catch((error) => console.error("Failed to fetch snippet suggestions", error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [suggestions.length]);
+
+  return suggestions;
+}
+
+export function parseSnippetsFromJsonApi(
+  document: SnippetJsonApiDocument | SnippetJsonApiResource[] | null | undefined,
+): SnippetSuggestion[] {
+  const resources = Array.isArray(document) ? document : document?.data;
+  if (!Array.isArray(resources) || resources.length === 0) {
+    return [];
+  }
+
+  return resources
+    .map((resource) => normalizeJsonApiResource(resource))
+    .filter((value): value is SnippetSuggestion => Boolean(value));
+}
+
+function normalizeSnippetSuggestions(snippets?: SnippetInput): SnippetSuggestion[] {
+  if (!snippets) return [];
+
+  if (Array.isArray(snippets)) {
+    if (snippets.length === 0) return [];
+    if (isSnippetSuggestionArray(snippets)) return snippets;
+    return parseSnippetsFromJsonApi(snippets);
+  }
+
+  return parseSnippetsFromJsonApi(snippets);
+}
+
+function normalizeJsonApiResource(resource: SnippetJsonApiResource | null | undefined): SnippetSuggestion | null {
+  if (!resource) return null;
+  const attrs = resource.attributes;
+  const id = resource.id;
+  const title = attrs?.title ?? "";
+  if (!id || !title) return null;
+
+  return {
+    id: String(id),
+    title: String(title),
+    body: attrs?.body ?? null,
+    description: attrs?.description ?? null,
+    usageCount: coerceNumber(attrs?.["usage-count"]),
+    isSnippet: true,
+  };
+}
+
+function isSnippetSuggestionArray(value: SnippetInput): value is SnippetSuggestion[] {
+  return Array.isArray(value) && value.length > 0 && typeof (value[0] as SnippetSuggestion | any)?.title === "string";
+}
+
+function coerceNumber(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
