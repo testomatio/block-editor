@@ -32,6 +32,7 @@ type StepFieldProps = {
   rightAction?: ReactNode;
   showFormattingButtons?: boolean;
   showImageButton?: boolean;
+  onFieldFocus?: () => void;
 };
 
 export function StepField({
@@ -53,6 +54,7 @@ export function StepField({
   rightAction,
   showFormattingButtons = false,
   showImageButton = false,
+  onFieldFocus,
 }: StepFieldProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -376,6 +378,7 @@ export function StepField({
           if (showSuggestionsOnFocus && enableAutocomplete) {
             setShowAllSuggestions(true);
           }
+          onFieldFocus?.();
           setPlainTextValue(editorRef.current?.innerText ?? "");
         }}
         onBlur={() => {

@@ -78,6 +78,10 @@ export const snippetBlock = createReactBlockSpec(
         [block.id, editor],
       );
 
+      const handleFieldFocus = useCallback(() => {
+        editor.setSelection(block.id, block.id);
+      }, [editor, block.id]);
+
       if (!hasSnippets) {
         return (
           <div className="bn-teststep bn-snippet" data-block-id={block.id}>
@@ -101,6 +105,7 @@ export const snippetBlock = createReactBlockSpec(
             fieldName="snippet-title"
             showSuggestionsOnFocus
             enableImageUpload={false}
+            onFieldFocus={handleFieldFocus}
           />
           <StepField
             label="Snippet Data"
@@ -110,6 +115,7 @@ export const snippetBlock = createReactBlockSpec(
             multiline
             fieldName="snippet-data"
             enableImageUpload
+            onFieldFocus={handleFieldFocus}
           />
         </div>
       );

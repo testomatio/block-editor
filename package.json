@@ -1,6 +1,6 @@
 {
   "name": "testomatio-editor-blocks",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "description": "Custom BlockNote schema, markdown conversion helpers, and UI for Testomatio-style test cases and steps.",
   "type": "module",
   "main": "./package/index.js",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./package/index.d.ts",
       "import": "./package/index.js"
+    },
+    "./snippets": {
+      "types": "./package/snippets.d.ts",
+      "import": "./package/snippets.js"
     },
     "./styles.css": "./package/styles.css",
     "./package.json": "./package.json"

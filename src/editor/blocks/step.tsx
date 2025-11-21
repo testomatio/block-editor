@@ -113,6 +113,10 @@ export const stepBlock = createReactBlockSpec(
         );
       }, [editor, block.id]);
 
+      const handleFieldFocus = useCallback(() => {
+        editor.setSelection(block.id, block.id);
+      }, [editor, block.id]);
+
       return (
         <div className="bn-teststep" data-block-id={block.id}>
           <StepField
@@ -124,6 +128,7 @@ export const stepBlock = createReactBlockSpec(
             enableAutocomplete
             fieldName="title"
             suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}
+            onFieldFocus={handleFieldFocus}
             rightAction={
               !isDataVisible ? (
                 <button
@@ -172,6 +177,7 @@ export const stepBlock = createReactBlockSpec(
               enableImageUpload
               showFormattingButtons
               showImageButton
+              onFieldFocus={handleFieldFocus}
             />
           )}
           {showExpectedField && (
@@ -184,6 +190,7 @@ export const stepBlock = createReactBlockSpec(
               enableImageUpload
               showFormattingButtons
               showImageButton
+              onFieldFocus={handleFieldFocus}
             />
           )}
           <button type="button" className="bn-step-add" onClick={handleInsertNextStep}>
