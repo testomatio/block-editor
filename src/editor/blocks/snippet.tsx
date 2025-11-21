@@ -28,6 +28,7 @@ export const snippetBlock = createReactBlockSpec(
       const snippetTitle = (block.props.snippetTitle as string) || "";
       const snippetData = (block.props.snippetData as string) || "";
       const snippetSuggestions = useSnippetAutocomplete();
+      const hasSnippets = snippetSuggestions.length > 0;
 
       const handleSnippetChange = useCallback(
         (nextTitle: string) => {
@@ -76,6 +77,14 @@ export const snippetBlock = createReactBlockSpec(
         },
         [block.id, editor],
       );
+
+      if (!hasSnippets) {
+        return (
+          <div className="bn-teststep bn-snippet" data-block-id={block.id}>
+            <p className="bn-snippet__empty">No snippets in this project.</p>
+          </div>
+        );
+      }
 
       return (
         <div className="bn-teststep bn-snippet" data-block-id={block.id}>

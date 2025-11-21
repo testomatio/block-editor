@@ -95,6 +95,24 @@ export const stepBlock = createReactBlockSpec(
         [editor, block.id, expectedResult],
       );
 
+      const handleInsertNextStep = useCallback(() => {
+        editor.insertBlocks(
+          [
+            {
+              type: "testStep",
+              props: {
+                stepTitle: "",
+                stepData: "",
+                expectedResult: "",
+              },
+              children: [],
+            },
+          ],
+          block.id,
+          "after",
+        );
+      }, [editor, block.id]);
+
       return (
         <div className="bn-teststep" data-block-id={block.id}>
           <StepField
@@ -168,6 +186,9 @@ export const stepBlock = createReactBlockSpec(
               showImageButton
             />
           )}
+          <button type="button" className="bn-step-add" onClick={handleInsertNextStep}>
+            + Step
+          </button>
         </div>
       );
     },
