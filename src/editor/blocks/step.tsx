@@ -122,7 +122,6 @@ export const stepBlock = createReactBlockSpec(
           <StepField
             label="Step Title"
             value={stepTitle}
-            placeholder="Describe the action to perform"
             onChange={handleStepTitleChange}
             autoFocus={stepTitle.length === 0}
             enableAutocomplete
@@ -170,7 +169,6 @@ export const stepBlock = createReactBlockSpec(
             <StepField
               label="Step Data"
               value={stepData}
-              placeholder="Provide additional data about the step"
               onChange={handleStepDataChange}
               autoFocus={shouldFocusDataField}
               multiline
@@ -184,7 +182,6 @@ export const stepBlock = createReactBlockSpec(
             <StepField
               label="Expected Result"
               value={expectedResult}
-              placeholder="What should happen?"
               onChange={handleExpectedChange}
               multiline
               enableImageUpload
