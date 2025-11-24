@@ -267,7 +267,6 @@ export const snippetBlock = createReactBlockSpec(
           <StepField
             label="Snippet Title"
             value={snippetTitle}
-            placeholder="Describe the reusable action"
             onChange={handleSnippetChange}
             autoFocus={snippetTitle.length === 0}
             enableAutocomplete
@@ -282,7 +281,6 @@ export const snippetBlock = createReactBlockSpec(
           <SnippetDataField
             label="Snippet Data"
             value={snippetData}
-            placeholder="Add optional data or assets for the snippet"
             onChange={handleSnippetDataChange}
             fieldName="snippet-data"
             enableImageUpload

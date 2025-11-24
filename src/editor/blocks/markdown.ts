@@ -1,5 +1,7 @@
 const IMAGE_MARKDOWN_REGEX = /!\[([^\]]*)\]\(([^)]+)\)/g;
 const MARKDOWN_ESCAPE_REGEX = /([*_\\])/g;
+const INLINE_SEGMENT_REGEX =
+  /(\*\*\*[^*]+\*\*\*|___[^_]+___|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|<u>[^<]+<\/u>)/;
 
 export function escapeHtml(text: string): string {
   return text
@@ -29,12 +31,18 @@ function parseInlineMarkdown(text: string): InlineSegment[] {
   }
 
   const normalized = text.replace(/\\([*_`~])/g, "\uE000$1");
-  const rawSegments = normalized
-    .split(/(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|<u>[^<]+<\/u>)/)
-    .filter(Boolean);
+  const rawSegments = normalized.split(INLINE_SEGMENT_REGEX).filter(Boolean);
 
   return rawSegments.map((segment) => {
     const baseStyles = { bold: false, italic: false, underline: false };
+
+    if (/^\*\*\*(.+)\*\*\*$/.test(segment) || /^___(.+)___$/.test(segment)) {
+      const content = segment.slice(3, -3);
+      return {
+        text: restoreEscapes(content),
+        styles: { bold: true, italic: true, underline: false },
+      };
+    }
 
     if (/^\*\*(.+)\*\*$/.test(segment) || /^__(.+)__$/.test(segment)) {
       const content = segment.slice(2, -2);
@@ -200,10 +208,22 @@ export function htmlToMarkdown(html: string): string {
 }
 
 function cleanupEscapedFormatting(markdown: string): string {
-  return markdown.replace(/\\([*_])([^]*?)\\\1/g, (match, marker, inner) => {
-    if (inner.includes("\\")) {
-      return match;
+  return markdown.replace(/(\\+)([*_]+)/g, (_match, slashes, markers) => {
+    if (markers.length === 0) {
+      return slashes + markers;
     }
-    return `${marker}${inner}${marker}`;
+    const shouldClean =
+      markers.length === 3 ||
+      markers.length === 2 ||
+      markers.length === 1;
+    if (!shouldClean) {
+      return slashes + markers;
+    }
+    const hasPrintable = slashes.length % 2 === 0;
+    return hasPrintable ? markers : slashes + markers;
   });
 }
+
+export const __markdownStringUtils = {
+  cleanupEscapedFormatting,
+};
