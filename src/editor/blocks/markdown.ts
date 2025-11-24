@@ -139,12 +139,13 @@ function fallbackHtmlToMarkdown(html: string): string {
 
   result = result.replace(/<\/?[^>]+>/g, "");
 
-  return result
+  const markdown = result
     .split("\n")
     .map((line) => line.trimEnd())
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+  return cleanupEscapedFormatting(markdown);
 }
 
 export function htmlToMarkdown(html: string): string {
@@ -195,5 +196,14 @@ export function htmlToMarkdown(html: string): string {
   };
 
   const markdown = Array.from(temp.childNodes).map(traverse).join("");
-  return markdown.replace(/\n{3,}/g, "\n\n").trim();
+  return cleanupEscapedFormatting(markdown).replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function cleanupEscapedFormatting(markdown: string): string {
+  return markdown.replace(/\\([*_])([^]*?)\\\1/g, (match, marker, inner) => {
+    if (inner.includes("\\")) {
+      return match;
+    }
+    return `${marker}${inner}${marker}`;
+  });
 }

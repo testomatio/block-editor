@@ -157,6 +157,21 @@ describe("blocksToMarkdown", () => {
     );
   });
 
+  it("cleans escaped formatting markers when toggling styles repeatedly", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "esc1",
+        type: "paragraph",
+        props: baseProps,
+        content: [{ type: "text", text: "text", styles: { bold: true, italic: true } }],
+        children: [],
+      },
+    ];
+
+    const markdown = blocksToMarkdown(blocks);
+    expect(markdown).toBe("***text***");
+  });
+
    it("keeps inline formatting inside step fields", () => {
      const blocks: CustomEditorBlock[] = [
        {
