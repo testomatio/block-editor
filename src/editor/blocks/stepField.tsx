@@ -5,6 +5,7 @@ import { useStepAutocomplete, type StepSuggestion } from "../stepAutocomplete";
 import { type SnippetSuggestion } from "../snippetAutocomplete";
 import { useStepImageUpload } from "../stepImageUpload";
 import { escapeMarkdownText, normalizePlainText } from "./markdown";
+import { useAutoResize } from "./useAutoResize";
 
 type Suggestion = StepSuggestion | SnippetSuggestion;
 
@@ -189,6 +190,13 @@ export function StepField({
 
     textareaNode.readOnly = readOnly;
   }, [readOnly, textareaNode]);
+
+  useAutoResize({
+    textarea: textareaNode,
+    multiline,
+    minRows: 3,
+    maxRows: 16,
+  });
 
   useEffect(() => {
     if (!textareaNode) {
