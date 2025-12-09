@@ -18,6 +18,7 @@ type StepFieldProps = {
   value: string;
   onChange: (nextValue: string) => void;
   autoFocus?: boolean;
+  focusSignal?: number;
   multiline?: boolean;
   enableAutocomplete?: boolean;
   fieldName?: string;
@@ -79,6 +80,7 @@ export function StepField({
   value,
   onChange,
   autoFocus,
+  focusSignal,
   multiline = false,
   enableAutocomplete = false,
   fieldName,
@@ -155,6 +157,13 @@ export function StepField({
       textareaNode.focus();
     }
   }, [textareaNode]);
+
+  useEffect(() => {
+    if (!textareaNode || !focusSignal) {
+      return;
+    }
+    textareaNode.focus();
+  }, [focusSignal, textareaNode]);
 
   useEffect(() => {
     const instance = editorInstanceRef.current;
@@ -563,7 +572,7 @@ export function StepField({
           <span
             className="bn-step-field__label bn-step-field__label--toggle"
             role="button"
-            tabIndex={0}
+            tabIndex={-1}
             onClick={labelToggle.onClick}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {

@@ -147,9 +147,12 @@ export const stepBlock = createReactBlockSpec(
         editor.setSelection(block.id, block.id);
       }, [editor, block.id]);
 
+      const [expectedFocusSignal, setExpectedFocusSignal] = useState(0);
+
       const handleShowExpected = useCallback(() => {
         setIsExpectedVisible(true);
         setShouldFocusExpectedField(true);
+        setExpectedFocusSignal((value) => value + 1);
         writeExpectedCollapsedPreference(false);
       }, []);
 
@@ -242,6 +245,7 @@ export const stepBlock = createReactBlockSpec(
               value={expectedResult}
               onChange={handleExpectedChange}
               multiline
+              focusSignal={expectedFocusSignal}
               enableImageUpload
               showFormattingButtons
               showImageButton
