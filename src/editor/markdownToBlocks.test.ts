@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  markdownToBlocks,
-  type CustomEditorBlock,
-  type CustomPartialBlock,
-} from "./customMarkdownConverter";
+import { markdownToBlocks } from "./customMarkdownConverter";
 
 const baseProps = {
   textAlignment: "left" as const,
