@@ -489,7 +489,7 @@ describe("markdownToBlocks", () => {
         props: {
           stepTitle: "Step 4: Verify that the notifications are displayed correctly in the application's notification panel.",
           stepData: "",
-          expectedResult: "All notifications (chat message, order update, file received) are listed in the notification panel with the correct information (e.g., timestamp, message content).",
+          expectedResult: "All notifications (chat message, order update, file received) are listed in the notification panel with the correct information (e.g., timestamp, message content).\n",
         },
         children: [],
       },
@@ -662,7 +662,7 @@ describe("markdownToBlocks", () => {
          props: {
            stepTitle: "Open the form.",
            stepData: "",
-           expectedResult: "Fields are empty.",
+           expectedResult: "** The form opens.\nFields are empty.",
          },
          children: [],
        },
@@ -788,6 +788,52 @@ describe("markdownToBlocks", () => {
     );
   });
 
+  it("parses steps under a Steps heading even when expected results are missing", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Pass onboarding as mobile user",
+      "* Navigate to More tab -≻ My Profile -≻ Log into the app with user from preconditions",
+      "  *Expected:* Upsell SS screen is displayed",
+      "* Close SS",
+      "  *Expected:* My Course and More tab are displayed",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+
+    expect(stepBlocks).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Pass onboarding as mobile user",
+          stepData: "",
+          expectedResult: "",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle:
+            "Navigate to More tab -≻ My Profile -≻ Log into the app with user from preconditions",
+          stepData: "",
+          expectedResult: "* Upsell SS screen is displayed",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Close SS",
+          stepData: "",
+          expectedResult: "* My Course and More tab are displayed",
+        },
+        children: [],
+      },
+    ]);
+  });
+
   it("round-trips simple blocks", () => {
     const blocks: CustomEditorBlock[] = [
       {
@@ -879,5 +925,56 @@ describe("markdownToBlocks", () => {
         children: [],
       },
     ]);
+  });
+
+  it("parses multiple Expected blocks within a single test step", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Swipe Back",
+      "* Check UI of Sleep score info screen",
+      "  - Back button",
+      "    Header: Sleep Score Info",
+      "    Text: Ever wonder if 6, 8, or 9 hours of sleep are enough? Sleep score takes the guesswork out of your ZZZ's and shows you how well you slept last night based on duration, efficiency, and consistency.",
+      "  *Expected:* - 1st block:",
+      "  *Expected:* - 2nd block:",
+      "  *Expected:* - 3d block:",
+      "* Tap 'Back' button",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+
+    expect(stepBlocks).toHaveLength(3);
+
+    expect(stepBlocks[0]).toEqual({
+      type: "testStep",
+      props: {
+        stepTitle: "Swipe Back",
+        stepData: "",
+        expectedResult: "",
+      },
+      children: [],
+    });
+
+    expect(stepBlocks[1]).toEqual({
+      type: "testStep",
+      props: {
+        stepTitle: "Check UI of Sleep score info screen",
+        stepData: "- Back button\nHeader: Sleep Score Info\nText: Ever wonder if 6, 8, or 9 hours of sleep are enough? Sleep score takes the guesswork out of your ZZZ's and shows you how well you slept last night based on duration, efficiency, and consistency.",
+        expectedResult: "* - 1st block:\n* - 2nd block:\n* - 3d block:",
+      },
+      children: [],
+    });
+
+    expect(stepBlocks[2]).toEqual({
+      type: "testStep",
+      props: {
+        stepTitle: "Tap 'Back' button",
+        stepData: "",
+        expectedResult: "",
+      },
+      children: [],
+    });
   });
 });

@@ -1,8 +1,32 @@
 import { createReactBlockSpec } from "@blocknote/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StepField } from "./stepField";
 import { useStepImageUpload } from "../stepImageUpload";
 import type { StepSuggestion } from "../stepAutocomplete";
+
+const EXPECTED_COLLAPSED_KEY = "bn-expected-collapsed";
+
+const readExpectedCollapsedPreference = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return window.localStorage.getItem(EXPECTED_COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
+
+const writeExpectedCollapsedPreference = (collapsed: boolean) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(EXPECTED_COLLAPSED_KEY, collapsed ? "true" : "false");
+  } catch {
+    //
+  }
+};
 
 export const stepBlock = createReactBlockSpec(
   {
@@ -25,25 +49,32 @@ export const stepBlock = createReactBlockSpec(
       const stepTitle = (block.props.stepTitle as string) || "";
       const stepData = (block.props.stepData as string) || "";
       const expectedResult = (block.props.expectedResult as string) || "";
-      const showExpectedField =
-        stepTitle.trim().length > 0 || stepData.trim().length > 0 || expectedResult.trim().length > 0;
-      const [isDataVisible, setIsDataVisible] = useState(() => stepData.trim().length > 0);
+      const expectedHasContent = expectedResult.trim().length > 0;
+      const storedExpectedCollapsed = useMemo(
+        () => readExpectedCollapsedPreference(),
+        [],
+      );
+      const dataHasContent = stepData.trim().length > 0;
+      const [isExpectedVisible, setIsExpectedVisible] = useState(
+        expectedHasContent ? true : !storedExpectedCollapsed,
+      );
+      const [isDataVisible, setIsDataVisible] = useState(dataHasContent);
       const [shouldFocusDataField, setShouldFocusDataField] = useState(false);
       const uploadImage = useStepImageUpload();
 
-      useEffect(() => {
-        if (stepData.trim().length > 0 && !isDataVisible) {
-          setIsDataVisible(true);
-        }
-      }, [isDataVisible, stepData]);
+      // Calculate step number based on position in document
+      const stepNumber = useMemo(() => {
+        const allBlocks = editor.document;
+        const stepBlocks = allBlocks.filter((b) => b.type === "testStep");
+        const index = stepBlocks.findIndex((b) => b.id === block.id);
+        return index >= 0 ? index + 1 : 1;
+      }, [editor.document, block.id]);
 
       useEffect(() => {
-        if (shouldFocusDataField && isDataVisible) {
-          const timer = setTimeout(() => setShouldFocusDataField(false), 0);
-          return () => clearTimeout(timer);
+        if (dataHasContent && !isDataVisible) {
+          setIsDataVisible(true);
         }
-        return undefined;
-      }, [isDataVisible, shouldFocusDataField]);
+      }, [dataHasContent, isDataVisible]);
 
       const handleStepTitleChange = useCallback(
         (next: string) => {
@@ -75,9 +106,13 @@ export const stepBlock = createReactBlockSpec(
         [editor, block.id, stepData],
       );
 
-      const handleShowDataField = useCallback(() => {
+      const handleShowData = useCallback(() => {
         setIsDataVisible(true);
         setShouldFocusDataField(true);
+      }, []);
+
+      const handleHideData = useCallback(() => {
+        setIsDataVisible(false);
       }, []);
 
       const handleExpectedChange = useCallback(
@@ -117,30 +152,40 @@ export const stepBlock = createReactBlockSpec(
         editor.setSelection(block.id, block.id);
       }, [editor, block.id]);
 
+      const [dataFocusSignal] = useState(0);
+      const [expectedFocusSignal, setExpectedFocusSignal] = useState(0);
+
+      const handleShowExpected = useCallback(() => {
+        setIsExpectedVisible(true);
+        setExpectedFocusSignal((value) => value + 1);
+        writeExpectedCollapsedPreference(false);
+      }, []);
+
+      const handleHideExpected = useCallback(() => {
+        setIsExpectedVisible(false);
+        writeExpectedCollapsedPreference(true);
+      }, []);
+
+      useEffect(() => {
+        if (expectedHasContent && !isExpectedVisible) {
+          setIsExpectedVisible(true);
+        }
+      }, [expectedHasContent, isExpectedVisible]);
+
+      const canToggleData = !dataHasContent;
+      const canToggleExpected = !expectedHasContent;
+
       return (
         <div className="bn-teststep" data-block-id={block.id}>
-          <StepField
-            label="Step Title"
-            value={stepTitle}
+            <StepField
+              label={`Step ${stepNumber}`}
+              value={stepTitle}
             onChange={handleStepTitleChange}
             autoFocus={stepTitle.length === 0}
             enableAutocomplete
             fieldName="title"
             suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}
             onFieldFocus={handleFieldFocus}
-            rightAction={
-              !isDataVisible ? (
-                <button
-                  type="button"
-                  className="bn-teststep__toggle"
-                  onClick={handleShowDataField}
-                  aria-expanded="false"
-                  tabIndex={-1}
-                >
-                  + Step Data
-                </button>
-              ) : null
-            }
             enableImageUpload={false}
             showFormattingButtons
             onImageFile={async (file) => {
@@ -165,30 +210,84 @@ export const stepBlock = createReactBlockSpec(
               }
             }}
           />
-          {isDataVisible && (
+          {isDataVisible ? (
             <StepField
               label="Step Data"
+              labelToggle={
+                canToggleData
+                  ? {
+                      onClick: handleHideData,
+                      expanded: true,
+                    }
+                  : undefined
+              }
               value={stepData}
               onChange={handleStepDataChange}
               autoFocus={shouldFocusDataField}
+              focusSignal={dataFocusSignal}
               multiline
               enableImageUpload
               showFormattingButtons
               showImageButton
               onFieldFocus={handleFieldFocus}
             />
+          ) : (
+            <div className="bn-step-field bn-step-field--collapsed">
+              <span
+                className="bn-step-field__label bn-step-field__label--toggle"
+                role="button"
+                tabIndex={-1}
+                onClick={handleShowData}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleShowData();
+                  }
+                }}
+                aria-expanded="false"
+              >
+                Step Data
+              </span>
+            </div>
           )}
-          {showExpectedField && (
+          {isExpectedVisible ? (
             <StepField
               label="Expected Result"
+              labelToggle={
+                canToggleExpected
+                  ? {
+                      onClick: handleHideExpected,
+                      expanded: true,
+                    }
+                  : undefined
+              }
               value={expectedResult}
               onChange={handleExpectedChange}
               multiline
+              focusSignal={expectedFocusSignal}
               enableImageUpload
               showFormattingButtons
               showImageButton
               onFieldFocus={handleFieldFocus}
             />
+          ) : (
+            <div className="bn-step-field bn-step-field--collapsed">
+              <span
+                className="bn-step-field__label bn-step-field__label--toggle"
+                role="button"
+                tabIndex={-1}
+                onClick={handleShowExpected}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleShowExpected();
+                  }
+                }}
+                aria-expanded="false"
+              >
+                Expected Result
+              </span>
+            </div>
           )}
           <button type="button" className="bn-step-add" onClick={handleInsertNextStep}>
             + Step

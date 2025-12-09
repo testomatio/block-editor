@@ -664,7 +664,7 @@ function App() {
               <h2>Autocomplete Steps</h2>
             </div>
             <p className="app__panel-text">
-              Start typing in the Step Title field to filter this list instantly.
+              Markdown format supported
             </p>
             <ol className="app__step-list">
               {(DEMO_STEP_FIXTURES.data ?? []).map((step) => (

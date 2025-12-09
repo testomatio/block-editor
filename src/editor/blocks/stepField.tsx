@@ -5,14 +5,20 @@ import { useStepAutocomplete, type StepSuggestion } from "../stepAutocomplete";
 import { type SnippetSuggestion } from "../snippetAutocomplete";
 import { useStepImageUpload } from "../stepImageUpload";
 import { escapeMarkdownText, normalizePlainText } from "./markdown";
+import { useAutoResize } from "./useAutoResize";
 
 type Suggestion = StepSuggestion | SnippetSuggestion;
 
 type StepFieldProps = {
   label: string;
+  labelToggle?: {
+    onClick: () => void;
+    expanded: boolean;
+  };
   value: string;
   onChange: (nextValue: string) => void;
   autoFocus?: boolean;
+  focusSignal?: number;
   multiline?: boolean;
   enableAutocomplete?: boolean;
   fieldName?: string;
@@ -70,9 +76,11 @@ function markdownToPlainText(markdown: string): string {
 
 export function StepField({
   label,
+  labelToggle,
   value,
   onChange,
   autoFocus,
+  focusSignal,
   multiline = false,
   enableAutocomplete = false,
   fieldName,
@@ -151,6 +159,13 @@ export function StepField({
   }, [textareaNode]);
 
   useEffect(() => {
+    if (!textareaNode || !focusSignal) {
+      return;
+    }
+    textareaNode.focus();
+  }, [focusSignal, textareaNode]);
+
+  useEffect(() => {
     const instance = editorInstanceRef.current;
     if (!instance) {
       setPlainTextValue((prev) => {
@@ -189,6 +204,13 @@ export function StepField({
 
     textareaNode.readOnly = readOnly;
   }, [readOnly, textareaNode]);
+
+  useAutoResize({
+    textarea: textareaNode,
+    multiline,
+    minRows: 3,
+    maxRows: 16,
+  });
 
   useEffect(() => {
     if (!textareaNode) {
@@ -546,24 +568,42 @@ export function StepField({
   return (
     <div className="bn-step-field">
       <div className="bn-step-field__top">
-        <span className="bn-step-field__label">
-          {label}
-          {enableAutocomplete && (
-            <button
-              type="button"
-              className="bn-step-toolbar__button"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                setShowAllSuggestions(true);
-                textareaNode?.focus();
-              }}
-              aria-label="Show suggestions"
+        <div className="bn-step-field__label-row">
+          {labelToggle ? (
+            <span
+              className="bn-step-field__label bn-step-field__label--toggle"
+              role="button"
               tabIndex={-1}
+              onClick={labelToggle.onClick}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  labelToggle.onClick();
+                }
+              }}
+              aria-expanded={labelToggle.expanded}
             >
-              ⌄
-            </button>
+              {label}
+            </span>
+          ) : (
+            <span className="bn-step-field__label">{label}</span>
           )}
-        </span>
+          {enableAutocomplete && (
+              <button
+                type="button"
+                className="bn-step-suggestions-toggle"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  setShowAllSuggestions(true);
+                  textareaNode?.focus();
+                }}
+                aria-label="Show suggestions"
+                tabIndex={-1}
+              >
+                ⌄
+              </button>
+          )}
+        </div>
         <div className="bn-step-toolbar" aria-label={`${label} controls`}>
           {showFormattingButtons && (
             <>

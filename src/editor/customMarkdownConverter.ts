@@ -206,6 +206,26 @@ function inlineToMarkdown(content: CustomEditorBlock["content"]): string {
     .join("");
 }
 
+function inlineContentToPlainText(content: CustomEditorBlock["content"]): string {
+  if (!Array.isArray(content)) {
+    return "";
+  }
+
+  return (content as any[])
+    .map((node: any) => {
+      if (node && typeof node === "object") {
+        if (typeof node.text === "string") {
+          return node.text;
+        }
+        if (Array.isArray(node.content)) {
+          return inlineContentToPlainText(node.content);
+        }
+      }
+      return "";
+    })
+    .join("");
+}
+
 function serializeChildren(block: CustomEditorBlock, ctx: MarkdownContext): string[] {
   if (!block.children?.length) {
     return [];
@@ -667,6 +687,7 @@ function parseList(
   startIndex: number,
   listType: "bullet" | "numbered" | "check",
   indentLevel: number,
+  allowEmptySteps = false,
 ): ListParseResult {
   const items: CustomPartialBlock[] = [];
   let index = startIndex;
@@ -681,15 +702,15 @@ function parseList(
     }
 
     let indent = countIndent(rawLine);
-    const baseIndent = indentLevel * 2;
-    if (indent > baseIndent && indent <= baseIndent + 1) {
-      indent = baseIndent;
-    }
+
     if (indent < indentLevel * 2) {
       break;
     }
 
-    if (indent > indentLevel * 2) {
+    // Check if this line should be parsed as nested content
+    // Only go deeper if indent is at least 2 more than the next level's expected indent
+    const nextLevelExpectedIndent = (indentLevel + 1) * 2;
+    if (indent >= nextLevelExpectedIndent) {
       const lastItem = items.at(-1);
       if (!lastItem) {
         break;
@@ -698,7 +719,18 @@ function parseList(
       if (!nestedType) {
         break;
       }
-      const nested = parseList(lines, index, nestedType, indentLevel + 1);
+      const nested = parseList(
+        lines,
+        index,
+        nestedType,
+        indentLevel + 1,
+        allowEmptySteps,
+      );
+      // If nested parsing made no progress, skip this line to avoid infinite loop
+      if (nested.nextIndex === index) {
+        index += 1;
+        continue;
+      }
       lastItem.children = [...(lastItem.children ?? []), ...nested.items];
       index = nested.nextIndex;
       continue;
@@ -707,6 +739,17 @@ function parseList(
     const detectedType = detectListType(trimmed);
     if (detectedType !== listType) {
       break;
+    }
+
+    // Only try to parse as testStep for top-level bullet items (indentLevel === 0)
+    // Nested bullets within numbered lists should remain as regular bulletListItem
+    if (listType === "bullet" && indentLevel === 0) {
+      const nextStep = parseTestStep(lines, index, allowEmptySteps);
+      if (nextStep) {
+        items.push(nextStep.block);
+        index = nextStep.nextIndex;
+        continue;
+      }
     }
 
     if (listType === "check") {
@@ -749,6 +792,7 @@ function parseList(
 function parseTestStep(
   lines: string[],
   index: number,
+  allowEmpty = false,
   snippetId?: string,
 ): { block: CustomPartialBlock; nextIndex: number } | null {
   const current = lines[index];
@@ -781,6 +825,7 @@ function parseTestStep(
   let expectedResult = "";
   let next = index + 1;
   let inExpectedResult = false;
+  let foundFirstExpected = false;
 
   while (next < lines.length) {
     const line = lines[next];
@@ -788,8 +833,12 @@ function parseTestStep(
     const rawTrimmed = line.trim();
 
     if (!rawTrimmed) {
-      if (stepDataLines.length > 0) {
-        stepDataLines.push("");
+      if (stepDataLines.length > 0 || inExpectedResult) {
+        if (inExpectedResult) {
+          expectedResult += "\n";
+        } else {
+          stepDataLines.push("");
+        }
       }
       next += 1;
       continue;
@@ -812,21 +861,68 @@ function parseTestStep(
       break;
     }
 
-    if (rawTrimmed.match(EXPECTED_LABEL_REGEX)) {
+    // Check for expected result labels with different formatting
+    const expectedMatch = rawTrimmed.match(EXPECTED_LABEL_REGEX);
+    const expectedStarMatch = rawTrimmed.match(/^\*expected\s*\*:\s*(.*)$/i) ||
+                               rawTrimmed.match(/^\*expected\*:\s*(.*)$/i);
+
+    if (expectedMatch || expectedStarMatch) {
+      foundFirstExpected = true;
       inExpectedResult = true;
-      const withoutLabel = stripExpectedPrefix(rawTrimmed);
-      expectedResult = unescapeMarkdown(withoutLabel);
+      const label = expectedMatch ? expectedMatch[0] : (expectedStarMatch ? expectedStarMatch[0] : '');
+      let content = rawTrimmed.slice(label.length).trim();
+
+      // Add the content (if any) from this line
+      if (content) {
+        const expectedContent = unescapeMarkdown(content);
+        if (expectedResult.length > 0) {
+          expectedResult += "\n" + expectedContent;
+        } else {
+          expectedResult = expectedContent;
+        }
+      }
+      next += 1;
+      continue;
+    }
+
+    // Check for lines that start with * and contain Expected (but don't match the above patterns)
+    if (rawTrimmed.match(/^\*[^*]*expected/i)) {
+      foundFirstExpected = true;
+      inExpectedResult = true;
+      // Remove the leading * and trim
+      let content = rawTrimmed.slice(1).trim();
+      // Remove any "Expected:" prefix
+      content = content.replace(/^expected\s*:?\s*/i, '').trim();
+
+      const expectedContent = unescapeMarkdown(content);
+      if (expectedResult.length > 0) {
+        expectedResult += "\n" + expectedContent;
+      } else {
+        expectedResult = expectedContent;
+      }
       next += 1;
       continue;
     }
 
     if (rawTrimmed.startsWith("```")) {
-      stepDataLines.push(unescapeMarkdown(rawTrimmed));
+      if (inExpectedResult) {
+        if (expectedResult.length > 0) {
+          expectedResult += "\n" + unescapeMarkdown(rawTrimmed);
+        } else {
+          expectedResult = unescapeMarkdown(rawTrimmed);
+        }
+      } else {
+        stepDataLines.push(unescapeMarkdown(rawTrimmed));
+      }
       next += 1;
       while (next < lines.length) {
         const fenceLine = lines[next];
         const fenceTrimmed = fenceLine.trim();
-        stepDataLines.push(unescapeMarkdown(fenceTrimmed));
+        if (inExpectedResult) {
+          expectedResult += "\n" + unescapeMarkdown(fenceTrimmed);
+        } else {
+          stepDataLines.push(unescapeMarkdown(fenceTrimmed));
+        }
         next += 1;
         if (fenceTrimmed.startsWith("```")) {
           break;
@@ -836,13 +932,37 @@ function parseTestStep(
     }
 
     if (inExpectedResult) {
-      const withoutLabel = stripExpectedPrefix(rawTrimmed);
-      expectedResult += "\n" + unescapeMarkdown(withoutLabel);
+      // After finding the first expected result, indented lines are part of it
+      if (hasIndent) {
+        const expectedContent = unescapeMarkdown(rawTrimmed);
+        if (expectedResult.length > 0) {
+          expectedResult += "\n" + expectedContent;
+        } else {
+          expectedResult = expectedContent;
+        }
+      } else if (foundFirstExpected && rawTrimmed.startsWith("*") && !rawTrimmed.startsWith("* ")) {
+        // Non-indented lines starting with single * (not list item) are likely more expected results
+        // Remove the leading * and treat the rest as content
+        const expectedContent = unescapeMarkdown(rawTrimmed.slice(1).trim());
+        if (expectedResult.length > 0) {
+          expectedResult += "\n" + expectedContent;
+        } else {
+          expectedResult = expectedContent;
+        }
+      }
       next += 1;
       continue;
     }
 
     if (STEP_DATA_LINE_REGEX.test(rawTrimmed)) {
+      const content = unescapeMarkdown(rawTrimmed);
+      stepDataLines.push(content);
+      next += 1;
+      continue;
+    }
+
+    // If we have indent and the line doesn't match other patterns, treat it as step data
+    if (hasIndent) {
       const content = unescapeMarkdown(rawTrimmed);
       stepDataLines.push(content);
       next += 1;
@@ -857,7 +977,12 @@ function parseTestStep(
     .join("\n")
     .trim();
 
-  if (!isLikelyStep && !expectedResult && stepDataLines.length === 0) {
+  if (
+    !isLikelyStep &&
+    !expectedResult &&
+    stepDataLines.length === 0 &&
+    !(allowEmpty && titleWithPlaceholders.length > 0)
+  ) {
     return null;
   }
 
@@ -1095,6 +1220,7 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
   const lines = normalized.split("\n");
   const blocks: CustomPartialBlock[] = [];
   let index = 0;
+  let stepsHeadingLevel: number | null = null;
 
   while (index < lines.length) {
     const line = lines[index];
@@ -1110,7 +1236,7 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
       continue;
     }
 
-    const stepLikeBlock = parseTestStep(lines, index);
+    const stepLikeBlock = parseTestStep(lines, index, stepsHeadingLevel !== null);
     if (stepLikeBlock) {
       blocks.push(stepLikeBlock.block);
       index = stepLikeBlock.nextIndex;
@@ -1126,7 +1252,22 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
 
     const heading = parseHeading(lines, index);
     if (heading) {
-      blocks.push(heading.block);
+      const headingBlock = heading.block;
+      const headingLevel = (headingBlock.props as any)?.level ?? 3;
+      const headingText = inlineContentToPlainText(headingBlock.content as any);
+      const normalizedHeading = headingText.trim().toLowerCase();
+
+      if (normalizedHeading === "steps") {
+        stepsHeadingLevel = headingLevel;
+      } else if (
+        stepsHeadingLevel !== null &&
+        headingLevel <= stepsHeadingLevel &&
+        normalizedHeading.length > 0
+      ) {
+        stepsHeadingLevel = null;
+      }
+
+      blocks.push(headingBlock);
       index = heading.nextIndex;
       continue;
     }
@@ -1147,7 +1288,13 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
 
     const listType = detectListType(line.trim());
     if (listType) {
-      const { items, nextIndex } = parseList(lines, index, listType, 0);
+      const { items, nextIndex } = parseList(
+        lines,
+        index,
+        listType,
+        0,
+        stepsHeadingLevel !== null,
+      );
       blocks.push(...items);
       index = nextIndex;
       continue;
