@@ -1,14 +1,98 @@
+/* ============================================
+   COLOR PALETTE
+   Adjust these variables to change the theme
+   ============================================ */
+:root {
+  /* Base colors */
+  --color-white: #ffffff;
+  --color-slate-900: #0f172a;
+  --color-slate-400: #94a3b8;
+
+  /* Primary (Blue) - used for steps, buttons, focus states */
+  --color-primary-900: #1e3a8a;
+  --color-primary-700: #1d4ed8;
+  --color-primary-600: #2563eb;
+  --color-primary-500: #3b82f6;
+
+  /* Success (Green) - used for ready status */
+  --color-success-500: #22c55e;
+
+  /* Danger (Red) - used for blocked status */
+  --color-danger-500: #ef4444;
+
+  /* Accent (Emerald/Teal) - used for snippets */
+  --color-accent-700: #0f766e;
+  --color-accent-500: #10b981;
+
+  /* Selection */
+  --color-selection: #f4d35e;
+
+  /* Semantic tokens - these reference the palette above */
+  --text-primary: var(--color-slate-900);
+  --text-muted: rgba(15, 23, 42, 0.65);
+
+  --border-light: rgba(15, 23, 42, 0.1);
+  --border-default: rgba(15, 23, 42, 0.12);
+  --shadow-subtle: rgba(15, 23, 42, 0.05);
+  --shadow-medium: rgba(15, 23, 42, 0.16);
+  --shadow-heavy: rgba(15, 23, 42, 0.35);
+  --overlay-dark: rgba(15, 23, 42, 0.75);
+
+  --bg-white: rgba(255, 255, 255, 0.85);
+  --bg-white-solid: rgba(255, 255, 255, 0.92);
+  --bg-white-opaque: rgba(255, 255, 255, 0.98);
+  --bg-muted: rgba(15, 23, 42, 0.05);
+
+  /* Step block colors */
+  --step-border: rgba(59, 130, 246, 0.65);
+  --step-bg: rgba(59, 130, 246, 0.12);
+  --step-shadow: rgba(37, 99, 235, 0.08);
+  --step-border-light: rgba(37, 99, 235, 0.25);
+  --step-border-medium: rgba(37, 99, 235, 0.35);
+  --step-border-strong: rgba(37, 99, 235, 0.55);
+  --step-border-focus: rgba(37, 99, 235, 0.7);
+  --step-bg-hover: rgba(59, 130, 246, 0.18);
+  --step-bg-light: rgba(59, 130, 246, 0.1);
+  --step-bg-button: rgba(37, 99, 235, 0.12);
+  --step-bg-button-hover: rgba(37, 99, 235, 0.2);
+  --step-focus-ring: rgba(59, 130, 246, 0.2);
+  --step-focus-outline: rgba(37, 99, 235, 0.4);
+  --step-underline: rgba(37, 99, 235, 0.7);
+  --step-shadow-hover: rgba(37, 99, 235, 0.18);
+  --step-shadow-focus: rgba(37, 99, 235, 0.2);
+
+  /* Snippet block colors */
+  --snippet-border: rgba(16, 185, 129, 0.75);
+  --snippet-bg: rgba(16, 185, 129, 0.12);
+  --snippet-shadow: rgba(16, 185, 129, 0.16);
+  --snippet-border-light: rgba(16, 185, 129, 0.25);
+  --snippet-border-medium: rgba(16, 185, 129, 0.35);
+  --snippet-border-strong: rgba(16, 185, 129, 0.55);
+  --snippet-border-focus: rgba(16, 185, 129, 0.7);
+  --snippet-bg-light: rgba(16, 185, 129, 0.1);
+  --snippet-bg-hover: rgba(16, 185, 129, 0.18);
+  --snippet-focus-ring: rgba(16, 185, 129, 0.2);
+
+  /* Status colors */
+  --status-default: var(--color-slate-400);
+  --status-default-bg: rgba(148, 163, 184, 0.12);
+  --status-ready: var(--color-success-500);
+  --status-ready-bg: rgba(34, 197, 94, 0.12);
+  --status-blocked: var(--color-danger-500);
+  --status-blocked-bg: rgba(239, 68, 68, 0.12);
+}
+
 .testomatio-editor {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
 
 .bn-testcase {
-  --status-color: #94a3b8;
+  --status-color: var(--status-default);
   position: relative;
   border-radius: 1rem;
   border-left: 6px solid var(--status-color);
   padding: 1rem 1.25rem;
-  background: rgba(148, 163, 184, 0.12);
+  background: var(--status-default-bg);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -20,7 +104,7 @@
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 0 0 1px var(--shadow-subtle);
 }
 
 .bn-testcase__header {
@@ -42,20 +126,20 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .bn-testcase__reference {
   padding: 0.35rem 0.6rem;
   border-radius: 0.5rem;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--border-light);
+  background: var(--bg-white);
   font-size: 0.85rem;
   min-width: 8rem;
 }
 
 .bn-testcase__reference:focus-visible {
-  outline: 2px solid rgba(37, 99, 235, 0.4);
+  outline: 2px solid var(--step-focus-outline);
   outline-offset: 2px;
 }
 
@@ -64,13 +148,13 @@
   align-items: center;
   gap: 0.35rem;
   font-size: 0.85rem;
-  color: #0f172a;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .bn-testcase__status select {
   border-radius: 0.5rem;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--border-default);
   padding: 0.35rem 0.6rem;
   background: rgba(255, 255, 255, 0.95);
   font-size: 0.85rem;
@@ -83,19 +167,19 @@
 }
 
 .bn-testcase--ready {
-  --status-color: #22c55e;
-  background: rgba(34, 197, 94, 0.12);
+  --status-color: var(--status-ready);
+  background: var(--status-ready-bg);
 }
 
 .bn-testcase--blocked {
-  --status-color: #ef4444;
-  background: rgba(239, 68, 68, 0.12);
+  --status-color: var(--status-blocked);
+  background: var(--status-blocked-bg);
 }
 
 .bn-teststep {
   border-radius: 0.85rem;
-  border-left: 5px solid rgba(59, 130, 246, 0.65);
-  background: rgba(59, 130, 246, 0.12);
+  border-left: 5px solid var(--step-border);
+  background: var(--step-bg);
   padding: 0.85rem 1.1rem 1rem;
   display: grid;
   gap: 0.75rem;
@@ -109,60 +193,60 @@
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 0 0 1px var(--step-shadow);
 }
 
 .bn-snippet {
-  border-left-color: rgba(16, 185, 129, 0.75);
-  background: rgba(16, 185, 129, 0.12);
+  border-left-color: var(--snippet-border);
+  background: var(--snippet-bg);
 }
 
 .bn-snippet::after {
-  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.16);
+  box-shadow: 0 0 0 1px var(--snippet-shadow);
 }
 
 .bn-snippet .bn-teststep__toggle {
   border-color: rgba(16, 185, 129, 0.45);
-  background: rgba(16, 185, 129, 0.1);
-  color: #0f766e;
+  background: var(--snippet-bg-light);
+  color: var(--color-accent-700);
 }
 
 .bn-snippet .bn-teststep__toggle:hover {
-  background: rgba(16, 185, 129, 0.18);
-  border-color: rgba(16, 185, 129, 0.55);
-  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
+  background: var(--snippet-bg-hover);
+  border-color: var(--snippet-border-strong);
+  box-shadow: 0 0 0 1px var(--snippet-focus-ring);
 }
 
 .bn-snippet .bn-step-field__label {
-  color: #0f766e;
+  color: var(--color-accent-700);
 }
 
 .bn-snippet .bn-step-toolbar__button {
-  border-color: rgba(16, 185, 129, 0.35);
-  color: #0f766e;
+  border-color: var(--snippet-border-medium);
+  color: var(--color-accent-700);
 }
 
 .bn-snippet .bn-step-toolbar__button:hover {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.55);
+  background: var(--snippet-bg);
+  border-color: var(--snippet-border-strong);
 }
 
 .bn-snippet .bn-step-editor {
-  border-color: rgba(16, 185, 129, 0.25);
+  border-color: var(--snippet-border-light);
 }
 
 .bn-snippet .bn-step-editor.bn-step-editor--focused {
-  border-color: rgba(16, 185, 129, 0.7);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  border-color: var(--snippet-border-focus);
+  box-shadow: 0 0 0 3px var(--snippet-focus-ring);
 }
 
 .bn-snippet .bn-step-suggestions {
-  border-color: rgba(16, 185, 129, 0.25);
+  border-color: var(--snippet-border-light);
 }
 
 .bn-snippet .bn-step-suggestion:hover,
 .bn-snippet .bn-step-suggestion--active {
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--snippet-bg-light);
 }
 
 .bn-snippet .bn-step-suggestion__meta {
@@ -172,15 +256,15 @@
 .bn-snippet__empty {
   margin: 0;
   font-size: 0.9rem;
-  color: rgba(15, 23, 42, 0.65);
+  color: var(--text-muted);
 }
 
 .bn-step-add {
   align-self: flex-start;
   margin-top: 0.25rem;
   border: none;
-  background: rgba(37, 99, 235, 0.12);
-  color: #1d4ed8;
+  background: var(--step-bg-button);
+  color: var(--color-primary-700);
   font-weight: 600;
   font-size: 0.85rem;
   padding: 0.35rem 0.65rem;
@@ -192,8 +276,8 @@
 }
 
 .bn-step-add:hover {
-  background: rgba(37, 99, 235, 0.2);
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.18);
+  background: var(--step-bg-button-hover);
+  box-shadow: 0 0 0 1px var(--step-shadow-hover);
 }
 
 .bn-teststep__toggle {
@@ -201,8 +285,8 @@
   padding: 0.35rem 0.6rem;
   border-radius: 0.5rem;
   border: 1px dashed rgba(37, 99, 235, 0.45);
-  background: rgba(59, 130, 246, 0.1);
-  color: #1d4ed8;
+  background: var(--step-bg-light);
+  color: var(--color-primary-700);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -215,9 +299,9 @@
 }
 
 .bn-teststep__toggle:hover {
-  background: rgba(59, 130, 246, 0.18);
-  border-color: rgba(37, 99, 235, 0.55);
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+  background: var(--step-bg-hover);
+  border-color: var(--step-border-strong);
+  box-shadow: 0 0 0 1px var(--step-shadow-focus);
 }
 
 .bn-step-field {
@@ -238,6 +322,12 @@
   gap: 0.5rem;
 }
 
+.bn-step-field__label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .bn-step-field__label {
   display: inline-flex;
   align-items: center;
@@ -246,7 +336,46 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 700;
-  color: #1d4ed8;
+  color: var(--color-primary-700);
+}
+
+.bn-step-field__label--toggle {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 0.2em;
+  text-decoration-color: var(--step-underline);
+}
+
+.bn-step-field__label--toggle:hover {
+  color: var(--color-primary-900);
+}
+
+.bn-step-suggestions-toggle {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--step-border-medium);
+  background: transparent;
+  color: var(--color-primary-700);
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.bn-step-suggestions-toggle:hover {
+  background: var(--step-bg-button);
+  border-color: var(--step-border-strong);
 }
 
 .bn-step-field__label--toggle {
@@ -273,9 +402,9 @@
   width: 2rem;
   height: 2rem;
   border-radius: 0.4rem;
-  border: 1px solid rgba(37, 99, 235, 0.35);
-  background: rgba(255, 255, 255, 0.85);
-  color: #1d4ed8;
+  border: 1px solid var(--step-border-medium);
+  background: var(--bg-white);
+  color: var(--color-primary-700);
   font-weight: 700;
   font-size: 0.9rem;
   display: flex;
@@ -289,15 +418,15 @@
 }
 
 .bn-step-toolbar__button:hover {
-  background: rgba(37, 99, 235, 0.12);
-  border-color: rgba(37, 99, 235, 0.55);
+  background: var(--step-bg-button);
+  border-color: var(--step-border-strong);
 }
 
 .bn-step-editor {
   position: relative;
   border-radius: 0.6rem;
-  border: 1px solid rgba(37, 99, 235, 0.25);
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--step-border-light);
+  background: var(--bg-white-solid);
   transition:
     border-color 120ms ease,
     box-shadow 120ms ease;
@@ -312,8 +441,8 @@
 
 .bn-step-editor.bn-step-editor--focused {
   outline: none;
-  border-color: rgba(37, 99, 235, 0.7);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: var(--step-border-focus);
+  box-shadow: 0 0 0 3px var(--step-focus-ring);
 }
 
 .bn-step-editor .overtype-container {
@@ -332,7 +461,7 @@
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview {
-  color: #0f172a !important;
+  color: var(--text-primary) !important;
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview img {
@@ -348,7 +477,7 @@
 }
 
 .bn-step-field:focus-within .overtype-wrapper .overtype-input::selection {
-  background-color: rgba(244, 211, 94, 0.4) !important;
+  background-color: rgba(244, 211, 94, 0.4) !important; /* var(--color-selection) with opacity */
 }
 
 .bn-step-images {
@@ -363,9 +492,9 @@
   width: 4rem;
   height: 4rem;
   border-radius: 0.5rem;
-  border: 1px solid rgba(37, 99, 235, 0.25);
+  border: 1px solid var(--step-border-light);
   overflow: hidden;
-  background: rgba(15, 23, 42, 0.05);
+  background: var(--bg-muted);
 }
 
 .bn-step-image-thumb__button {
@@ -392,8 +521,8 @@
   border-radius: 999px;
   width: 1.35rem;
   height: 1.35rem;
-  background: rgba(15, 23, 42, 0.75);
-  color: white;
+  background: var(--overlay-dark);
+  color: var(--color-white);
   cursor: pointer;
   opacity: 0;
   transition: opacity 120ms ease;
@@ -407,7 +536,7 @@
 .bn-step-image-preview {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.75);
+  background: var(--overlay-dark);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -419,10 +548,10 @@
   position: relative;
   max-width: min(90vw, 800px);
   width: 100%;
-  background: white;
+  background: var(--color-white);
   border-radius: 0.75rem;
   padding: 1rem;
-  box-shadow: 0 25px 45px rgba(15, 23, 42, 0.35);
+  box-shadow: 0 25px 45px var(--shadow-heavy);
 }
 
 .bn-step-image-preview__content img {
@@ -438,7 +567,7 @@
   right: 0.35rem;
   border: none;
   background: rgba(15, 23, 42, 0.65);
-  color: white;
+  color: var(--color-white);
   border-radius: 999px;
   width: 2rem;
   height: 2rem;
@@ -451,10 +580,10 @@
   left: 0;
   right: 0;
   top: calc(100% + 0.25rem);
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--bg-white-opaque);
   border-radius: 0.65rem;
-  border: 1px solid rgba(37, 99, 235, 0.25);
-  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.16);
+  border: 1px solid var(--step-border-light);
+  box-shadow: 0 18px 35px var(--shadow-medium);
   padding: 0.25rem;
   display: flex;
   flex-direction: column;
@@ -475,12 +604,12 @@
   justify-content: space-between;
   gap: 0.5rem;
   cursor: pointer;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .bn-step-suggestion:hover,
 .bn-step-suggestion--active {
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--step-bg-light);
 }
 
 .bn-step-suggestion__title {
@@ -491,7 +620,7 @@
 .bn-step-suggestion__meta {
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(15, 23, 42, 0.65);
+  color: var(--text-muted);
 }
 
 .bn-inline-image {
@@ -512,5 +641,5 @@
 }
 
 .bn-testcase--draft {
-  --status-color: #94a3b8;
+  --status-color: var(--status-default);
 }

@@ -29,7 +29,7 @@
     "build:package": "node scripts/build-package.mjs",
     "lint": "eslint .",
     "test": "vitest",
-    "test:run": "vitest run",
+    "test:run": "vitest run --reporter=verbose",
     "preview": "vite preview"
   },
   "keywords": [

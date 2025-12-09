@@ -78,7 +78,7 @@ function SnippetDataField({
       placeholder,
       autoResize: true,
       minHeight: "5rem",
-      toolbar: true,
+      toolbar: false,
       onChange: (nextValue) => {
         onChangeRef.current?.(nextValue);
       },
@@ -199,8 +199,10 @@ export const snippetBlock = createReactBlockSpec(
     render: ({ block, editor }) => {
       const snippetTitle = (block.props.snippetTitle as string) || "";
       const snippetData = (block.props.snippetData as string) || "";
+      const snippetId = (block.props.snippetId as string) || "";
       const snippetSuggestions = useSnippetAutocomplete();
       const hasSnippets = snippetSuggestions.length > 0;
+      const isSnippetSelected = snippetId.length > 0;
 
       const handleSnippetChange = useCallback(
         (nextTitle: string) => {
@@ -264,28 +266,33 @@ export const snippetBlock = createReactBlockSpec(
 
       return (
         <div className="bn-teststep bn-snippet" data-block-id={block.id}>
-          <StepField
-            label="Snippet Title"
-            value={snippetTitle}
-            onChange={handleSnippetChange}
-            autoFocus={snippetTitle.length === 0}
-            enableAutocomplete
-            suggestionFilter={(suggestion) => (suggestion as SnippetSuggestion).isSnippet === true}
-            suggestionsOverride={snippetSuggestions as unknown as StepSuggestion[]}
-            onSuggestionSelect={handleSnippetSelect}
-            fieldName="snippet-title"
-            showSuggestionsOnFocus
-            enableImageUpload={false}
-            onFieldFocus={handleFieldFocus}
-          />
-          <SnippetDataField
-            label="Snippet Data"
-            value={snippetData}
-            onChange={handleSnippetDataChange}
-            fieldName="snippet-data"
-            enableImageUpload
-            onFieldFocus={handleFieldFocus}
-          />
+          {!isSnippetSelected ? (
+            <StepField
+              label="Snippet Title"
+              value={snippetTitle}
+              onChange={handleSnippetChange}
+              autoFocus={snippetTitle.length === 0}
+              enableAutocomplete={true}
+              suggestionFilter={(suggestion) => (suggestion as SnippetSuggestion).isSnippet === true}
+              suggestionsOverride={snippetSuggestions as unknown as StepSuggestion[]}
+              onSuggestionSelect={handleSnippetSelect}
+              fieldName="snippet-title"
+              showSuggestionsOnFocus={true}
+              enableImageUpload={false}
+              onFieldFocus={handleFieldFocus}
+              readOnly={false}
+            />
+          ) : (
+            <SnippetDataField
+              label={`Snippet: ${snippetTitle}`}
+              value={snippetData}
+              onChange={handleSnippetDataChange}
+              fieldName="snippet-data"
+              enableImageUpload
+              onFieldFocus={handleFieldFocus}
+              placeholder="Snippet data will appear here..."
+            />
+          )}
         </div>
       );
     },
