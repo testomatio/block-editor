@@ -163,7 +163,7 @@ export const stepBlock = createReactBlockSpec(
         }
       }, [expectedHasContent, isExpectedVisible]);
 
-      const labelToggleText = isExpectedVisible ? "- Expected Result" : "+ Expected Result";
+      const labelIndicator = isExpectedVisible ? "−" : "+";
       const canToggleExpected = !expectedHasContent;
 
       return (
@@ -233,7 +233,7 @@ export const stepBlock = createReactBlockSpec(
               labelButton={
                 canToggleExpected
                   ? {
-                      text: labelToggleText,
+                      indicator: labelIndicator,
                       onClick: handleHideExpected,
                       expanded: true,
                     }
@@ -255,7 +255,8 @@ export const stepBlock = createReactBlockSpec(
                 onClick={handleShowExpected}
                 aria-expanded="false"
               >
-                + Expected Result
+                <span>Expected Result</span>
+                <span className="bn-step-field__indicator">+</span>
               </button>
             </div>
           )}

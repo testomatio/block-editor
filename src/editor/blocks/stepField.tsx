@@ -12,7 +12,7 @@ type Suggestion = StepSuggestion | SnippetSuggestion;
 type StepFieldProps = {
   label: string;
   labelButton?: {
-    text: string;
+    indicator: string;
     onClick: () => void;
     expanded: boolean;
   };
@@ -567,7 +567,8 @@ export function StepField({
             onClick={labelButton.onClick}
             aria-expanded={labelButton.expanded}
           >
-            {labelButton.text}
+            <span>{label}</span>
+            <span className="bn-step-field__indicator">{labelButton.indicator}</span>
           </button>
         ) : (
           <span className="bn-step-field__label">{label}</span>

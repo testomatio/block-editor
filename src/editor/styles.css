@@ -256,12 +256,19 @@
   font: inherit;
   color: inherit;
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-style: dashed;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: underline dashed rgba(37, 99, 235, 0.75);
 }
 
 .bn-step-field__label--toggle:hover {
   color: #1e3a8a;
+}
+
+.bn-step-field__indicator {
+  font-size: 0.85em;
+  font-weight: 700;
 }
 
 .bn-step-toolbar {
