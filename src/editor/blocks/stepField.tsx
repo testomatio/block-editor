@@ -561,15 +561,22 @@ export function StepField({
     <div className="bn-step-field">
       <div className="bn-step-field__top">
         {labelButton ? (
-          <button
-            type="button"
+          <span
             className="bn-step-field__label bn-step-field__label--toggle"
+            role="button"
+            tabIndex={0}
             onClick={labelButton.onClick}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                labelButton.onClick();
+              }
+            }}
             aria-expanded={labelButton.expanded}
           >
             <span>{label}</span>
             <span className="bn-step-field__indicator">{labelButton.indicator}</span>
-          </button>
+          </span>
         ) : (
           <span className="bn-step-field__label">{label}</span>
         )}

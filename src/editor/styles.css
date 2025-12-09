@@ -250,16 +250,10 @@
 }
 
 .bn-step-field__label--toggle {
-  border: none;
-  background: none;
-  padding: 0;
-  font: inherit;
-  color: inherit;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  text-decoration: none;
 }
 
 .bn-step-field__label--toggle:hover {
