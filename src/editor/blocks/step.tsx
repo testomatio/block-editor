@@ -164,11 +164,13 @@ export const stepBlock = createReactBlockSpec(
         }
       }, [expectedHasContent, isExpectedVisible]);
 
+      const renderExpectedLabel = showExpectedField ? "- Expected Result" : "+ Expected Result";
+
       return (
         <div className="bn-teststep" data-block-id={block.id}>
-          <StepField
-            label="Step Title"
-            value={stepTitle}
+            <StepField
+              label="Step Title"
+              value={stepTitle}
             onChange={handleStepTitleChange}
             autoFocus={stepTitle.length === 0}
             enableAutocomplete
@@ -225,20 +227,13 @@ export const stepBlock = createReactBlockSpec(
               onFieldFocus={handleFieldFocus}
             />
           )}
-          {!showExpectedField && (
-            <button
-              type="button"
-              className="bn-teststep__toggle"
-              onClick={handleShowExpected}
-              aria-expanded="false"
-              tabIndex={-1}
-            >
-              + Expected Result
-            </button>
-          )}
           {showExpectedField && (
             <StepField
-              label="Expected Result"
+              labelButton={{
+                text: renderExpectedLabel,
+                onClick: showExpectedField ? handleHideExpected : handleShowExpected,
+                expanded: showExpectedField,
+              }}
               value={expectedResult}
               onChange={handleExpectedChange}
               multiline
@@ -246,19 +241,6 @@ export const stepBlock = createReactBlockSpec(
               showFormattingButtons
               showImageButton
               onFieldFocus={handleFieldFocus}
-              rightAction={
-                !expectedHasContent ? (
-                  <button
-                    type="button"
-                    className="bn-teststep__toggle"
-                    onClick={handleHideExpected}
-                    aria-expanded="true"
-                    tabIndex={-1}
-                  >
-                    - Expected Result
-                  </button>
-                ) : undefined
-              }
             />
           )}
           <button type="button" className="bn-step-add" onClick={handleInsertNextStep}>

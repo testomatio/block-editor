@@ -245,6 +245,20 @@
   color: #1d4ed8;
 }
 
+.bn-step-field__label--button {
+  border: 1px dashed rgba(37, 99, 235, 0.45);
+  border-radius: 0.6rem;
+  padding: 0.35rem 0.6rem;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.bn-step-field__label--button:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(37, 99, 235, 0.65);
+}
+
 .bn-step-toolbar {
   display: flex;
   gap: 0.35rem;
