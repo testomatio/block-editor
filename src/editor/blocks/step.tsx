@@ -149,6 +149,7 @@ export const stepBlock = createReactBlockSpec(
 
       const handleShowExpected = useCallback(() => {
         setIsExpectedVisible(true);
+        setShouldFocusExpectedField(true);
         writeExpectedCollapsedPreference(false);
       }, []);
 
@@ -220,6 +221,7 @@ export const stepBlock = createReactBlockSpec(
               onChange={handleStepDataChange}
               autoFocus={shouldFocusDataField}
               multiline
+              autoFocus={shouldFocusExpectedField}
               enableImageUpload
               showFormattingButtons
               showImageButton
@@ -250,7 +252,7 @@ export const stepBlock = createReactBlockSpec(
               <span
                 className="bn-step-field__label bn-step-field__label--toggle"
                 role="button"
-                tabIndex={0}
+                tabIndex={-1}
                 onClick={handleShowExpected}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
