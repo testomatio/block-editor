@@ -782,10 +782,56 @@ describe("markdownToBlocks", () => {
     expect(roundTrip).toBe(
       [
         "* Should open login screen",
-        "  *Expected*: Login should look like this",
+        "  *Expected Result*: Login should look like this",
         "  ![](/login.png)",
       ].join("\n"),
     );
+  });
+
+  it("parses steps under a Steps heading even when expected results are missing", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Pass onboarding as mobile user",
+      "* Navigate to More tab -≻ My Profile -≻ Log into the app with user from preconditions",
+      "  *Expected:* Upsell SS screen is displayed",
+      "* Close SS",
+      "  *Expected:* My Course and More tab are displayed",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+
+    expect(stepBlocks).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Pass onboarding as mobile user",
+          stepData: "",
+          expectedResult: "",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle:
+            "Navigate to More tab -≻ My Profile -≻ Log into the app with user from preconditions",
+          stepData: "",
+          expectedResult: "Upsell SS screen is displayed",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Close SS",
+          stepData: "",
+          expectedResult: "My Course and More tab are displayed",
+        },
+        children: [],
+      },
+    ]);
   });
 
   it("round-trips simple blocks", () => {

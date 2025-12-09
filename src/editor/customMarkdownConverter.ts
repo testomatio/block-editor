@@ -206,6 +206,26 @@ function inlineToMarkdown(content: CustomEditorBlock["content"]): string {
     .join("");
 }
 
+function inlineContentToPlainText(content: CustomEditorBlock["content"]): string {
+  if (!Array.isArray(content)) {
+    return "";
+  }
+
+  return (content as any[])
+    .map((node: any) => {
+      if (node && typeof node === "object") {
+        if (typeof node.text === "string") {
+          return node.text;
+        }
+        if (Array.isArray(node.content)) {
+          return inlineContentToPlainText(node.content);
+        }
+      }
+      return "";
+    })
+    .join("");
+}
+
 function serializeChildren(block: CustomEditorBlock, ctx: MarkdownContext): string[] {
   if (!block.children?.length) {
     return [];
@@ -667,6 +687,7 @@ function parseList(
   startIndex: number,
   listType: "bullet" | "numbered" | "check",
   indentLevel: number,
+  allowEmptySteps = false,
 ): ListParseResult {
   const items: CustomPartialBlock[] = [];
   let index = startIndex;
@@ -698,7 +719,13 @@ function parseList(
       if (!nestedType) {
         break;
       }
-      const nested = parseList(lines, index, nestedType, indentLevel + 1);
+      const nested = parseList(
+        lines,
+        index,
+        nestedType,
+        indentLevel + 1,
+        allowEmptySteps,
+      );
       lastItem.children = [...(lastItem.children ?? []), ...nested.items];
       index = nested.nextIndex;
       continue;
@@ -707,6 +734,13 @@ function parseList(
     const detectedType = detectListType(trimmed);
     if (detectedType !== listType) {
       break;
+    }
+
+    if (listType === "bullet") {
+      const nextStep = parseTestStep(lines, index, allowEmptySteps);
+      if (nextStep) {
+        break;
+      }
     }
 
     if (listType === "check") {
@@ -749,6 +783,7 @@ function parseList(
 function parseTestStep(
   lines: string[],
   index: number,
+  allowEmpty = false,
   snippetId?: string,
 ): { block: CustomPartialBlock; nextIndex: number } | null {
   const current = lines[index];
@@ -857,7 +892,12 @@ function parseTestStep(
     .join("\n")
     .trim();
 
-  if (!isLikelyStep && !expectedResult && stepDataLines.length === 0) {
+  if (
+    !isLikelyStep &&
+    !expectedResult &&
+    stepDataLines.length === 0 &&
+    !(allowEmpty && titleWithPlaceholders.length > 0)
+  ) {
     return null;
   }
 
@@ -1095,6 +1135,7 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
   const lines = normalized.split("\n");
   const blocks: CustomPartialBlock[] = [];
   let index = 0;
+  let stepsHeadingLevel: number | null = null;
 
   while (index < lines.length) {
     const line = lines[index];
@@ -1110,7 +1151,7 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
       continue;
     }
 
-    const stepLikeBlock = parseTestStep(lines, index);
+    const stepLikeBlock = parseTestStep(lines, index, stepsHeadingLevel !== null);
     if (stepLikeBlock) {
       blocks.push(stepLikeBlock.block);
       index = stepLikeBlock.nextIndex;
@@ -1126,7 +1167,22 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
 
     const heading = parseHeading(lines, index);
     if (heading) {
-      blocks.push(heading.block);
+      const headingBlock = heading.block;
+      const headingLevel = (headingBlock.props as any)?.level ?? 3;
+      const headingText = inlineContentToPlainText(headingBlock.content as any);
+      const normalizedHeading = headingText.trim().toLowerCase();
+
+      if (normalizedHeading === "steps") {
+        stepsHeadingLevel = headingLevel;
+      } else if (
+        stepsHeadingLevel !== null &&
+        headingLevel <= stepsHeadingLevel &&
+        normalizedHeading.length > 0
+      ) {
+        stepsHeadingLevel = null;
+      }
+
+      blocks.push(headingBlock);
       index = heading.nextIndex;
       continue;
     }
@@ -1147,7 +1203,13 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
 
     const listType = detectListType(line.trim());
     if (listType) {
-      const { items, nextIndex } = parseList(lines, index, listType, 0);
+      const { items, nextIndex } = parseList(
+        lines,
+        index,
+        listType,
+        0,
+        stepsHeadingLevel !== null,
+      );
       blocks.push(...items);
       index = nextIndex;
       continue;
