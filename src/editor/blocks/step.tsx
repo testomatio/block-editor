@@ -249,15 +249,22 @@ export const stepBlock = createReactBlockSpec(
             />
           ) : (
             <div className="bn-step-field bn-step-field--collapsed">
-              <button
-                type="button"
+              <span
                 className="bn-step-field__label bn-step-field__label--toggle"
+                role="button"
+                tabIndex={0}
                 onClick={handleShowExpected}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleShowExpected();
+                  }
+                }}
                 aria-expanded="false"
               >
                 <span>Expected Result</span>
                 <span className="bn-step-field__indicator">+</span>
-              </button>
+              </span>
             </div>
           )}
           <button type="button" className="bn-step-add" onClick={handleInsertNextStep}>
