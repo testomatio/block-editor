@@ -1,8 +1,32 @@
 import { createReactBlockSpec } from "@blocknote/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StepField } from "./stepField";
 import { useStepImageUpload } from "../stepImageUpload";
 import type { StepSuggestion } from "../stepAutocomplete";
+
+const EXPECTED_COLLAPSED_KEY = "bn-expected-collapsed";
+
+const readExpectedCollapsedPreference = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return window.localStorage.getItem(EXPECTED_COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
+
+const writeExpectedCollapsedPreference = (collapsed: boolean) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(EXPECTED_COLLAPSED_KEY, collapsed ? "true" : "false");
+  } catch {
+    //
+  }
+};
 
 export const stepBlock = createReactBlockSpec(
   {
@@ -25,8 +49,15 @@ export const stepBlock = createReactBlockSpec(
       const stepTitle = (block.props.stepTitle as string) || "";
       const stepData = (block.props.stepData as string) || "";
       const expectedResult = (block.props.expectedResult as string) || "";
-      const showExpectedField =
-        stepTitle.trim().length > 0 || stepData.trim().length > 0 || expectedResult.trim().length > 0;
+      const expectedHasContent = expectedResult.trim().length > 0;
+      const storedExpectedCollapsed = useMemo(
+        () => readExpectedCollapsedPreference(),
+        [],
+      );
+      const [isExpectedVisible, setIsExpectedVisible] = useState(
+        expectedHasContent ? true : !storedExpectedCollapsed,
+      );
+      const showExpectedField = expectedHasContent || isExpectedVisible;
       const [isDataVisible, setIsDataVisible] = useState(() => stepData.trim().length > 0);
       const [shouldFocusDataField, setShouldFocusDataField] = useState(false);
       const uploadImage = useStepImageUpload();
@@ -117,6 +148,22 @@ export const stepBlock = createReactBlockSpec(
         editor.setSelection(block.id, block.id);
       }, [editor, block.id]);
 
+      const handleShowExpected = useCallback(() => {
+        setIsExpectedVisible(true);
+        writeExpectedCollapsedPreference(false);
+      }, []);
+
+      const handleHideExpected = useCallback(() => {
+        setIsExpectedVisible(false);
+        writeExpectedCollapsedPreference(true);
+      }, []);
+
+      useEffect(() => {
+        if (expectedHasContent && !isExpectedVisible) {
+          setIsExpectedVisible(true);
+        }
+      }, [expectedHasContent, isExpectedVisible]);
+
       return (
         <div className="bn-teststep" data-block-id={block.id}>
           <StepField
@@ -178,6 +225,17 @@ export const stepBlock = createReactBlockSpec(
               onFieldFocus={handleFieldFocus}
             />
           )}
+          {!showExpectedField && (
+            <button
+              type="button"
+              className="bn-teststep__toggle"
+              onClick={handleShowExpected}
+              aria-expanded="false"
+              tabIndex={-1}
+            >
+              + Expected Result
+            </button>
+          )}
           {showExpectedField && (
             <StepField
               label="Expected Result"
@@ -188,6 +246,19 @@ export const stepBlock = createReactBlockSpec(
               showFormattingButtons
               showImageButton
               onFieldFocus={handleFieldFocus}
+              rightAction={
+                !expectedHasContent ? (
+                  <button
+                    type="button"
+                    className="bn-teststep__toggle"
+                    onClick={handleHideExpected}
+                    aria-expanded="true"
+                    tabIndex={-1}
+                  >
+                    - Expected Result
+                  </button>
+                ) : undefined
+              }
             />
           )}
           <button type="button" className="bn-step-add" onClick={handleInsertNextStep}>

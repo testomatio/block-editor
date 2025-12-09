@@ -8,7 +8,7 @@ type Options = {
 };
 
 export function useAutoResize({ textarea, multiline = false, minRows = 2, maxRows = 12 }: Options) {
-  const frameRef = useRef<number>();
+  const frameRef = useRef<number>(0);
 
   useEffect(() => {
     if (!textarea || !multiline) {
