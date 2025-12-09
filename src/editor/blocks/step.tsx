@@ -224,7 +224,6 @@ export const stepBlock = createReactBlockSpec(
               onChange={handleStepDataChange}
               autoFocus={shouldFocusDataField}
               multiline
-              autoFocus={shouldFocusExpectedField}
               enableImageUpload
               showFormattingButtons
               showImageButton
