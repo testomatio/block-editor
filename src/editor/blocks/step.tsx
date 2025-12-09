@@ -54,26 +54,27 @@ export const stepBlock = createReactBlockSpec(
         () => readExpectedCollapsedPreference(),
         [],
       );
+      const dataHasContent = stepData.trim().length > 0;
       const [isExpectedVisible, setIsExpectedVisible] = useState(
         expectedHasContent ? true : !storedExpectedCollapsed,
       );
-      const [isDataVisible, setIsDataVisible] = useState(() => stepData.trim().length > 0);
+      const [isDataVisible, setIsDataVisible] = useState(dataHasContent);
       const [shouldFocusDataField, setShouldFocusDataField] = useState(false);
       const uploadImage = useStepImageUpload();
 
-      useEffect(() => {
-        if (stepData.trim().length > 0 && !isDataVisible) {
-          setIsDataVisible(true);
-        }
-      }, [isDataVisible, stepData]);
+      // Calculate step number based on position in document
+      const stepNumber = useMemo(() => {
+        const allBlocks = editor.document;
+        const stepBlocks = allBlocks.filter((b) => b.type === "testStep");
+        const index = stepBlocks.findIndex((b) => b.id === block.id);
+        return index >= 0 ? index + 1 : 1;
+      }, [editor.document, block.id]);
 
       useEffect(() => {
-        if (shouldFocusDataField && isDataVisible) {
-          const timer = setTimeout(() => setShouldFocusDataField(false), 0);
-          return () => clearTimeout(timer);
+        if (dataHasContent && !isDataVisible) {
+          setIsDataVisible(true);
         }
-        return undefined;
-      }, [isDataVisible, shouldFocusDataField]);
+      }, [dataHasContent, isDataVisible]);
 
       const handleStepTitleChange = useCallback(
         (next: string) => {
@@ -105,9 +106,13 @@ export const stepBlock = createReactBlockSpec(
         [editor, block.id, stepData],
       );
 
-      const handleShowDataField = useCallback(() => {
+      const handleShowData = useCallback(() => {
         setIsDataVisible(true);
         setShouldFocusDataField(true);
+      }, []);
+
+      const handleHideData = useCallback(() => {
+        setIsDataVisible(false);
       }, []);
 
       const handleExpectedChange = useCallback(
@@ -147,11 +152,11 @@ export const stepBlock = createReactBlockSpec(
         editor.setSelection(block.id, block.id);
       }, [editor, block.id]);
 
+      const [dataFocusSignal] = useState(0);
       const [expectedFocusSignal, setExpectedFocusSignal] = useState(0);
 
       const handleShowExpected = useCallback(() => {
         setIsExpectedVisible(true);
-        setShouldFocusExpectedField(true);
         setExpectedFocusSignal((value) => value + 1);
         writeExpectedCollapsedPreference(false);
       }, []);
@@ -167,12 +172,13 @@ export const stepBlock = createReactBlockSpec(
         }
       }, [expectedHasContent, isExpectedVisible]);
 
+      const canToggleData = !dataHasContent;
       const canToggleExpected = !expectedHasContent;
 
       return (
         <div className="bn-teststep" data-block-id={block.id}>
             <StepField
-              label="Step Title"
+              label={`Step ${stepNumber}`}
               value={stepTitle}
             onChange={handleStepTitleChange}
             autoFocus={stepTitle.length === 0}
@@ -180,19 +186,6 @@ export const stepBlock = createReactBlockSpec(
             fieldName="title"
             suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}
             onFieldFocus={handleFieldFocus}
-            rightAction={
-              !isDataVisible ? (
-                <button
-                  type="button"
-                  className="bn-teststep__toggle"
-                  onClick={handleShowDataField}
-                  aria-expanded="false"
-                  tabIndex={-1}
-                >
-                  + Step Data
-                </button>
-              ) : null
-            }
             enableImageUpload={false}
             showFormattingButtons
             onImageFile={async (file) => {
@@ -217,18 +210,45 @@ export const stepBlock = createReactBlockSpec(
               }
             }}
           />
-          {isDataVisible && (
+          {isDataVisible ? (
             <StepField
               label="Step Data"
+              labelToggle={
+                canToggleData
+                  ? {
+                      onClick: handleHideData,
+                      expanded: true,
+                    }
+                  : undefined
+              }
               value={stepData}
               onChange={handleStepDataChange}
               autoFocus={shouldFocusDataField}
+              focusSignal={dataFocusSignal}
               multiline
               enableImageUpload
               showFormattingButtons
               showImageButton
               onFieldFocus={handleFieldFocus}
             />
+          ) : (
+            <div className="bn-step-field bn-step-field--collapsed">
+              <span
+                className="bn-step-field__label bn-step-field__label--toggle"
+                role="button"
+                tabIndex={-1}
+                onClick={handleShowData}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleShowData();
+                  }
+                }}
+                aria-expanded="false"
+              >
+                Step Data
+              </span>
+            </div>
           )}
           {isExpectedVisible ? (
             <StepField

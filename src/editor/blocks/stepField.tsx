@@ -568,40 +568,42 @@ export function StepField({
   return (
     <div className="bn-step-field">
       <div className="bn-step-field__top">
-        {labelToggle ? (
-          <span
-            className="bn-step-field__label bn-step-field__label--toggle"
-            role="button"
-            tabIndex={-1}
-            onClick={labelToggle.onClick}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                labelToggle.onClick();
-              }
-            }}
-            aria-expanded={labelToggle.expanded}
-          >
-            {label}
-          </span>
-        ) : (
-          <span className="bn-step-field__label">{label}</span>
-        )}
-        {enableAutocomplete && (
-            <button
-              type="button"
-              className="bn-step-toolbar__button"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                setShowAllSuggestions(true);
-                textareaNode?.focus();
-              }}
-              aria-label="Show suggestions"
+        <div className="bn-step-field__label-row">
+          {labelToggle ? (
+            <span
+              className="bn-step-field__label bn-step-field__label--toggle"
+              role="button"
               tabIndex={-1}
+              onClick={labelToggle.onClick}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  labelToggle.onClick();
+                }
+              }}
+              aria-expanded={labelToggle.expanded}
             >
-              ⌄
-            </button>
-        )}
+              {label}
+            </span>
+          ) : (
+            <span className="bn-step-field__label">{label}</span>
+          )}
+          {enableAutocomplete && (
+              <button
+                type="button"
+                className="bn-step-suggestions-toggle"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  setShowAllSuggestions(true);
+                  textareaNode?.focus();
+                }}
+                aria-label="Show suggestions"
+                tabIndex={-1}
+              >
+                ⌄
+              </button>
+          )}
+        </div>
         <div className="bn-step-toolbar" aria-label={`${label} controls`}>
           {showFormattingButtons && (
             <>
