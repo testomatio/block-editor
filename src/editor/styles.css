@@ -259,7 +259,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  text-decoration: underline dashed rgba(37, 99, 235, 0.75);
+  text-decoration: none;
 }
 
 .bn-step-field__label--toggle:hover {
@@ -269,6 +269,8 @@
 .bn-step-field__indicator {
   font-size: 0.85em;
   font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dashed;
 }
 
 .bn-step-toolbar {
