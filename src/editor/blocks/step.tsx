@@ -57,7 +57,6 @@ export const stepBlock = createReactBlockSpec(
       const [isExpectedVisible, setIsExpectedVisible] = useState(
         expectedHasContent ? true : !storedExpectedCollapsed,
       );
-      const showExpectedField = expectedHasContent || isExpectedVisible;
       const [isDataVisible, setIsDataVisible] = useState(() => stepData.trim().length > 0);
       const [shouldFocusDataField, setShouldFocusDataField] = useState(false);
       const uploadImage = useStepImageUpload();
@@ -164,7 +163,8 @@ export const stepBlock = createReactBlockSpec(
         }
       }, [expectedHasContent, isExpectedVisible]);
 
-      const renderExpectedLabel = showExpectedField ? "- Expected Result" : "+ Expected Result";
+      const labelToggleText = isExpectedVisible ? "- Expected Result" : "+ Expected Result";
+      const canToggleExpected = !expectedHasContent;
 
       return (
         <div className="bn-teststep" data-block-id={block.id}>
@@ -227,13 +227,18 @@ export const stepBlock = createReactBlockSpec(
               onFieldFocus={handleFieldFocus}
             />
           )}
-          {showExpectedField && (
+          {isExpectedVisible ? (
             <StepField
-              labelButton={{
-                text: renderExpectedLabel,
-                onClick: showExpectedField ? handleHideExpected : handleShowExpected,
-                expanded: showExpectedField,
-              }}
+              label="Expected Result"
+              labelButton={
+                canToggleExpected
+                  ? {
+                      text: labelToggleText,
+                      onClick: handleHideExpected,
+                      expanded: true,
+                    }
+                  : undefined
+              }
               value={expectedResult}
               onChange={handleExpectedChange}
               multiline
@@ -242,6 +247,17 @@ export const stepBlock = createReactBlockSpec(
               showImageButton
               onFieldFocus={handleFieldFocus}
             />
+          ) : (
+            <div className="bn-step-field bn-step-field--collapsed">
+              <button
+                type="button"
+                className="bn-step-field__label bn-step-field__label--link"
+                onClick={handleShowExpected}
+                aria-expanded="false"
+              >
+                + Expected Result
+              </button>
+            </div>
           )}
           <button type="button" className="bn-step-add" onClick={handleInsertNextStep}>
             + Step
