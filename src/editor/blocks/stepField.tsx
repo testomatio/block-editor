@@ -11,8 +11,7 @@ type Suggestion = StepSuggestion | SnippetSuggestion;
 
 type StepFieldProps = {
   label: string;
-  labelButton?: {
-    indicator: string;
+  labelToggle?: {
     onClick: () => void;
     expanded: boolean;
   };
@@ -76,7 +75,7 @@ function markdownToPlainText(markdown: string): string {
 
 export function StepField({
   label,
-  labelButton,
+  labelToggle,
   value,
   onChange,
   autoFocus,
@@ -560,22 +559,21 @@ export function StepField({
   return (
     <div className="bn-step-field">
       <div className="bn-step-field__top">
-        {labelButton ? (
+        {labelToggle ? (
           <span
             className="bn-step-field__label bn-step-field__label--toggle"
             role="button"
             tabIndex={0}
-            onClick={labelButton.onClick}
+            onClick={labelToggle.onClick}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                labelButton.onClick();
+                labelToggle.onClick();
               }
             }}
-            aria-expanded={labelButton.expanded}
+            aria-expanded={labelToggle.expanded}
           >
-            <span>{label}</span>
-            <span className="bn-step-field__indicator">{labelButton.indicator}</span>
+            {label}
           </span>
         ) : (
           <span className="bn-step-field__label">{label}</span>

@@ -254,17 +254,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  text-decoration: underline dotted rgba(37, 99, 235, 0.7);
 }
 
 .bn-step-field__label--toggle:hover {
   color: #1e3a8a;
-}
-
-.bn-step-field__indicator {
-  font-size: 0.85em;
-  font-weight: 700;
-  text-decoration: underline;
-  text-decoration-style: dashed;
 }
 
 .bn-step-toolbar {
