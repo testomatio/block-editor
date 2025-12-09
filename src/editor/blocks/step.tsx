@@ -251,7 +251,7 @@ export const stepBlock = createReactBlockSpec(
             <div className="bn-step-field bn-step-field--collapsed">
               <button
                 type="button"
-                className="bn-step-field__label bn-step-field__label--link"
+                className="bn-step-field__label bn-step-field__label--toggle"
                 onClick={handleShowExpected}
                 aria-expanded="false"
               >

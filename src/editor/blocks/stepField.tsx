@@ -563,7 +563,7 @@ export function StepField({
         {labelButton ? (
           <button
             type="button"
-            className="bn-step-field__label bn-step-field__label--link"
+            className="bn-step-field__label bn-step-field__label--toggle"
             onClick={labelButton.onClick}
             aria-expanded={labelButton.expanded}
           >
