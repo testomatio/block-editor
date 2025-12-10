@@ -834,6 +834,61 @@ describe("markdownToBlocks", () => {
     ]);
   });
 
+  it("handles multiple steps with expected results without extra asterisks", () => {
+    const markdown = [
+      "### Preconditions",
+      "",
+      "User on the Sign In with Email Screen",
+      "",
+      "### Steps",
+      "",
+      "* Existing email + invalid password",
+      "  *Expected*: 'Oops, wrong email or password' is displayed",
+      "* Not existing email + valid password",
+      "  *Expected*: 'Oops, wrong email or password' is displayed",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+
+    expect(stepBlocks).toHaveLength(2);
+
+    expect(stepBlocks[0]).toEqual({
+      type: "testStep",
+      props: {
+        stepTitle: "Existing email + invalid password",
+        stepData: "",
+        expectedResult: "'Oops, wrong email or password' is displayed",
+      },
+      children: [],
+    });
+
+    expect(stepBlocks[1]).toEqual({
+      type: "testStep",
+      props: {
+        stepTitle: "Not existing email + valid password",
+        stepData: "",
+        expectedResult: "'Oops, wrong email or password' is displayed",
+      },
+      children: [],
+    });
+
+    // Verify round-trip doesn't add extra asterisks
+    const roundTrip = blocksToMarkdown(stepBlocks.map((block, index) => ({
+      ...block,
+      id: `step${index}`,
+    })) as CustomEditorBlock[]);
+
+    expect(roundTrip).toBe(
+      [
+        "* Existing email + invalid password",
+        "  *Expected*: 'Oops, wrong email or password' is displayed",
+        "* Not existing email + valid password",
+        "  *Expected*: 'Oops, wrong email or password' is displayed",
+      ].join("\n"),
+    );
+  });
+
   it("round-trips simple blocks", () => {
     const blocks: CustomEditorBlock[] = [
       {

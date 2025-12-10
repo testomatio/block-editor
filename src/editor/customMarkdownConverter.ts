@@ -825,7 +825,6 @@ function parseTestStep(
   let expectedResult = "";
   let next = index + 1;
   let inExpectedResult = false;
-  let foundFirstExpected = false;
 
   while (next < lines.length) {
     const line = lines[next];
@@ -867,7 +866,6 @@ function parseTestStep(
                                rawTrimmed.match(/^\*expected\*:\s*(.*)$/i);
 
     if (expectedMatch || expectedStarMatch) {
-      foundFirstExpected = true;
       inExpectedResult = true;
       const label = expectedMatch ? expectedMatch[0] : (expectedStarMatch ? expectedStarMatch[0] : '');
       let content = rawTrimmed.slice(label.length).trim();
@@ -887,7 +885,6 @@ function parseTestStep(
 
     // Check for lines that start with * and contain Expected (but don't match the above patterns)
     if (rawTrimmed.match(/^\*[^*]*expected/i)) {
-      foundFirstExpected = true;
       inExpectedResult = true;
       // Remove the leading * and trim
       let content = rawTrimmed.slice(1).trim();
@@ -935,15 +932,6 @@ function parseTestStep(
       // After finding the first expected result, indented lines are part of it
       if (hasIndent) {
         const expectedContent = unescapeMarkdown(rawTrimmed);
-        if (expectedResult.length > 0) {
-          expectedResult += "\n" + expectedContent;
-        } else {
-          expectedResult = expectedContent;
-        }
-      } else if (foundFirstExpected && rawTrimmed.startsWith("*") && !rawTrimmed.startsWith("* ")) {
-        // Non-indented lines starting with single * (not list item) are likely more expected results
-        // Remove the leading * and treat the rest as content
-        const expectedContent = unescapeMarkdown(rawTrimmed.slice(1).trim());
         if (expectedResult.length > 0) {
           expectedResult += "\n" + expectedContent;
         } else {
