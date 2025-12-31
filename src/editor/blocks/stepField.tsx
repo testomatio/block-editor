@@ -17,6 +17,7 @@ type StepFieldProps = {
     expanded: boolean;
   };
   labelAction?: ReactNode;
+  placeholder?: string;
   value: string;
   onChange: (nextValue: string) => void;
   autoFocus?: boolean;
@@ -100,6 +101,7 @@ export function StepField({
   showLabel = true,
   labelToggle,
   labelAction,
+  placeholder,
   value,
   onChange,
   autoFocus,
@@ -136,6 +138,7 @@ export function StepField({
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const resolvedPlaceholder = placeholder ?? "";
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -157,6 +160,7 @@ export function StepField({
 
     const [instance] = OverType.init(container, {
       value: initialValueRef.current,
+      placeholder: resolvedPlaceholder,
       autoResize: multiline,
       minHeight: multiline ? "4rem" : "2.5rem",
       padding: "0.5rem 0.75rem",
@@ -172,7 +176,7 @@ export function StepField({
       editorInstanceRef.current = null;
       setTextareaNode(null);
     };
-  }, [handleEditorChange, multiline]);
+  }, [handleEditorChange, multiline, resolvedPlaceholder]);
 
   useEffect(() => {
     if (pendingFocusRef.current && textareaNode) {

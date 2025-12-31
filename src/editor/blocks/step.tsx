@@ -1,10 +1,16 @@
 import { createReactBlockSpec, useEditorChange } from "@blocknote/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StepField } from "./stepField";
+import { StepHorizontalView } from "./stepHorizontalView";
 import { useStepImageUpload } from "../stepImageUpload";
 import type { StepSuggestion } from "../stepAutocomplete";
 
 const EXPECTED_COLLAPSED_KEY = "bn-expected-collapsed";
+const VIEW_MODE_KEY = "bn-step-view-mode";
+const STEP_TITLE_PLACEHOLDER = "Enter step title...";
+const STEP_DATA_PLACEHOLDER = "Enter step data...";
+const EXPECTED_RESULT_PLACEHOLDER = "Enter expected result...";
+type StepViewMode = "vertical" | "horizontal";
 
 const readExpectedCollapsedPreference = (): boolean => {
   if (typeof window === "undefined") {
@@ -23,6 +29,28 @@ const writeExpectedCollapsedPreference = (collapsed: boolean) => {
   }
   try {
     window.localStorage.setItem(EXPECTED_COLLAPSED_KEY, collapsed ? "true" : "false");
+  } catch {
+    //
+  }
+};
+
+const readStepViewMode = (): StepViewMode => {
+  if (typeof window === "undefined") {
+    return "vertical";
+  }
+  try {
+    return window.localStorage.getItem(VIEW_MODE_KEY) === "horizontal" ? "horizontal" : "vertical";
+  } catch {
+    return "vertical";
+  }
+};
+
+const writeStepViewMode = (mode: StepViewMode) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(VIEW_MODE_KEY, mode);
   } catch {
     //
   }
@@ -62,6 +90,7 @@ export const stepBlock = createReactBlockSpec(
       const [shouldFocusDataField, setShouldFocusDataField] = useState(false);
       const [documentVersion, setDocumentVersion] = useState(0);
       const uploadImage = useStepImageUpload();
+      const [viewMode, setViewMode] = useState<StepViewMode>(() => readStepViewMode());
 
       // Calculate step number based on position in document
       const stepNumber = useMemo(() => {
@@ -74,6 +103,50 @@ export const stepBlock = createReactBlockSpec(
       useEditorChange(() => {
         setDocumentVersion((version) => version + 1);
       }, editor);
+
+      useEffect(() => {
+        if (typeof window === "undefined") {
+          return;
+        }
+        const handleStorage = (event: StorageEvent) => {
+          if (event.key === VIEW_MODE_KEY) {
+            setViewMode(readStepViewMode());
+          }
+        };
+        const handleLocal = () => {
+          setViewMode(readStepViewMode());
+        };
+        window.addEventListener("storage", handleStorage);
+        window.addEventListener("bn-step-view-mode", handleLocal as EventListener);
+        return () => {
+          window.removeEventListener("storage", handleStorage);
+          window.removeEventListener("bn-step-view-mode", handleLocal as EventListener);
+        };
+      }, []);
+
+      const combinedStepValue = useMemo(() => {
+        if (!stepData) {
+          return stepTitle;
+        }
+        return stepTitle ? `${stepTitle}\n${stepData}` : stepData;
+      }, [stepData, stepTitle]);
+
+      const handleCombinedStepChange = useCallback(
+        (next: string) => {
+          if (next === combinedStepValue) {
+            return;
+          }
+          const [nextTitle = "", ...rest] = next.split("\n");
+          const nextData = rest.join("\n");
+          editor.updateBlock(block.id, {
+            props: {
+              stepTitle: nextTitle,
+              stepData: nextData,
+            },
+          });
+        },
+        [block.id, combinedStepValue, editor],
+      );
 
       useEffect(() => {
         if (dataHasContent && !isDataVisible) {
@@ -154,8 +227,28 @@ export const stepBlock = createReactBlockSpec(
       }, [editor, block.id]);
 
       const handleFieldFocus = useCallback(() => {
-        editor.setSelection(block.id, block.id);
+        const selection = editor.getSelection();
+        const blocks = selection?.blocks ?? [];
+        const firstId = blocks[0]?.id;
+        const lastId = blocks[blocks.length - 1]?.id;
+        if (firstId === block.id && lastId === block.id) {
+          return;
+        }
+        try {
+          editor.setSelection(block.id, block.id);
+        } catch {
+          //
+        }
       }, [editor, block.id]);
+
+      const handleToggleView = useCallback(() => {
+        const next = viewMode === "horizontal" ? "vertical" : "horizontal";
+        writeStepViewMode(next);
+        setViewMode(next);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("bn-step-view-mode"));
+        }
+      }, [viewMode]);
 
       const [dataFocusSignal] = useState(0);
       const [expectedFocusSignal, setExpectedFocusSignal] = useState(0);
@@ -180,6 +273,34 @@ export const stepBlock = createReactBlockSpec(
       const canToggleData = !dataHasContent;
       const canToggleExpected = !expectedHasContent;
 
+      if (viewMode === "horizontal") {
+        return (
+          <StepHorizontalView
+            blockId={block.id}
+            stepNumber={stepNumber}
+            stepValue={combinedStepValue}
+            expectedResult={expectedResult}
+            onStepChange={handleCombinedStepChange}
+            onExpectedChange={handleExpectedChange}
+            onInsertNextStep={handleInsertNextStep}
+            onFieldFocus={handleFieldFocus}
+            viewToggle={
+              <button
+                type="button"
+                className="bn-teststep__view-toggle bn-teststep__view-toggle--horizontal"
+                aria-label="Switch step view"
+                onClick={handleToggleView}
+              >
+                <span className="bn-teststep__view-icon" aria-hidden="true">
+                  <span />
+                  <span />
+                </span>
+              </button>
+            }
+          />
+        );
+      }
+
       return (
         <div className="bn-teststep" data-block-id={block.id}>
           <div className="bn-teststep__header">
@@ -191,6 +312,7 @@ export const stepBlock = createReactBlockSpec(
               type="button"
               className="bn-teststep__view-toggle"
               aria-label="Switch step view"
+              onClick={handleToggleView}
             >
               <span className="bn-teststep__view-icon" aria-hidden="true">
                 <span />
@@ -202,6 +324,7 @@ export const stepBlock = createReactBlockSpec(
             label="Step"
             showLabel={false}
             value={stepTitle}
+            placeholder={STEP_TITLE_PLACEHOLDER}
             onChange={handleStepTitleChange}
             autoFocus={stepTitle.length === 0}
             enableAutocomplete
@@ -235,6 +358,7 @@ export const stepBlock = createReactBlockSpec(
           {isDataVisible ? (
             <StepField
               label="Step data"
+              placeholder={STEP_DATA_PLACEHOLDER}
               labelAction={
                 canToggleData ? (
                   <button
@@ -261,6 +385,7 @@ export const stepBlock = createReactBlockSpec(
           {isExpectedVisible ? (
             <StepField
               label="Expected result"
+              placeholder={EXPECTED_RESULT_PLACEHOLDER}
               labelAction={
                 canToggleExpected ? (
                   <button
