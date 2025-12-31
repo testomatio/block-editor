@@ -1,4 +1,4 @@
-import { createReactBlockSpec } from "@blocknote/react";
+import { createReactBlockSpec, useEditorChange } from "@blocknote/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StepField } from "./stepField";
 import { useStepImageUpload } from "../stepImageUpload";
@@ -60,6 +60,7 @@ export const stepBlock = createReactBlockSpec(
       );
       const [isDataVisible, setIsDataVisible] = useState(dataHasContent);
       const [shouldFocusDataField, setShouldFocusDataField] = useState(false);
+      const [documentVersion, setDocumentVersion] = useState(0);
       const uploadImage = useStepImageUpload();
 
       // Calculate step number based on position in document
@@ -68,7 +69,11 @@ export const stepBlock = createReactBlockSpec(
         const stepBlocks = allBlocks.filter((b) => b.type === "testStep");
         const index = stepBlocks.findIndex((b) => b.id === block.id);
         return index >= 0 ? index + 1 : 1;
-      }, [editor.document, block.id]);
+      }, [block.id, documentVersion, editor.document]);
+
+      useEditorChange(() => {
+        setDocumentVersion((version) => version + 1);
+      }, editor);
 
       useEffect(() => {
         if (dataHasContent && !isDataVisible) {
@@ -177,9 +182,26 @@ export const stepBlock = createReactBlockSpec(
 
       return (
         <div className="bn-teststep" data-block-id={block.id}>
-            <StepField
-              label={`Step ${stepNumber}`}
-              value={stepTitle}
+          <div className="bn-teststep__header">
+            <div className="bn-teststep__meta">
+              <span className="bn-teststep__number">{stepNumber}</span>
+              <span className="bn-teststep__title">Step</span>
+            </div>
+            <button
+              type="button"
+              className="bn-teststep__view-toggle"
+              aria-label="Switch step view"
+            >
+              <span className="bn-teststep__view-icon" aria-hidden="true">
+                <span />
+                <span />
+              </span>
+            </button>
+          </div>
+          <StepField
+            label="Step"
+            showLabel={false}
+            value={stepTitle}
             onChange={handleStepTitleChange}
             autoFocus={stepTitle.length === 0}
             enableAutocomplete
@@ -212,14 +234,18 @@ export const stepBlock = createReactBlockSpec(
           />
           {isDataVisible ? (
             <StepField
-              label="Step Data"
-              labelToggle={
-                canToggleData
-                  ? {
-                      onClick: handleHideData,
-                      expanded: true,
-                    }
-                  : undefined
+              label="Step data"
+              labelAction={
+                canToggleData ? (
+                  <button
+                    type="button"
+                    className="bn-step-field__dismiss"
+                    onClick={handleHideData}
+                    aria-label="Hide step data"
+                  >
+                    ×
+                  </button>
+                ) : undefined
               }
               value={stepData}
               onChange={handleStepDataChange}
@@ -231,35 +257,22 @@ export const stepBlock = createReactBlockSpec(
               showImageButton
               onFieldFocus={handleFieldFocus}
             />
-          ) : (
-            <div className="bn-step-field bn-step-field--collapsed">
-              <span
-                className="bn-step-field__label bn-step-field__label--toggle"
-                role="button"
-                tabIndex={-1}
-                onClick={handleShowData}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    handleShowData();
-                  }
-                }}
-                aria-expanded="false"
-              >
-                Step Data
-              </span>
-            </div>
-          )}
+          ) : null}
           {isExpectedVisible ? (
             <StepField
-              label="Expected Result"
-              labelToggle={
-                canToggleExpected
-                  ? {
-                      onClick: handleHideExpected,
-                      expanded: true,
-                    }
-                  : undefined
+              label="Expected result"
+              labelAction={
+                canToggleExpected ? (
+                  <button
+                    type="button"
+                    className="bn-step-field__dismiss"
+                    onClick={handleHideExpected}
+                    tabIndex={-1}
+                    aria-label="Hide expected result"
+                  >
+                    ×
+                  </button>
+                ) : undefined
               }
               value={expectedResult}
               onChange={handleExpectedChange}
@@ -270,28 +283,31 @@ export const stepBlock = createReactBlockSpec(
               showImageButton
               onFieldFocus={handleFieldFocus}
             />
-          ) : (
-            <div className="bn-step-field bn-step-field--collapsed">
-              <span
-                className="bn-step-field__label bn-step-field__label--toggle"
-                role="button"
-                tabIndex={-1}
-                onClick={handleShowExpected}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    handleShowExpected();
-                  }
-                }}
-                aria-expanded="false"
-              >
-                Expected Result
+          ) : null}
+          <div className="bn-step-actions">
+            <button type="button" className="bn-step-add" onClick={handleInsertNextStep}>
+              <span className="bn-step-add__icon" aria-hidden="true">
+                +
               </span>
-            </div>
-          )}
-          <button type="button" className="bn-step-add" onClick={handleInsertNextStep}>
-            + Step
-          </button>
+              Add new step
+            </button>
+            {!isDataVisible && (
+              <button type="button" className="bn-step-action-link" onClick={handleShowData}>
+                <span className="bn-step-action-link__icon" aria-hidden="true">
+                  +
+                </span>
+                Step data
+              </button>
+            )}
+            {!isExpectedVisible && (
+              <button type="button" className="bn-step-action-link" onClick={handleShowExpected}>
+                <span className="bn-step-action-link__icon" aria-hidden="true">
+                  +
+                </span>
+                Expected result
+              </button>
+            )}
+          </div>
         </div>
       );
     },

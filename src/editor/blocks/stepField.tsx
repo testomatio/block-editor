@@ -11,10 +11,12 @@ type Suggestion = StepSuggestion | SnippetSuggestion;
 
 type StepFieldProps = {
   label: string;
+  showLabel?: boolean;
   labelToggle?: {
     onClick: () => void;
     expanded: boolean;
   };
+  labelAction?: ReactNode;
   value: string;
   onChange: (nextValue: string) => void;
   autoFocus?: boolean;
@@ -46,6 +48,25 @@ const AUTOCOMPLETE_TRIGGER_KEYS = new Set([" ", "Space"]);
 
 const markdownParser = (OverType as { MarkdownParser?: { parse: (markdown: string) => string } }).MarkdownParser;
 
+function ImageUploadIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 13 13"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M10.667 9.33398H12.667V10.667H10.667V12.667H9.33398V10.667H7.33398V9.33398H9.33398V7.33398H10.667V9.33398ZM10.667 0C11.407 0 12 0.593984 12 1.33398V6.5332C11.5935 6.3 11.1468 6.13368 10.667 6.05371V1.33398H1.33398V10.667H6.05371C6.13368 11.1468 6.3 11.5935 6.5332 12H1.33398C0.593984 12 0 11.407 0 10.667V1.33398C0 0.593984 0.593984 0 1.33398 0H10.667ZM6 9.33398H2.66699V8H6V9.33398ZM9.33398 6.05371C8.76735 6.14704 8.24709 6.36035 7.78711 6.66699H2.66699V5.33398H9.33398V6.05371ZM9.33398 4H2.66699V2.66699H9.33398V4Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 type ExtractedImage = {
   id: string;
   url: string;
@@ -76,7 +97,9 @@ function markdownToPlainText(markdown: string): string {
 
 export function StepField({
   label,
+  showLabel = true,
   labelToggle,
+  labelAction,
   value,
   onChange,
   autoFocus,
@@ -565,30 +588,43 @@ export function StepField({
     .filter(Boolean)
     .join(" ");
 
+  const inputClassName = [
+    "bn-step-field__input",
+    multiline ? "bn-step-field__input--multiline" : "",
+    isFocused ? "bn-step-field__input--focused" : "",
+    readOnly ? "bn-step-field__input--readonly" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const showToolbar =
+    showFormattingButtons || (enableImageUpload && uploadImage && showImageButton) || Boolean(rightAction);
+
   return (
     <div className="bn-step-field">
-      <div className="bn-step-field__top">
-        <div className="bn-step-field__label-row">
-          {labelToggle ? (
-            <span
-              className="bn-step-field__label bn-step-field__label--toggle"
-              role="button"
-              tabIndex={-1}
-              onClick={labelToggle.onClick}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  labelToggle.onClick();
-                }
-              }}
-              aria-expanded={labelToggle.expanded}
-            >
-              {label}
-            </span>
-          ) : (
-            <span className="bn-step-field__label">{label}</span>
-          )}
-          {enableAutocomplete && (
+      {showLabel && (
+        <div className="bn-step-field__top">
+          <div className="bn-step-field__label-row">
+            {labelToggle ? (
+              <span
+                className="bn-step-field__label bn-step-field__label--toggle"
+                role="button"
+                tabIndex={-1}
+                onClick={labelToggle.onClick}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    labelToggle.onClick();
+                  }
+                }}
+                aria-expanded={labelToggle.expanded}
+              >
+                {label}
+              </span>
+            ) : (
+              <span className="bn-step-field__label">{label}</span>
+            )}
+            {enableAutocomplete && (
               <button
                 type="button"
                 className="bn-step-suggestions-toggle"
@@ -602,54 +638,75 @@ export function StepField({
               >
                 ⌄
               </button>
-          )}
+            )}
+          </div>
+          {labelAction && <div className="bn-step-field__label-action">{labelAction}</div>}
         </div>
-        <div className="bn-step-toolbar" aria-label={`${label} controls`}>
-          {showFormattingButtons && (
-            <>
-              <button
-                type="button"
-                className="bn-step-toolbar__button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  handleToolbarAction("toggleBold");
-                }}
-                aria-label="Bold"
-                tabIndex={-1}
-              >
-                B
-              </button>
-              <button
-                type="button"
-                className="bn-step-toolbar__button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  handleToolbarAction("toggleItalic");
-                }}
-                aria-label="Italic"
-                tabIndex={-1}
-              >
-                I
-              </button>
-            </>
-          )}
-          {enableImageUpload && uploadImage && showImageButton && (
+      )}
+      <div className={inputClassName} aria-label={`${label} input`}>
+        <div
+          ref={editorContainerRef}
+          className={editorClassName}
+          data-step-field={fieldName}
+          tabIndex={-1}
+          onFocus={(event) => {
+            if (event.target === editorContainerRef.current) {
+              if (textareaNode) {
+                textareaNode.focus();
+              } else {
+                pendingFocusRef.current = true;
+              }
+            }
+          }}
+        />
+        {showToolbar && (
+          <div className="bn-step-toolbar" aria-label={`${label} controls`}>
+            {showFormattingButtons && (
+              <>
             <button
               type="button"
               className="bn-step-toolbar__button"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                fileInputRef.current?.click();
-              }}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    handleToolbarAction("toggleBold");
+                  }}
+                  aria-label="Bold"
+                  tabIndex={-1}
+                >
+                  B
+                </button>
+                <button
+                  type="button"
+                  className="bn-step-toolbar__button"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    handleToolbarAction("toggleItalic");
+                  }}
+                  aria-label="Italic"
+                  tabIndex={-1}
+                >
+                  I
+                </button>
+              </>
+            )}
+            {enableImageUpload && uploadImage && showImageButton && (
+              <button
+                type="button"
+                className="bn-step-toolbar__button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  fileInputRef.current?.click();
+                }}
               aria-label="Insert image"
               tabIndex={-1}
               disabled={isUploading}
             >
-              Img
+              <ImageUploadIcon />
             </button>
           )}
-          {rightAction}
-        </div>
+            {rightAction}
+          </div>
+        )}
       </div>
       {enableImageUpload && (
         <input
@@ -677,21 +734,6 @@ export function StepField({
           }}
         />
       )}
-      <div
-        ref={editorContainerRef}
-        className={editorClassName}
-        data-step-field={fieldName}
-        tabIndex={-1}
-        onFocus={(event) => {
-          if (event.target === editorContainerRef.current) {
-            if (textareaNode) {
-              textareaNode.focus();
-            } else {
-              pendingFocusRef.current = true;
-            }
-          }
-        }}
-      />
       {extractedImages.length > 0 && (
         <div className="bn-step-images" role="list">
           {extractedImages.map((image) => (

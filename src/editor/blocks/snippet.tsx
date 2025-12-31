@@ -166,12 +166,26 @@ function SnippetDataField({
     [isFocused],
   );
 
+  const inputClassName = useMemo(
+    () =>
+      [
+        "bn-step-field__input",
+        "bn-step-field__input--multiline",
+        isFocused ? "bn-step-field__input--focused" : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    [isFocused],
+  );
+
   return (
     <div className="bn-step-field">
       <div className="bn-step-field__top">
         <span className="bn-step-field__label">{label}</span>
       </div>
-      <div ref={containerRef} className={editorClassName} data-step-field={fieldName} />
+      <div className={inputClassName}>
+        <div ref={containerRef} className={editorClassName} data-step-field={fieldName} />
+      </div>
     </div>
   );
 }

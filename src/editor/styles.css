@@ -44,22 +44,21 @@
   --bg-muted: rgba(15, 23, 42, 0.05);
 
   /* Step block colors */
-  --step-border: rgba(59, 130, 246, 0.65);
-  --step-bg: rgba(59, 130, 246, 0.12);
-  --step-shadow: rgba(37, 99, 235, 0.08);
-  --step-border-light: rgba(37, 99, 235, 0.25);
-  --step-border-medium: rgba(37, 99, 235, 0.35);
-  --step-border-strong: rgba(37, 99, 235, 0.55);
-  --step-border-focus: rgba(37, 99, 235, 0.7);
-  --step-bg-hover: rgba(59, 130, 246, 0.18);
-  --step-bg-light: rgba(59, 130, 246, 0.1);
-  --step-bg-button: rgba(37, 99, 235, 0.12);
-  --step-bg-button-hover: rgba(37, 99, 235, 0.2);
-  --step-focus-ring: rgba(59, 130, 246, 0.2);
-  --step-focus-outline: rgba(37, 99, 235, 0.4);
-  --step-underline: rgba(37, 99, 235, 0.7);
-  --step-shadow-hover: rgba(37, 99, 235, 0.18);
-  --step-shadow-focus: rgba(37, 99, 235, 0.2);
+  --step-card-bg: #f7f7f8;
+  --step-card-border: #e5e7eb;
+  --step-card-shadow: rgba(15, 23, 42, 0.06);
+  --step-input-border: #d1d5db;
+  --step-input-border-focus: #4f46e5;
+  --step-input-shadow: rgba(79, 70, 229, 0.25);
+  --step-text: #1f2937;
+  --step-muted: #6b7280;
+  --step-action: #374151;
+  --step-bg-button: #ffffff;
+  --step-bg-button-hover: #f3f4f6;
+  --step-border-focus: rgba(79, 70, 229, 0.4);
+  --step-border-light: rgba(15, 23, 42, 0.12);
+  --step-bg-light: rgba(15, 23, 42, 0.04);
+  --step-shadow-hover: rgba(15, 23, 42, 0.1);
 
   /* Snippet block colors */
   --snippet-border: rgba(16, 185, 129, 0.75);
@@ -177,12 +176,12 @@
 }
 
 .bn-teststep {
-  border-radius: 0.85rem;
-  border-left: 5px solid var(--step-border);
-  background: var(--step-bg);
-  padding: 0.85rem 1.1rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--step-card-border);
+  background: var(--step-card-bg);
+  padding: 1.1rem 1.25rem 1.25rem 4.2rem;
   display: grid;
-  gap: 0.75rem;
+  gap: 0.9rem;
   position: relative;
   width: 100%;
 }
@@ -193,11 +192,11 @@
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  box-shadow: 0 0 0 1px var(--step-shadow);
+  box-shadow: 0 1px 0 var(--step-card-shadow);
 }
 
 .bn-snippet {
-  border-left-color: var(--snippet-border);
+  border-color: var(--snippet-border);
   background: var(--snippet-bg);
 }
 
@@ -205,39 +204,81 @@
   box-shadow: 0 0 0 1px var(--snippet-shadow);
 }
 
-.bn-snippet .bn-teststep__toggle {
-  border-color: rgba(16, 185, 129, 0.45);
-  background: var(--snippet-bg-light);
-  color: var(--color-accent-700);
-}
-
-.bn-snippet .bn-teststep__toggle:hover {
-  background: var(--snippet-bg-hover);
-  border-color: var(--snippet-border-strong);
-  box-shadow: 0 0 0 1px var(--snippet-focus-ring);
-}
-
 .bn-snippet .bn-step-field__label {
   color: var(--color-accent-700);
 }
 
-.bn-snippet .bn-step-toolbar__button {
-  border-color: var(--snippet-border-medium);
-  color: var(--color-accent-700);
+.bn-teststep__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.bn-snippet .bn-step-toolbar__button:hover {
-  background: var(--snippet-bg);
-  border-color: var(--snippet-border-strong);
+.bn-teststep__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.bn-snippet .bn-step-editor {
+.bn-teststep__number {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #111827;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  left: 1.1rem;
+  top: 1.05rem;
+}
+
+.bn-teststep__title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--step-text);
+}
+
+.bn-teststep__view-toggle {
+  border: none;
+  background: transparent;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.bn-teststep__view-toggle:hover {
+  background: var(--step-bg-button-hover);
+}
+
+.bn-teststep__view-icon {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.bn-teststep__view-icon span {
+  width: 0.4rem;
+  height: 1.1rem;
+  border: 2px solid #111827;
+  border-radius: 0.2rem;
+  display: inline-block;
+}
+
+.bn-snippet .bn-step-field__input {
   border-color: var(--snippet-border-light);
 }
 
-.bn-snippet .bn-step-editor.bn-step-editor--focused {
+.bn-snippet .bn-step-field__input--focused {
   border-color: var(--snippet-border-focus);
   box-shadow: 0 0 0 3px var(--snippet-focus-ring);
+}
+
+.bn-snippet .bn-step-toolbar__button {
+  color: var(--color-accent-700);
 }
 
 .bn-snippet .bn-step-suggestions {
@@ -259,49 +300,70 @@
   color: var(--text-muted);
 }
 
+.bn-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .bn-step-add {
   align-self: flex-start;
-  margin-top: 0.25rem;
-  border: none;
+  border: 1px solid var(--step-card-border);
   background: var(--step-bg-button);
-  color: var(--color-primary-700);
+  color: var(--step-action);
   font-weight: 600;
-  font-size: 0.85rem;
-  padding: 0.35rem 0.65rem;
-  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  padding: 0.35rem 0.9rem 0.35rem 0.5rem;
+  border-radius: 999px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   transition:
     background-color 120ms ease,
-    box-shadow 120ms ease;
+    box-shadow 120ms ease,
+    border-color 120ms ease;
 }
 
 .bn-step-add:hover {
   background: var(--step-bg-button-hover);
-  box-shadow: 0 0 0 1px var(--step-shadow-hover);
+  box-shadow: 0 1px 0 var(--step-shadow-hover);
+  border-color: rgba(15, 23, 42, 0.2);
 }
 
-.bn-teststep__toggle {
-  align-self: flex-start;
-  padding: 0.35rem 0.6rem;
-  border-radius: 0.5rem;
-  border: 1px dashed rgba(37, 99, 235, 0.45);
-  background: var(--step-bg-light);
-  color: var(--color-primary-700);
-  font-size: 0.75rem;
+.bn-step-add__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    box-shadow 120ms ease;
+  color: var(--step-action);
 }
 
-.bn-teststep__toggle:hover {
-  background: var(--step-bg-hover);
-  border-color: var(--step-border-strong);
-  box-shadow: 0 0 0 1px var(--step-shadow-focus);
+.bn-step-action-link {
+  border: none;
+  background: transparent;
+  color: var(--step-action);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.1rem;
+}
+
+.bn-step-action-link:hover {
+  color: var(--step-text);
+}
+
+.bn-step-action-link__icon {
+  font-weight: 700;
+  color: var(--step-action);
 }
 
 .bn-step-field {
@@ -332,11 +394,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 700;
-  color: var(--color-primary-700);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--step-text);
 }
 
 .bn-step-field__label--toggle {
@@ -347,20 +407,39 @@
   text-decoration-line: underline;
   text-decoration-style: dashed;
   text-underline-offset: 0.2em;
-  text-decoration-color: var(--step-underline);
+  text-decoration-color: var(--step-muted);
 }
 
 .bn-step-field__label--toggle:hover {
-  color: var(--color-primary-900);
+  color: var(--step-text);
+}
+
+.bn-step-field__label-action {
+  display: inline-flex;
+  align-items: center;
+}
+
+.bn-step-field__dismiss {
+  border: none;
+  background: transparent;
+  color: var(--step-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.1rem 0.2rem;
+}
+
+.bn-step-field__dismiss:hover {
+  color: var(--step-text);
 }
 
 .bn-step-suggestions-toggle {
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 0.4rem;
-  border: 1px solid var(--step-border-medium);
+  border: 1px solid var(--step-border-light);
   background: transparent;
-  color: var(--color-primary-700);
+  color: var(--step-text);
   font-weight: 700;
   font-size: 1rem;
   display: flex;
@@ -374,62 +453,62 @@
 }
 
 .bn-step-suggestions-toggle:hover {
-  background: var(--step-bg-button);
-  border-color: var(--step-border-strong);
+  background: var(--step-bg-button-hover);
+  border-color: rgba(15, 23, 42, 0.2);
 }
 
-.bn-step-field__label--toggle {
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  text-decoration-line: underline;
-  text-decoration-style: dashed;
-  text-underline-offset: 0.2em;
-  text-decoration-color: rgba(37, 99, 235, 0.7);
-}
-
-.bn-step-field__label--toggle:hover {
-  color: #1e3a8a;
-}
-
-.bn-step-toolbar {
+.bn-step-field__input {
+  border: 1px solid var(--step-input-border);
+  border-radius: 0.85rem;
+  background: var(--color-white);
   display: flex;
-  gap: 0.35rem;
-}
-
-.bn-step-toolbar__button {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.4rem;
-  border: 1px solid var(--step-border-medium);
-  background: var(--bg-white);
-  color: var(--color-primary-700);
-  font-weight: 700;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: hidden;
   transition:
-    background-color 120ms ease,
     border-color 120ms ease,
     box-shadow 120ms ease;
 }
 
+.bn-step-field__input--multiline {
+  min-height: 4rem;
+}
+
+.bn-step-field__input--focused {
+  border-color: var(--step-input-border-focus);
+  box-shadow: 0 0 0 3px var(--step-input-shadow);
+}
+
+.bn-step-toolbar {
+  display: flex;
+  gap: 0.8rem;
+  padding: 0.35rem 0.75rem 0.5rem;
+  border-top: 1px solid var(--step-card-border);
+}
+
+.bn-step-toolbar__button {
+  border: none;
+  background: transparent;
+  color: var(--step-text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
 .bn-step-toolbar__button:hover {
-  background: var(--step-bg-button);
-  border-color: var(--step-border-strong);
+  color: #111827;
 }
 
 .bn-step-editor {
   position: relative;
   border-radius: 0.6rem;
-  border: 1px solid var(--step-border-light);
-  background: var(--bg-white-solid);
-  transition:
-    border-color 120ms ease,
-    box-shadow 120ms ease;
+  border: none;
+  background: transparent;
+  transition: none;
   min-height: 2.5rem;
   font-size: 0.95rem;
   overflow: hidden;
@@ -441,8 +520,7 @@
 
 .bn-step-editor.bn-step-editor--focused {
   outline: none;
-  border-color: var(--step-border-focus);
-  box-shadow: 0 0 0 3px var(--step-focus-ring);
+  box-shadow: none;
 }
 
 .bn-step-editor .overtype-container {
@@ -620,7 +698,7 @@
 .bn-step-suggestion__meta {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--step-muted);
 }
 
 .bn-inline-image {

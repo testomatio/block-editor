@@ -61,7 +61,7 @@ const headingPrefixes: Record<number, string> = {
 const SPECIAL_CHAR_REGEX = /([*_`~\[\]()<>\\])/g;
 const HTML_SPAN_REGEX = /<\/?span[^>]*>/g;
 const HTML_UNDERLINE_REGEX = /<\/?u>/g;
-const EXPECTED_LABEL_REGEX = /^(?:[*_`]*\s*)?(expected(?:\s+result)?)\s*(?:[*_`]*\s*)?(?:\s*[:\-–—]?\s*)/i;
+const EXPECTED_LABEL_REGEX = /^(?:[*_`]*\s*)?(expected(?:\s+result)?)\s*(?:[*_`]*\s*)?\s*[:\-–—]\s*/i;
 // Matches any non-empty line that falls between the step title and the expected result line.
 const STEP_DATA_LINE_REGEX =
   /^(?!\s*(?:[*_`]*\s*)?(?:expected(?:\s+result)?)\b).+/i;
@@ -185,25 +185,45 @@ function inlineToMarkdown(content: CustomEditorBlock["content"]): string {
     return "";
   }
 
-  return (content as EditorInline[])
-    .map((item) => {
-      if (isStyledTextInlineContent(item)) {
-        return applyTextStyles(escapeMarkdown(item.text), item.styles);
-      }
+  const result: string[] = [];
+  let i = 0;
 
-      if (isLinkInlineContent(item)) {
-        const inner = inlineToMarkdown(item.content);
-        const safeHref = escapeMarkdown(item.href);
-        return `[${inner}](${safeHref})`;
-      }
+  while (i < content.length) {
+    const item = content[i];
 
-      if (Array.isArray((item as any).content)) {
-        return inlineToMarkdown((item as any).content);
+    if (isStyledTextInlineContent(item)) {
+      // Check if this is a "!" followed by a link (image syntax)
+      if (item.text === "!" && i + 1 < content.length && isLinkInlineContent(content[i + 1])) {
+        const link = content[i + 1] as any;
+        const inner = inlineToMarkdown(link.content);
+        const safeHref = escapeMarkdown(link.href);
+        result.push(`![${inner}](${safeHref})`);
+        i += 2;
+        continue;
       }
+      result.push(applyTextStyles(escapeMarkdown(item.text), item.styles));
+      i += 1;
+      continue;
+    }
 
-      return "";
-    })
-    .join("");
+    if (isLinkInlineContent(item)) {
+      const inner = inlineToMarkdown(item.content);
+      const safeHref = escapeMarkdown(item.href);
+      result.push(`[${inner}](${safeHref})`);
+      i += 1;
+      continue;
+    }
+
+    if (Array.isArray((item as any).content)) {
+      result.push(inlineToMarkdown((item as any).content));
+      i += 1;
+      continue;
+    }
+
+    i += 1;
+  }
+
+  return result.join("");
 }
 
 function inlineContentToPlainText(content: CustomEditorBlock["content"]): string {
@@ -613,10 +633,13 @@ function parseInlineMarkdown(text: string): EditorInline[] {
         pushPlain();
         const label = cleaned.slice(i + 1, endLabel);
         const href = cleaned.slice(startLink + 1, endLink);
+        const parsedLabel = parseInlineMarkdown(label);
+        // Ensure link content is never undefined - if empty, add empty text
+        const linkContent = parsedLabel.length > 0 ? parsedLabel : [{ type: "text", text: "", styles: {} }];
         result.push({
           type: "link",
           href: unescapeMarkdown(href),
-          content: parseInlineMarkdown(label),
+          content: linkContent,
         } as any);
         i = endLink + 1;
         continue;
@@ -741,14 +764,24 @@ function parseList(
       break;
     }
 
-    // Only try to parse as testStep for top-level bullet items (indentLevel === 0)
-    // Nested bullets within numbered lists should remain as regular bulletListItem
-    if (listType === "bullet" && indentLevel === 0) {
-      const nextStep = parseTestStep(lines, index, allowEmptySteps);
-      if (nextStep) {
-        items.push(nextStep.block);
-        index = nextStep.nextIndex;
-        continue;
+    // Only try to parse as testStep for top-level items (indentLevel === 0)
+    // when we're under a Steps heading AND the list type is bullet
+    // Numbered lists under Steps heading are only parsed as test steps if they look like test steps
+    if (indentLevel === 0 && allowEmptySteps) {
+      // For bullet lists, always try to parse as test steps
+      // For numbered lists, only try if they have step-like characteristics
+      const looksLikeTestStep = listType === "bullet" ||
+        (listType === "numbered" && (
+          isLikelyStep(lines, index)
+        ));
+
+      if (looksLikeTestStep) {
+        const nextStep = parseTestStep(lines, index, allowEmptySteps);
+        if (nextStep) {
+          items.push(nextStep.block);
+          index = nextStep.nextIndex;
+          continue;
+        }
       }
     }
 
@@ -789,6 +822,26 @@ function parseList(
   return { items, nextIndex: index };
 }
 
+function isLikelyStep(lines: string[], index: number): boolean {
+  // Look ahead to see if there's indented content or expected result
+  if (index + 1 >= lines.length) return false;
+
+  const nextLine = lines[index + 1];
+  const hasIndent = /^\s{2,}/.test(nextLine);
+
+  // Check if the next line contains expected result markers
+  const nextTrimmed = nextLine.trim();
+  const hasExpectedResult = EXPECTED_LABEL_REGEX.test(nextTrimmed);
+
+  // Only consider it a test step if:
+  // 1. It has an expected result, OR
+  // 2. The next line is indented but doesn't start with a numbered or bullet list
+  if (hasExpectedResult) return true;
+  if (hasIndent && !/^\d+[.)]/.test(nextTrimmed) && !/^[-*+]/.test(nextTrimmed)) return true;
+
+  return false;
+}
+
 function parseTestStep(
   lines: string[],
   index: number,
@@ -797,11 +850,28 @@ function parseTestStep(
 ): { block: CustomPartialBlock; nextIndex: number } | null {
   const current = lines[index];
   const trimmed = current.trim();
-  if (!trimmed.startsWith("* ") && !trimmed.startsWith("- ")) {
+  const isBullet = trimmed.startsWith("* ") || trimmed.startsWith("- ");
+  const isNumbered = /^\d+[.)]\s+/.test(trimmed);
+
+  if (!isBullet && !isNumbered) {
     return null;
   }
 
-  let rawTitle = unescapeMarkdown(trimmed.slice(2)).trim();
+  // For numbered lists, only parse as test steps if called from parseList with allowEmpty=true
+  // The first call to parseTestStep from markdownToBlocks uses allowEmpty=stepsHeadingLevel !== null
+  // which should be false unless we're under a Steps heading
+  if (isNumbered && !allowEmpty) {
+    return null;
+  }
+
+  let rawTitle: string;
+  if (isBullet) {
+    rawTitle = unescapeMarkdown(trimmed.slice(2)).trim();
+  } else {
+    // For numbered lists, remove the number and delimiter
+    rawTitle = unescapeMarkdown(trimmed.replace(/^\d+[.)]\s+/, "")).trim();
+  }
+
   let blockType: "testStep" | "snippet" = "testStep";
   const snippetMatch = rawTitle.match(/^snippet\s*[:\-–—]?\s*(.*)$/i);
   if (snippetMatch) {
@@ -1203,6 +1273,75 @@ function parseSnippetWrapper(
   };
 }
 
+// Post-process blocks to fix malformed image blocks
+export function fixMalformedImageBlocks(blocks: CustomPartialBlock[]): CustomPartialBlock[] {
+  const result: CustomPartialBlock[] = [];
+  let i = 0;
+
+  while (i < blocks.length) {
+    const current = blocks[i];
+    const next = blocks[i + 1];
+
+    // Skip empty paragraphs
+    if (
+      current.type === "paragraph" &&
+      (!current.content || !Array.isArray(current.content) || current.content.length === 0)
+    ) {
+      i += 1;
+      continue;
+    }
+
+    // Check if current is a paragraph with just "!" - this is definitely a malformed image
+    if (
+      current.type === "paragraph" &&
+      current.content &&
+      Array.isArray(current.content) &&
+      current.content.length === 1 &&
+      (current.content[0] as any)?.type === "text" &&
+      (current.content[0] as any)?.text === "!"
+    ) {
+      // This is a malformed image block, skip it entirely
+      // The full image was likely parsed as ![](...) but got corrupted
+      i += 1;
+      continue;
+    }
+
+    // Check if current is a paragraph with just "!" and next is an empty paragraph
+    if (
+      current.type === "paragraph" &&
+      next?.type === "paragraph" &&
+      current.content &&
+      Array.isArray(current.content) &&
+      current.content.length === 1 &&
+      (current.content[0] as any)?.type === "text" &&
+      (current.content[0] as any)?.text === "!" &&
+      (!next.content || !Array.isArray(next.content) || next.content.length === 0)
+    ) {
+      // This looks like a malformed image, skip both blocks
+      i += 2;
+      continue;
+    }
+
+    // Check if current has "!" but no link
+    if (
+      current.type === "paragraph" &&
+      current.content &&
+      Array.isArray(current.content) &&
+      current.content.some((item: any) => item.type === "text" && item.text === "!") &&
+      !current.content.some((item: any) => item.type === "link")
+    ) {
+      // Skip malformed image block
+      i += 1;
+      continue;
+    }
+
+    result.push(current);
+    i += 1;
+  }
+
+  return result;
+}
+
 export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
   const normalized = markdown.replace(/\r\n/g, "\n");
   const lines = normalized.split("\n");
@@ -1245,7 +1384,7 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
       const headingText = inlineContentToPlainText(headingBlock.content as any);
       const normalizedHeading = headingText.trim().toLowerCase();
 
-      if (normalizedHeading === "steps") {
+      if (normalizedHeading.replace(/[:\-–—]$/, "") === "steps") {
         stepsHeadingLevel = headingLevel;
       } else if (
         stepsHeadingLevel !== null &&
@@ -1293,7 +1432,7 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
     index = paragraph.nextIndex;
   }
 
-  return blocks;
+  return fixMalformedImageBlocks(blocks);
 }
 
 function splitTableRow(line: string): string[] {

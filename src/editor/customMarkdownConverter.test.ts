@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   blocksToMarkdown,
   markdownToBlocks,
+  fixMalformedImageBlocks,
   type CustomEditorBlock,
   type CustomPartialBlock,
 } from "./customMarkdownConverter";
@@ -633,7 +634,7 @@ describe("markdownToBlocks", () => {
       "",
       "* Verify that each individual unit test completes in ≤ 50 ms (target) and never exceeds 200 ms (hard limit).",
       "",
-      "### Steps",
+      "### Instructions",
       "",
       "1. Execute the full unit test suite with a timer wrapper.",
       "   * Each individual test case.",
@@ -1031,5 +1032,391 @@ describe("markdownToBlocks", () => {
       },
       children: [],
     });
+  });
+
+  it("correctly parses images at the end of the document", () => {
+    const markdown = [
+      "#### Steps:",
+      "1. Navigate to the product listing page.",
+      "    Expected open",
+      "3. Select a product and click the \"Add to Cart\" button.",
+      "    Expected result close",
+      "5. Open the shopping cart page.",
+      "    **Expected** edit",
+      "6. Verify that the added item is displayed with the correct name, price, and quantity.",
+      "    _Expected_ close",
+      "",
+      "### **Expected Result:** The item appears in the cart with correct details and price calculation.",
+      "",
+      "![logs](/attachments/se2n8jaGon.png)",
+      "",
+      "![](/attachments/p5DgklVeMg.png)",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+
+    // Find the paragraph blocks that contain the images (links)
+    const imageBlocks = blocks.filter(block =>
+      block.type === "paragraph" &&
+      block.content &&
+      Array.isArray(block.content) &&
+      block.content.some((item: any) =>
+        (item.type === "text" && item.text === "!") ||
+        (item.type === "link" && item.href && item.href.includes("/attachments/"))
+      )
+    );
+
+    // Should have two paragraph blocks with images
+    expect(imageBlocks.length).toBe(2);
+
+    // Check that both image links are properly parsed
+    const imageLinks: any[] = [];
+    imageBlocks.forEach(block => {
+      if (block.content && Array.isArray(block.content)) {
+        const link = (block.content as any[]).find(item => item.type === "link");
+        if (link) {
+          imageLinks.push(link);
+        }
+      }
+    });
+
+    expect(imageLinks).toHaveLength(2);
+    expect(imageLinks[0].href).toBe("/attachments/se2n8jaGon.png");
+    expect(imageLinks[0].content).toEqual([{ type: "text", text: "logs", styles: {} }]);
+    expect(imageLinks[1].href).toBe("/attachments/p5DgklVeMg.png");
+    expect(imageLinks[1].content).toEqual([{ type: "text", text: "", styles: {} }]);
+
+    // Test round-trip conversion
+    const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(roundTripMarkdown).toContain("![logs](/attachments/se2n8jaGon.png)");
+    expect(roundTripMarkdown).toContain("![](/attachments/p5DgklVeMg.png)");
+  });
+
+  it("parses numbered lists under a Steps heading as test steps", () => {
+    const markdown = [
+      "#### Steps:",
+      "1. Navigate to the product listing page.",
+      "    Expected open",
+      "3. Select a product and click the \"Add to Cart\" button.",
+      "    Expected result close",
+      "5. Open the shopping cart page.",
+      "    **Expected** edit",
+      "6. Verify that the added item is displayed with the correct name, price, and quantity.",
+      "    _Expected_ close",
+      "",
+      "### **Expected Result:** The item appears in the cart with correct details and price calculation.",
+      "",
+      "![logs](/attachments/se2n8jaGon.png)",
+      "",
+      "![](/attachments/p5DgklVeMg.png)",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const testSteps = blocks.filter(block => block.type === "testStep");
+
+    // Should have 4 test steps
+    expect(testSteps).toHaveLength(4);
+
+    // Check the first test step
+    expect(testSteps[0]).toEqual({
+      type: "testStep",
+      props: {
+        stepTitle: "Navigate to the product listing page.",
+        stepData: "Expected open",
+        expectedResult: "",
+      },
+      children: [],
+    });
+
+    // Check the second test step
+    expect(testSteps[1]).toEqual({
+      type: "testStep",
+      props: {
+        stepTitle: "Select a product and click the \"Add to Cart\" button.",
+        stepData: "Expected result close",
+        expectedResult: "",
+      },
+      children: [],
+    });
+
+    // Check the third test step
+    expect(testSteps[2]).toEqual({
+      type: "testStep",
+      props: {
+        stepTitle: "Open the shopping cart page.",
+        stepData: "**Expected** edit",
+        expectedResult: "",
+      },
+      children: [],
+    });
+
+    // Check the fourth test step
+    expect(testSteps[3]).toEqual({
+      type: "testStep",
+      props: {
+        stepTitle: "Verify that the added item is displayed with the correct name, price, and quantity.",
+        stepData: "_Expected_ close",
+        expectedResult: "",
+      },
+      children: [],
+    });
+
+    // Test round-trip conversion
+    // Note: Test steps are always serialized as bullet lists, not numbered lists
+    const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(roundTripMarkdown).toContain("* Navigate to the product listing page.");
+    expect(roundTripMarkdown).toContain("* Select a product and click the \"Add to Cart\" button.");
+    expect(roundTripMarkdown).toContain("* Open the shopping cart page.");
+    expect(roundTripMarkdown).toContain("* Verify that the added item is displayed with the correct name, price, and quantity.");
+    // Check that step data is preserved
+    expect(roundTripMarkdown).toContain("  Expected open");
+    expect(roundTripMarkdown).toContain("  Expected result close");
+    expect(roundTripMarkdown).toContain("  **Expected** edit");
+    expect(roundTripMarkdown).toContain("  _Expected_ close");
+  });
+
+  it("handles standalone images without bullet list interference", () => {
+    const markdown = [
+      "### Steps:",
+      "1. Navigate to the product listing page.",
+      "    Expected open",
+      "",
+      "### **Expected Result:** The item appears in the cart with correct details and price calculation.",
+      "",
+      "![logs](/attachments/se2n8jaGon.png)",
+      "",
+      "![](/attachments/p5DgklVeMg.png)",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+
+    // Find image paragraphs
+    const imageParagraphs = blocks.filter(block =>
+      block.type === "paragraph" &&
+      block.content &&
+      Array.isArray(block.content) &&
+      block.content.some((item: any) => item.type === "link")
+    );
+
+    // Should have exactly 2 image paragraphs
+    expect(imageParagraphs).toHaveLength(2);
+
+    // First image with alt text
+    expect(imageParagraphs[0].content).toContainEqual({
+      type: "text",
+      text: "!",
+      styles: {}
+    });
+    expect(imageParagraphs[0].content).toContainEqual({
+      type: "link",
+      href: "/attachments/se2n8jaGon.png",
+      content: [{ type: "text", text: "logs", styles: {} }]
+    });
+
+    // Second image without alt text
+    expect(imageParagraphs[1].content).toContainEqual({
+      type: "text",
+      text: "!",
+      styles: {}
+    });
+    expect(imageParagraphs[1].content).toContainEqual({
+      type: "link",
+      href: "/attachments/p5DgklVeMg.png",
+      content: [{ type: "text", text: "", styles: {} }]
+    });
+
+    // No extra empty paragraphs
+    const emptyParagraphs = blocks.filter(block =>
+      block.type === "paragraph" &&
+      (!block.content || block.content.length === 0)
+    );
+    expect(emptyParagraphs).toHaveLength(0);
+
+    // Test round-trip conversion
+    const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(roundTripMarkdown).toContain("![logs](/attachments/se2n8jaGon.png)");
+    expect(roundTripMarkdown).toContain("![](/attachments/p5DgklVeMg.png)");
+  });
+
+  it("handles images with multiple blank lines between them", () => {
+    const markdown = `
+
+![logs](/attachments/se2n8jaGon.png)
+
+
+
+![](/attachments/p5DgklVeMg.png)
+
+
+
+`;
+
+    const blocks = markdownToBlocks(markdown);
+
+    // Should have exactly 2 image paragraphs, no empty paragraphs
+    const imageParagraphs = blocks.filter(block =>
+      block.type === "paragraph" &&
+      block.content &&
+      Array.isArray(block.content) &&
+      block.content.some((item: any) => item.type === "link")
+    );
+
+    const emptyParagraphs = blocks.filter(block =>
+      block.type === "paragraph" &&
+      (!block.content || block.content.length === 0)
+    );
+
+    // Check for malformed image blocks (paragraphs with just "!" but no link)
+    const malformedBlocks = blocks.filter(block =>
+      block.type === "paragraph" &&
+      block.content &&
+      Array.isArray(block.content) &&
+      block.content.some((item: any) => item.type === "text" && item.text === "!") &&
+      !block.content.some((item: any) => item.type === "link")
+    );
+
+    expect(imageParagraphs).toHaveLength(2);
+    expect(emptyParagraphs).toHaveLength(0);
+    expect(malformedBlocks).toHaveLength(0);
+
+    // Test round-trip conversion
+    const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(roundTripMarkdown).toContain("![logs](/attachments/se2n8jaGon.png)");
+    expect(roundTripMarkdown).toContain("![](/attachments/p5DgklVeMg.png)");
+  });
+
+  it("reproduces the exact issue from user's example", () => {
+    const markdown = `#### Steps:
+1. Navigate to the product listing page.
+    Expected open
+3. Select a product and click the "Add to Cart" button.
+    Expected result close
+5. Open the shopping cart page.
+    **Expected** edit
+6. Verify that the added item is displayed with the correct name, price, and quantity.
+    _Expected_ close
+
+### **Expected Result:** The item appears in the cart with correct details and price calculation.
+
+
+
+![logs](/attachments/se2n8jaGon.png)
+
+
+
+![](/attachments/p5DgklVeMg.png)
+
+
+
+`;
+
+    const blocks = markdownToBlocks(markdown);
+
+    // Test round-trip conversion
+    const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
+
+    // Check that both images are preserved
+    expect(roundTripMarkdown).toContain("![logs](/attachments/se2n8jaGon.png)");
+    expect(roundTripMarkdown).toContain("![](/attachments/p5DgklVeMg.png)");
+
+    // Make sure we don't have a standalone "!" without the rest of the image
+    const lines = roundTripMarkdown.split('\n');
+    const exclamationLines = lines.filter(line => line.trim() === '!' || line.trim() === '! ');
+    expect(exclamationLines.length).toBe(0);
+  });
+
+  it("handles empty alt text images correctly", () => {
+    const markdown = "![](/attachments/test.png)";
+    const blocks = markdownToBlocks(markdown);
+    const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
+
+    expect(roundTripMarkdown).toContain("![](/attachments/test.png)");
+  });
+
+  it("removes malformed image blocks through post-processing", () => {
+    // Simulate the malformed blocks you're seeing
+    const malformedBlocks: any[] = [
+      {
+        type: "heading",
+        props: { level: 3 },
+        content: [{ type: "text", text: "Expected Result:", styles: {} }],
+        children: []
+      },
+      {
+        type: "paragraph",
+        props: {},
+        content: [
+          { type: "text", text: "!", styles: {} },
+          { type: "link", href: "/attachments/se2n8jaGon.png", content: [{ type: "text", text: "logs", styles: {} }] }
+        ],
+        children: []
+      },
+      {
+        type: "paragraph",
+        props: {},
+        content: [{ type: "text", text: "!", styles: {} }],
+        children: []
+      },
+      {
+        type: "paragraph",
+        props: {},
+        content: [],
+        children: []
+      }
+    ];
+
+    // Apply the fixMalformedImageBlocks function
+    const fixedBlocks = fixMalformedImageBlocks(malformedBlocks);
+
+    // Should have removed the malformed image blocks (both the "!" only block and the empty block)
+    expect(fixedBlocks.length).toBe(2);
+    expect(fixedBlocks[0].type).toBe("heading");
+    expect(fixedBlocks[1].type).toBe("paragraph");
+    expect(fixedBlocks[1].content).toContainEqual(
+      { type: "text", text: "!", styles: {} }
+    );
+    expect(fixedBlocks[1].content).toContainEqual(
+      { type: "link", href: "/attachments/se2n8jaGon.png", content: [{ type: "text", text: "logs", styles: {} }] }
+    );
+  });
+
+  it("reproduces the exact Unsplash URL issue", () => {
+    const markdown = `
+
+
+
+### **Expected Result:** The item appears in the cart with correct details and price calculation.
+
+
+
+![logs](https://images.unsplash.com/photo-1765873360413-6c79486d1fda?q=80&w=2350&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)
+
+
+
+![](https://plus.unsplash.com/premium_photo-1765228499795-e58288bc382b?q=80&w=1925&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)
+
+
+
+`;
+
+    const blocks = markdownToBlocks(markdown);
+
+    // Should have at least 3 blocks
+    expect(blocks.length).toBeGreaterThanOrEqual(3);
+
+    // Should have at least one paragraph with content (images)
+    const imageBlocks = blocks.filter(b =>
+      b.type === "paragraph" &&
+      b.content &&
+      Array.isArray(b.content) &&
+      b.content.some((item: any) => item.type === "link")
+    );
+    expect(imageBlocks.length).toBeGreaterThan(0);
+
+    // Test round-trip conversion - check that we get the images back
+    const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
+
+    // Most importantly: should not have a standalone "!" at the end
+    expect(roundTripMarkdown).not.toMatch(/\n!\s*$/);
   });
 });
