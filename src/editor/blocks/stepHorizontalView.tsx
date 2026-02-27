@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { StepField } from "./stepField";
 import type { StepSuggestion } from "../stepAutocomplete";
 
-const STEP_PLACEHOLDER = "Enter step title...";
-const EXPECTED_RESULT_PLACEHOLDER = "Enter expected result...";
+const STEP_PLACEHOLDER = "Enter step name";
+const EXPECTED_RESULT_PLACEHOLDER = "Enter expected result";
 
 type StepHorizontalViewProps = {
   blockId: string;
@@ -30,49 +30,57 @@ export function StepHorizontalView({
 }: StepHorizontalViewProps) {
   return (
     <div className="bn-teststep bn-teststep--horizontal" data-block-id={blockId}>
-      <div className="bn-teststep__header bn-teststep__header--grid">
+      <div className="bn-teststep__timeline">
         <span className="bn-teststep__number">{stepNumber}</span>
-        <div className="bn-teststep__header-title">Step</div>
-        <div className="bn-teststep__header-title" style={{ marginLeft: 24 }}>Expected result</div>
-        <div className="bn-teststep__header-toggle">{viewToggle}</div>
+        <div className="bn-teststep__line" />
       </div>
-      <div className="bn-teststep__grid">
-        <div className="bn-teststep__gutter" aria-hidden="true" />
-        <StepField
-          label="Step"
-          showLabel={false}
-          value={stepValue}
-          onChange={onStepChange}
-          placeholder={STEP_PLACEHOLDER}
-          enableAutocomplete
-          fieldName="title"
-          suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}
-          onFieldFocus={onFieldFocus}
-          multiline
-          enableImageUpload
-          showFormattingButtons
-          showImageButton
-        />
-        <StepField
-          label="Expected result"
-          showLabel={false}
-          value={expectedResult}
-          onChange={onExpectedChange}
-          placeholder={EXPECTED_RESULT_PLACEHOLDER}
-          multiline
-          enableImageUpload
-          showFormattingButtons
-          showImageButton
-          onFieldFocus={onFieldFocus}
-        />
-      </div>
-      <div className="bn-teststep__actions-grid">
-        <div className="bn-teststep__gutter" aria-hidden="true" />
+      <div className="bn-teststep__content">
+        <div className="bn-teststep__horizontal-fields">
+          <div className="bn-teststep__horizontal-col">
+            <div className="bn-teststep__header">
+              <span className="bn-teststep__title">Step</span>
+            </div>
+            <StepField
+              label="Step"
+              showLabel={false}
+              value={stepValue}
+              onChange={onStepChange}
+              placeholder={STEP_PLACEHOLDER}
+              enableAutocomplete
+              fieldName="title"
+              suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}
+              onFieldFocus={onFieldFocus}
+              multiline
+              enableImageUpload
+              showFormattingButtons
+              showImageButton
+            />
+          </div>
+          <div className="bn-teststep__horizontal-col">
+            <div className="bn-teststep__header">
+              <span className="bn-teststep__title">Expected result</span>
+              {viewToggle}
+            </div>
+            <StepField
+              label="Expected result"
+              showLabel={false}
+              value={expectedResult}
+              onChange={onExpectedChange}
+              placeholder={EXPECTED_RESULT_PLACEHOLDER}
+              multiline
+              enableAutocomplete
+              enableImageUpload
+              showFormattingButtons
+              showImageButton
+              onFieldFocus={onFieldFocus}
+            />
+          </div>
+        </div>
         <div className="bn-step-actions">
-          <button type="button" className="bn-step-add" onClick={onInsertNextStep}>
-            <span className="bn-step-add__icon" aria-hidden="true">
-              +
-            </span>
+          <button type="button" className="bn-step-action-btn" onClick={onInsertNextStep}>
+            <svg className="bn-step-action-btn__icon" width="16" height="16" viewBox="0 0 13.334 13.334" fill="none" aria-hidden="true">
+              <path d="M6.667 0a6.667 6.667 0 1 1 0 13.334A6.667 6.667 0 0 1 6.667 0Zm0 1.334a5.333 5.333 0 1 0 0 10.666 5.333 5.333 0 0 0 0-10.666ZM7.334 3.334V6H10v1.334H7.334V10H6V7.334H3.334V6H6V3.334h1.334Z" fill="currentColor"/>
+            </svg>
             Add new step
           </button>
         </div>
