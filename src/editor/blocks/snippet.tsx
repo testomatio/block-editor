@@ -1,191 +1,102 @@
 import { createReactBlockSpec } from "@blocknote/react";
-import OverType, { type OverType as OverTypeInstance } from "overtype";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StepField } from "./stepField";
+import type { ChangeEvent } from "react";
 import { useSnippetAutocomplete, type SnippetSuggestion } from "../snippetAutocomplete";
-import type { StepSuggestion } from "../stepAutocomplete";
-import { useStepImageUpload } from "../stepImageUpload";
 
-type SnippetDataFieldProps = {
-  label: string;
+type SnippetDropdownProps = {
   value: string;
-  placeholder?: string;
-  onChange: (value: string) => void;
-  onFieldFocus?: () => void;
-  fieldName?: string;
-  enableImageUpload?: boolean;
+  placeholder: string;
+  suggestions: SnippetSuggestion[];
+  onSelect: (suggestion: SnippetSuggestion) => void;
 };
 
-function SnippetDataField({
-  label,
-  value,
-  placeholder,
-  onChange,
-  onFieldFocus,
-  fieldName,
-  enableImageUpload = false,
-}: SnippetDataFieldProps) {
+function SnippetDropdown({ value, placeholder, suggestions, onSelect }: SnippetDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
-  const instanceRef = useRef<OverTypeInstance | null>(null);
-  const uploadImage = useStepImageUpload();
-  const [isFocused, setIsFocused] = useState(false);
-  const onChangeRef = useRef(onChange);
-  const initialValueRef = useRef(value);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
-
-  const insertImageMarkdown = useCallback(
-    (url: string) => {
-      const instance = instanceRef.current;
-      const textarea = instance?.textarea;
-      if (!instance || !textarea) {
-        return;
-      }
-
-      const currentValue = instance.getValue();
-      const selectionStart = textarea.selectionStart ?? currentValue.length;
-      const selectionEnd = textarea.selectionEnd ?? currentValue.length;
-      const before = currentValue.slice(0, selectionStart);
-      const after = currentValue.slice(selectionEnd);
-      const needsNewlineBefore = before.length > 0 && !before.endsWith("\n");
-      const needsNewlineAfter = after.length > 0 && !after.startsWith("\n");
-      const markdown = `${needsNewlineBefore ? "\n" : ""}![](${url})${needsNewlineAfter ? "\n" : ""}`;
-      const nextValue = `${before}${markdown}${after}`;
-
-      instance.setValue(nextValue);
-      onChangeRef.current?.(nextValue);
-
-      requestAnimationFrame(() => {
-        const cursor = selectionStart + markdown.length;
-        textarea.selectionStart = cursor;
-        textarea.selectionEnd = cursor;
-        textarea.focus();
-      });
-    },
-    [],
-  );
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      return;
-    }
-
-    const [instance] = OverType.init(container, {
-      value: initialValueRef.current,
-      placeholder,
-      autoResize: true,
-      minHeight: "5rem",
-      toolbar: false,
-      onChange: (nextValue) => {
-        onChangeRef.current?.(nextValue);
-      },
-    });
-
-    instanceRef.current = instance;
-    const textarea = instance.textarea;
-    if (fieldName) {
-      textarea.dataset.stepField = fieldName;
-    }
-
-    const handleFocus = () => {
-      setIsFocused(true);
-      onFieldFocus?.();
-    };
-    const handleBlur = () => setIsFocused(false);
-
-    textarea.addEventListener("focus", handleFocus);
-    textarea.addEventListener("blur", handleBlur);
-
-    return () => {
-      textarea.removeEventListener("focus", handleFocus);
-      textarea.removeEventListener("blur", handleBlur);
-      instance.destroy();
-      instanceRef.current = null;
-    };
-  }, [fieldName, onFieldFocus, placeholder]);
-
-  useEffect(() => {
-    const instance = instanceRef.current;
-    if (!instance) {
-      return;
-    }
-
-    if (instance.getValue() !== value) {
-      instance.setValue(value);
-    }
-  }, [value]);
-
-  useEffect(() => {
-    if (!enableImageUpload || !uploadImage) {
-      return;
-    }
-
-    const textarea = instanceRef.current?.textarea;
-    if (!textarea) {
-      return;
-    }
-
-    const handlePaste = async (event: ClipboardEvent) => {
-      const items = Array.from(event.clipboardData?.items ?? []);
-      const imageItem = items.find((item) => item.kind === "file" && item.type.startsWith("image/"));
-      const file = imageItem?.getAsFile();
-      if (!file) {
-        return;
-      }
-
-      event.preventDefault();
-
-      try {
-        const response = await uploadImage(file);
-        if (response?.url) {
-          insertImageMarkdown(response.url);
-        }
-      } catch (error) {
-        console.error("Failed to upload pasted image", error);
+    if (!isOpen) return;
+    const handleMouseDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
       }
     };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [isOpen]);
 
-    textarea.addEventListener("paste", handlePaste as unknown as EventListener);
-    return () => {
-      textarea.removeEventListener("paste", handlePaste as unknown as EventListener);
-    };
-  }, [enableImageUpload, insertImageMarkdown, uploadImage]);
+  useEffect(() => {
+    if (isOpen) {
+      setSearch("");
+      requestAnimationFrame(() => searchRef.current?.focus());
+    }
+  }, [isOpen]);
 
-  const editorClassName = useMemo(
-    () =>
-      [
-        "bn-step-editor",
-        "bn-step-editor--multiline",
-        isFocused ? "bn-step-editor--focused" : "",
-      ]
-        .filter(Boolean)
-        .join(" "),
-    [isFocused],
-  );
+  const filtered = useMemo(() => {
+    const snippets = suggestions.filter((s) => s.isSnippet === true);
+    if (!search) return snippets;
+    const lower = search.toLowerCase();
+    return snippets.filter((s) => s.title.toLowerCase().includes(lower));
+  }, [suggestions, search]);
 
-  const inputClassName = useMemo(
-    () =>
-      [
-        "bn-step-field__input",
-        "bn-step-field__input--multiline",
-        isFocused ? "bn-step-field__input--focused" : "",
-      ]
-        .filter(Boolean)
-        .join(" "),
-    [isFocused],
-  );
+  const handleSearchChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setSearch(event.target.value);
+  }, []);
 
   return (
-    <div className="bn-step-field">
-      <div className="bn-step-field__top">
-        <span className="bn-step-field__label">{label}</span>
-      </div>
-      <div className={inputClassName}>
-        <div ref={containerRef} className={editorClassName} data-step-field={fieldName} />
-      </div>
+    <div className="bn-snippet-dropdown" ref={containerRef}>
+      <button
+        type="button"
+        className="bn-snippet-dropdown__trigger"
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        <span className="bn-snippet-dropdown__text">
+          {value || placeholder}
+        </span>
+        <svg className="bn-snippet-dropdown__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="bn-snippet-dropdown__panel" role="listbox">
+          <div className="bn-snippet-dropdown__search">
+            <svg className="bn-snippet-dropdown__search-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z" fill="currentColor"/>
+            </svg>
+            <input
+              ref={searchRef}
+              type="text"
+              className="bn-snippet-dropdown__search-input"
+              placeholder="Search"
+              value={search}
+              onChange={handleSearchChange}
+            />
+          </div>
+          <div className="bn-snippet-dropdown__list">
+            {filtered.map((suggestion) => (
+              <button
+                type="button"
+                key={suggestion.id}
+                role="option"
+                className="bn-snippet-dropdown__item"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  onSelect(suggestion);
+                  setIsOpen(false);
+                }}
+                tabIndex={-1}
+              >
+                {suggestion.title}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div className="bn-snippet-dropdown__empty">No snippets found</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -218,39 +129,9 @@ export const snippetBlock = createReactBlockSpec(
       const hasSnippets = snippetSuggestions.length > 0;
       const isSnippetSelected = snippetId.length > 0;
 
-      const handleSnippetChange = useCallback(
-        (nextTitle: string) => {
-          if (nextTitle === snippetTitle) {
-            return;
-          }
-
-          editor.updateBlock(block.id, {
-            props: {
-              snippetTitle: nextTitle,
-            },
-          });
-        },
-        [block.id, editor, snippetTitle],
-      );
-
-      const handleSnippetDataChange = useCallback(
-        (next: string) => {
-          if (next === snippetData) {
-            return;
-          }
-
-          editor.updateBlock(block.id, {
-            props: {
-              snippetData: next,
-            },
-          });
-        },
-        [editor, block.id, snippetData],
-      );
-
       const handleSnippetSelect = useCallback(
-        (suggestion: SnippetSuggestion | StepSuggestion) => {
-          const rawBody = (suggestion as SnippetSuggestion).body ?? "";
+        (suggestion: SnippetSuggestion) => {
+          const rawBody = suggestion.body ?? "";
           const sanitizedBody = rawBody
             .split(/\r?\n/)
             .filter((line) => !/^<!--\s*(begin|end)\s+snippet/i.test(line.trim()))
@@ -279,33 +160,18 @@ export const snippetBlock = createReactBlockSpec(
       }
 
       return (
-        <div className="bn-teststep bn-snippet" data-block-id={block.id}>
-          {!isSnippetSelected ? (
-            <StepField
-              label="Snippet Title"
+        <div className="bn-teststep bn-snippet" data-block-id={block.id} onFocus={handleFieldFocus}>
+          <div className="bn-snippet__header">
+            <span className="bn-snippet__label">Snippet</span>
+            <SnippetDropdown
               value={snippetTitle}
-              onChange={handleSnippetChange}
-              autoFocus={snippetTitle.length === 0}
-              enableAutocomplete={true}
-              suggestionFilter={(suggestion) => (suggestion as SnippetSuggestion).isSnippet === true}
-              suggestionsOverride={snippetSuggestions as unknown as StepSuggestion[]}
-              onSuggestionSelect={handleSnippetSelect}
-              fieldName="snippet-title"
-              showSuggestionsOnFocus={true}
-              enableImageUpload={false}
-              onFieldFocus={handleFieldFocus}
-              readOnly={false}
+              placeholder="Select Snippet"
+              suggestions={snippetSuggestions}
+              onSelect={handleSnippetSelect}
             />
-          ) : (
-            <SnippetDataField
-              label={`Snippet: ${snippetTitle}`}
-              value={snippetData}
-              onChange={handleSnippetDataChange}
-              fieldName="snippet-data"
-              enableImageUpload
-              onFieldFocus={handleFieldFocus}
-              placeholder="Snippet data will appear here..."
-            />
+          </div>
+          {isSnippetSelected && (
+            <div className="bn-snippet__content">{snippetData}</div>
           )}
         </div>
       );
