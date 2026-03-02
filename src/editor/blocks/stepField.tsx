@@ -1,6 +1,8 @@
 import OverType, { type OverType as OverTypeInstance } from "overtype";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, ChangeEvent } from "react";
+import { useComponentsContext } from "@blocknote/react";
+import { EditLinkMenuItems } from "@blocknote/react";
 import { useStepAutocomplete, type StepSuggestion } from "../stepAutocomplete";
 import { type SnippetSuggestion } from "../snippetAutocomplete";
 import { useStepImageUpload } from "../stepImageUpload";
@@ -52,16 +54,16 @@ const markdownParser = (OverType as { MarkdownParser?: { parse: (markdown: strin
 function ImageUploadIcon() {
   return (
     <svg
-      width="13"
-      height="13"
-      viewBox="0 0 13 13"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
       focusable="false"
     >
       <path
-        d="M10.667 9.33398H12.667V10.667H10.667V12.667H9.33398V10.667H7.33398V9.33398H9.33398V7.33398H10.667V9.33398ZM10.667 0C11.407 0 12 0.593984 12 1.33398V6.5332C11.5935 6.3 11.1468 6.13368 10.667 6.05371V1.33398H1.33398V10.667H6.05371C6.13368 11.1468 6.3 11.5935 6.5332 12H1.33398C0.593984 12 0 11.407 0 10.667V1.33398C0 0.593984 0.593984 0 1.33398 0H10.667ZM6 9.33398H2.66699V8H6V9.33398ZM9.33398 6.05371C8.76735 6.14704 8.24709 6.36035 7.78711 6.66699H2.66699V5.33398H9.33398V6.05371ZM9.33398 4H2.66699V2.66699H9.33398V4Z"
+        d="M12.667 2C13.0335 2.00008 13.3474 2.13057 13.6084 2.3916C13.8694 2.65264 13.9999 2.96648 14 3.33301V12.667C13.9999 13.0335 13.8694 13.3474 13.6084 13.6084C13.3474 13.8694 13.0335 13.9999 12.667 14H3.33301C2.96648 13.9999 2.65264 13.8694 2.3916 13.6084C2.13057 13.3474 2.00008 13.0335 2 12.667V3.33301C2.00008 2.96648 2.13057 2.65264 2.3916 2.3916C2.65264 2.13057 2.96648 2.00008 3.33301 2H12.667ZM3.33301 12.667H12.667V3.33301H3.33301V12.667ZM12 11.333H4L6 8.66699L7.5 10.667L9.5 8L12 11.333ZM5.66699 4.66699C5.94455 4.66707 6.18066 4.76375 6.375 4.95801C6.56944 5.15245 6.66699 5.38921 6.66699 5.66699C6.66692 5.94463 6.56937 6.18063 6.375 6.375C6.18063 6.56937 5.94463 6.66692 5.66699 6.66699C5.38921 6.66699 5.15245 6.56944 4.95801 6.375C4.76375 6.18066 4.66707 5.94455 4.66699 5.66699C4.66699 5.38921 4.76356 5.15245 4.95801 4.95801C5.15245 4.76356 5.38921 4.66699 5.66699 4.66699Z"
         fill="currentColor"
       />
     </svg>
@@ -76,6 +78,377 @@ type ExtractedImage = {
   end: number;
   markdown: string;
 };
+
+type LinkMeta = { start: number; end: number; url: string };
+type FormattingMeta = { start: number; end: number; type: "bold" | "italic" };
+
+
+function stripInlineMarkdown(markdown: string): {
+  plainText: string;
+  links: LinkMeta[];
+  formatting: FormattingMeta[];
+} {
+  const links: LinkMeta[] = [];
+  const formatting: FormattingMeta[] = [];
+  let plainText = "";
+  let i = 0;
+
+  while (i < markdown.length) {
+    // Skip image syntax ![alt](url) — keep as-is
+    if (markdown[i] === "!" && markdown[i + 1] === "[") {
+      const endBracket = markdown.indexOf("]", i + 2);
+      if (endBracket !== -1 && markdown[endBracket + 1] === "(") {
+        const endParen = markdown.indexOf(")", endBracket + 2);
+        if (endParen !== -1) {
+          plainText += markdown.slice(i, endParen + 1);
+          i = endParen + 1;
+          continue;
+        }
+      }
+    }
+
+    // Links: [text](url)
+    if (markdown[i] === "[") {
+      const endBracket = markdown.indexOf("]", i + 1);
+      if (endBracket !== -1 && markdown[endBracket + 1] === "(") {
+        const endParen = markdown.indexOf(")", endBracket + 2);
+        if (endParen !== -1) {
+          const text = markdown.slice(i + 1, endBracket);
+          const url = markdown.slice(endBracket + 2, endParen);
+          links.push({ start: plainText.length, end: plainText.length + text.length, url });
+          plainText += text;
+          i = endParen + 1;
+          continue;
+        }
+      }
+    }
+
+    // Bold+Italic: *** or ___
+    if (
+      (markdown[i] === "*" && markdown[i + 1] === "*" && markdown[i + 2] === "*") ||
+      (markdown[i] === "_" && markdown[i + 1] === "_" && markdown[i + 2] === "_")
+    ) {
+      const marker = markdown.slice(i, i + 3);
+      const closeIdx = markdown.indexOf(marker, i + 3);
+      if (closeIdx !== -1) {
+        const inner = markdown.slice(i + 3, closeIdx);
+        const start = plainText.length;
+        const innerResult = stripInlineMarkdown(inner);
+        plainText += innerResult.plainText;
+        for (const link of innerResult.links) {
+          links.push({ start: start + link.start, end: start + link.end, url: link.url });
+        }
+        for (const fmt of innerResult.formatting) {
+          formatting.push({ start: start + fmt.start, end: start + fmt.end, type: fmt.type });
+        }
+        formatting.push({ start, end: plainText.length, type: "bold" });
+        formatting.push({ start, end: plainText.length, type: "italic" });
+        i = closeIdx + 3;
+        continue;
+      }
+    }
+
+    // Bold: ** or __
+    if (
+      markdown[i] === "*" && markdown[i + 1] === "*" && markdown[i + 2] !== "*" ||
+      markdown[i] === "_" && markdown[i + 1] === "_" && markdown[i + 2] !== "_"
+    ) {
+      const marker = markdown.slice(i, i + 2);
+      // Find closing ** that isn't part of ***
+      let closeIdx = markdown.indexOf(marker, i + 2);
+      while (closeIdx !== -1 && markdown[closeIdx + 2] === marker[0]) {
+        closeIdx = markdown.indexOf(marker, closeIdx + 2);
+      }
+      if (closeIdx !== -1) {
+        const inner = markdown.slice(i + 2, closeIdx);
+        const start = plainText.length;
+        const innerResult = stripInlineMarkdown(inner);
+        plainText += innerResult.plainText;
+        for (const link of innerResult.links) {
+          links.push({ start: start + link.start, end: start + link.end, url: link.url });
+        }
+        for (const fmt of innerResult.formatting) {
+          formatting.push({ start: start + fmt.start, end: start + fmt.end, type: fmt.type });
+        }
+        formatting.push({ start, end: plainText.length, type: "bold" });
+        i = closeIdx + 2;
+        continue;
+      }
+    }
+
+    // Italic: single * or _
+    if (
+      (markdown[i] === "*" && markdown[i + 1] !== "*") ||
+      (markdown[i] === "_" && markdown[i + 1] !== "_")
+    ) {
+      const marker = markdown[i];
+      // Find closing marker that isn't doubled
+      let closeIdx = i + 1;
+      while (closeIdx < markdown.length) {
+        closeIdx = markdown.indexOf(marker, closeIdx);
+        if (closeIdx === -1) break;
+        if (markdown[closeIdx + 1] !== marker && markdown[closeIdx - 1] !== marker) break;
+        closeIdx++;
+      }
+      if (closeIdx !== -1 && closeIdx > i + 1) {
+        const inner = markdown.slice(i + 1, closeIdx);
+        const start = plainText.length;
+        const innerResult = stripInlineMarkdown(inner);
+        plainText += innerResult.plainText;
+        for (const link of innerResult.links) {
+          links.push({ start: start + link.start, end: start + link.end, url: link.url });
+        }
+        for (const fmt of innerResult.formatting) {
+          formatting.push({ start: start + fmt.start, end: start + fmt.end, type: fmt.type });
+        }
+        formatting.push({ start, end: plainText.length, type: "italic" });
+        i = closeIdx + 1;
+        continue;
+      }
+    }
+
+    plainText += markdown[i];
+    i++;
+  }
+
+  return { plainText, links, formatting };
+}
+
+function buildFullMarkdown(plainText: string, links: LinkMeta[], formatting: FormattingMeta[]): string {
+  if (links.length === 0 && formatting.length === 0) return plainText;
+
+  // Collect all marker insertions at each position in plainText space.
+  // Each entry: { pos, text, order } where order controls insertion sequence
+  // at the same position (lower order = inserted first = ends up leftmost).
+  type Marker = { pos: number; text: string; order: number };
+  const markers: Marker[] = [];
+
+  for (const fmt of formatting) {
+    const marker = fmt.type === "bold" ? "**" : "*";
+    // Opening: outer markers (bold) before inner (italic) → bold order=0, italic order=1
+    // Closing: inner markers (italic) before outer (bold) → italic order=0, bold order=1
+    const openOrder = fmt.type === "bold" ? 0 : 1;
+    const closeOrder = fmt.type === "bold" ? 1 : 0;
+    markers.push({ pos: fmt.start, text: marker, order: openOrder });
+    markers.push({ pos: fmt.end, text: marker, order: closeOrder });
+  }
+
+  for (const link of links) {
+    // Link brackets go outside formatting markers
+    markers.push({ pos: link.start, text: "[", order: -1 });
+    markers.push({ pos: link.end, text: `](${link.url})`, order: 2 });
+  }
+
+  // Sort by position descending so we insert from end to start (preserving earlier positions).
+  // At the same position, sort by order ascending.
+  markers.sort((a, b) => b.pos - a.pos || a.order - b.order);
+
+  let result = plainText;
+  for (const m of markers) {
+    result = result.slice(0, m.pos) + m.text + result.slice(m.pos);
+  }
+
+  return result;
+}
+
+function adjustFormattingForEdit(formatting: FormattingMeta[], editPos: number, delta: number): FormattingMeta[] {
+  return formatting
+    .map((fmt) => {
+      if (editPos <= fmt.start) {
+        return { ...fmt, start: fmt.start + delta, end: fmt.end + delta };
+      }
+      if (editPos >= fmt.end) {
+        return fmt;
+      }
+      return { ...fmt, end: fmt.end + delta };
+    })
+    .filter((fmt) => fmt.end > fmt.start);
+}
+
+function getCaretRectInPreview(preview: HTMLElement, offset: number): { top: number; left: number; height: number } | null {
+  const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+  let currentOffset = 0;
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode as Text;
+    const nodeLen = textNode.length;
+
+    if (offset <= currentOffset + nodeLen) {
+      const localOffset = offset - currentOffset;
+      try {
+        const range = document.createRange();
+        range.setStart(textNode, localOffset);
+        range.collapse(true);
+        const rect = range.getBoundingClientRect();
+        const previewRect = preview.getBoundingClientRect();
+        return {
+          top: rect.top - previewRect.top + preview.scrollTop,
+          left: rect.left - previewRect.left + preview.scrollLeft,
+          height: rect.height || parseFloat(getComputedStyle(preview).lineHeight) || 20,
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    currentOffset += nodeLen;
+  }
+
+  return null;
+}
+
+function applyFormattingHighlights(preview: HTMLElement, formatting: FormattingMeta[]) {
+  if (formatting.length === 0) return;
+
+  // Remove previous formatting highlights
+  const existingBold = preview.querySelectorAll("strong.step-preview-bold");
+  for (let i = 0; i < existingBold.length; i++) {
+    const el = existingBold[i];
+    const parent = el.parentNode;
+    if (parent) {
+      while (el.firstChild) {
+        parent.insertBefore(el.firstChild, el);
+      }
+      parent.removeChild(el);
+    }
+  }
+  const existingItalic = preview.querySelectorAll("em.step-preview-italic");
+  for (let i = 0; i < existingItalic.length; i++) {
+    const el = existingItalic[i];
+    const parent = el.parentNode;
+    if (parent) {
+      while (el.firstChild) {
+        parent.insertBefore(el.firstChild, el);
+      }
+      parent.removeChild(el);
+    }
+  }
+
+  const sorted = [...formatting].sort((a, b) => b.start - a.start);
+
+  for (const fmt of sorted) {
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    let currentOffset = 0;
+    let startNode: Text | null = null;
+    let startLocalOffset = 0;
+    let endNode: Text | null = null;
+    let endLocalOffset = 0;
+
+    while (walker.nextNode()) {
+      const textNode = walker.currentNode as Text;
+      const nodeStart = currentOffset;
+      const nodeEnd = currentOffset + textNode.length;
+
+      if (!startNode && fmt.start >= nodeStart && fmt.start < nodeEnd) {
+        startNode = textNode;
+        startLocalOffset = fmt.start - nodeStart;
+      }
+      if (!endNode && fmt.end > nodeStart && fmt.end <= nodeEnd) {
+        endNode = textNode;
+        endLocalOffset = fmt.end - nodeStart;
+      }
+
+      currentOffset = nodeEnd;
+      if (startNode && endNode) break;
+    }
+
+    if (!startNode || !endNode) continue;
+
+    try {
+      const range = document.createRange();
+      range.setStart(startNode, startLocalOffset);
+      range.setEnd(endNode, endLocalOffset);
+
+      const wrapper = document.createElement(fmt.type === "bold" ? "strong" : "em");
+      wrapper.className = fmt.type === "bold" ? "step-preview-bold" : "step-preview-italic";
+
+      const fragment = range.extractContents();
+      wrapper.appendChild(fragment);
+      range.insertNode(wrapper);
+    } catch {
+      // DOM manipulation can fail if range crosses element boundaries
+    }
+  }
+}
+
+
+function adjustLinksForEdit(links: LinkMeta[], editPos: number, delta: number): LinkMeta[] {
+  return links
+    .map((link) => {
+      if (editPos <= link.start) {
+        return { ...link, start: link.start + delta, end: link.end + delta };
+      }
+      if (editPos >= link.end) {
+        return link;
+      }
+      return { ...link, end: link.end + delta };
+    })
+    .filter((link) => link.end > link.start);
+}
+
+function applyLinkHighlights(preview: HTMLElement, links: LinkMeta[]) {
+  if (links.length === 0) return;
+
+  // Remove previous link highlights
+  const existing = preview.querySelectorAll("a.step-preview-link");
+  for (let i = 0; i < existing.length; i++) {
+    const el = existing[i];
+    const parent = el.parentNode;
+    if (parent) {
+      while (el.firstChild) {
+        parent.insertBefore(el.firstChild, el);
+      }
+      parent.removeChild(el);
+    }
+  }
+
+  const sorted = [...links].sort((a, b) => b.start - a.start);
+
+  for (const link of sorted) {
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    let currentOffset = 0;
+    let startNode: Text | null = null;
+    let startLocalOffset = 0;
+    let endNode: Text | null = null;
+    let endLocalOffset = 0;
+
+    while (walker.nextNode()) {
+      const textNode = walker.currentNode as Text;
+      const nodeStart = currentOffset;
+      const nodeEnd = currentOffset + textNode.length;
+
+      if (!startNode && link.start >= nodeStart && link.start < nodeEnd) {
+        startNode = textNode;
+        startLocalOffset = link.start - nodeStart;
+      }
+      if (!endNode && link.end > nodeStart && link.end <= nodeEnd) {
+        endNode = textNode;
+        endLocalOffset = link.end - nodeStart;
+      }
+
+      currentOffset = nodeEnd;
+      if (startNode && endNode) break;
+    }
+
+    if (!startNode || !endNode) continue;
+
+    try {
+      const range = document.createRange();
+      range.setStart(startNode, startLocalOffset);
+      range.setEnd(endNode, endLocalOffset);
+
+      const anchor = document.createElement("a");
+      anchor.href = link.url;
+      anchor.className = "step-preview-link";
+
+      const fragment = range.extractContents();
+      anchor.appendChild(fragment);
+      range.insertNode(anchor);
+    } catch {
+      // DOM manipulation can fail if range crosses element boundaries unexpectedly
+    }
+  }
+}
 
 function markdownToPlainText(markdown: string): string {
   if (!markdown) {
@@ -138,6 +511,15 @@ export function StepField({
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [showLinkPopover, setShowLinkPopover] = useState(false);
+  const linkSelectionRef = useRef<{ start: number; end: number; text: string } | null>(null);
+  const linksRef = useRef<LinkMeta[]>([]);
+  const formattingRef = useRef<FormattingMeta[]>([]);
+  const caretRef = useRef<HTMLDivElement | null>(null);
+  const prevTextRef = useRef("");
+  const isSyncingRef = useRef(false);
+  const [cursorLink, setCursorLink] = useState<LinkMeta | null>(null);
+  const Components = useComponentsContext();
   const resolvedPlaceholder = placeholder ?? "";
 
   useEffect(() => {
@@ -145,11 +527,28 @@ export function StepField({
   }, [onChange]);
 
   const handleEditorChange = useCallback((nextValue: string) => {
+    if (isSyncingRef.current) return;
+
+    const prevText = prevTextRef.current;
+    const delta = nextValue.length - prevText.length;
+
+    // Find where the edit happened by comparing old and new text
+    let editPos = 0;
+    const minLen = Math.min(prevText.length, nextValue.length);
+    while (editPos < minLen && prevText[editPos] === nextValue[editPos]) {
+      editPos++;
+    }
+
+    linksRef.current = adjustLinksForEdit(linksRef.current, editPos, delta);
+    formattingRef.current = adjustFormattingForEdit(formattingRef.current, editPos, delta);
+    prevTextRef.current = nextValue;
+
+    const markdown = buildFullMarkdown(nextValue, linksRef.current, formattingRef.current);
     setPlainTextValue((prev) => {
-      const normalized = markdownToPlainText(nextValue);
+      const normalized = markdownToPlainText(markdown);
       return prev === normalized ? prev : normalized;
     });
-    onChangeRef.current?.(nextValue);
+    onChangeRef.current?.(markdown);
   }, []);
 
   useEffect(() => {
@@ -158,8 +557,13 @@ export function StepField({
       return;
     }
 
+    const { plainText, links, formatting } = stripInlineMarkdown(initialValueRef.current);
+    linksRef.current = links;
+    formattingRef.current = formatting;
+    prevTextRef.current = plainText;
+
     const [instance] = OverType.init(container, {
-      value: initialValueRef.current,
+      value: plainText,
       placeholder: resolvedPlaceholder,
       autoResize: multiline,
       minHeight: multiline ? "4rem" : "2.5rem",
@@ -168,15 +572,110 @@ export function StepField({
       onChange: handleEditorChange,
     });
 
+    // Monkey-patch updatePreview to add link highlights
+    const originalUpdatePreview = instance.updatePreview.bind(instance);
+    instance.updatePreview = function () {
+      originalUpdatePreview();
+      applyFormattingHighlights(this.preview, formattingRef.current);
+      applyLinkHighlights(this.preview, linksRef.current);
+    };
+    // Apply initial highlights
+    applyFormattingHighlights(instance.preview, formattingRef.current);
+    applyLinkHighlights(instance.preview, linksRef.current);
+
+    // Create custom caret element inside the wrapper
+    const caretEl = document.createElement("div");
+    caretEl.className = "bn-step-custom-caret";
+    instance.wrapper.appendChild(caretEl);
+    caretRef.current = caretEl;
+
     editorInstanceRef.current = instance;
     setTextareaNode(instance.textarea);
 
     return () => {
+      caretRef.current = null;
       instance.destroy();
       editorInstanceRef.current = null;
       setTextareaNode(null);
     };
   }, [handleEditorChange, multiline, resolvedPlaceholder]);
+
+  // Custom caret: position based on preview text metrics (handles bold/italic width differences)
+  useEffect(() => {
+    const instance = editorInstanceRef.current;
+    const caret = caretRef.current;
+    if (!textareaNode || !instance || !caret) return;
+
+    const updateCaret = () => {
+      const hasFormatting = formattingRef.current.length > 0;
+
+      if (!hasFormatting) {
+        caret.style.display = "none";
+        textareaNode.classList.remove("bn-step-caret-hidden");
+        return;
+      }
+
+      // Always hide native caret when formatting exists
+      textareaNode.classList.add("bn-step-caret-hidden");
+
+      const isFocused = document.activeElement === textareaNode;
+      if (!isFocused) {
+        caret.style.display = "none";
+        return;
+      }
+
+      const pos = textareaNode.selectionStart ?? 0;
+      const selEnd = textareaNode.selectionEnd ?? 0;
+
+      // Hide custom caret when there's a selection range
+      if (pos !== selEnd) {
+        caret.style.display = "none";
+        return;
+      }
+
+      const rect = getCaretRectInPreview(instance.preview, pos);
+      if (rect) {
+        caret.style.display = "block";
+        caret.style.top = `${rect.top}px`;
+        caret.style.left = `${rect.left}px`;
+        caret.style.height = `${rect.height}px`;
+      } else {
+        caret.style.display = "none";
+      }
+    };
+
+    const onSelectionChange = () => {
+      if (document.activeElement === textareaNode) {
+        updateCaret();
+      }
+    };
+
+    const onBlur = () => {
+      caret.style.display = "none";
+    };
+
+    const onFocus = () => {
+      updateCaret();
+    };
+
+    const deferredUpdate = () => requestAnimationFrame(updateCaret);
+
+    document.addEventListener("selectionchange", onSelectionChange);
+    textareaNode.addEventListener("input", deferredUpdate);
+    textareaNode.addEventListener("focus", onFocus);
+    textareaNode.addEventListener("blur", onBlur);
+
+    // Initial update
+    updateCaret();
+
+    return () => {
+      document.removeEventListener("selectionchange", onSelectionChange);
+      textareaNode.removeEventListener("input", deferredUpdate);
+      textareaNode.removeEventListener("focus", onFocus);
+      textareaNode.removeEventListener("blur", onBlur);
+      textareaNode.classList.remove("bn-step-caret-hidden");
+    };
+  }, [textareaNode]);
 
   useEffect(() => {
     if (pendingFocusRef.current && textareaNode) {
@@ -202,8 +701,19 @@ export function StepField({
       return;
     }
 
-    if (instance.getValue() !== value) {
-      instance.setValue(value);
+    const { plainText, links, formatting } = stripInlineMarkdown(value);
+    linksRef.current = links;
+    formattingRef.current = formatting;
+    prevTextRef.current = plainText;
+
+    if (instance.getValue() !== plainText) {
+      isSyncingRef.current = true;
+      instance.setValue(plainText);
+      isSyncingRef.current = false;
+    } else {
+      // Even if text didn't change, formatting/links might have — re-apply highlights
+      applyFormattingHighlights(instance.preview, formatting);
+      applyLinkHighlights(instance.preview, links);
     }
 
     setPlainTextValue((prev) => {
@@ -266,6 +776,30 @@ export function StepField({
     };
   }, [enableAutocomplete, onFieldFocus, showSuggestionsOnFocus, textareaNode]);
 
+  // Detect when cursor is inside a link for showing edit tooltip
+  useEffect(() => {
+    if (!textareaNode) return;
+
+    const checkCursorInLink = () => {
+      const pos = textareaNode.selectionStart;
+      const isCollapsed = textareaNode.selectionStart === textareaNode.selectionEnd;
+      if (!isCollapsed) {
+        setCursorLink(null);
+        return;
+      }
+      const found = linksRef.current.find((l) => pos >= l.start && pos <= l.end);
+      setCursorLink(found ?? null);
+    };
+
+    textareaNode.addEventListener("click", checkCursorInLink);
+    textareaNode.addEventListener("keyup", checkCursorInLink);
+    textareaNode.addEventListener("blur", () => setCursorLink(null));
+    return () => {
+      textareaNode.removeEventListener("click", checkCursorInLink);
+      textareaNode.removeEventListener("keyup", checkCursorInLink);
+    };
+  }, [textareaNode]);
+
   useEffect(() => {
     if (!autoFocus || autoFocusRef.current || !textareaNode) {
       return;
@@ -306,9 +840,8 @@ export function StepField({
       const insertText = `${needsBeforeNewline ? "\n" : ""}![](${url})${needsAfterNewline ? "\n" : ""}`;
       const nextValue = `${before}${insertText}${after}`;
 
+      // setValue triggers updatePreview → handleEditorChange which reconstructs markdown with links
       instance.setValue(nextValue);
-      setPlainTextValue(markdownToPlainText(nextValue));
-      onChangeRef.current?.(nextValue);
 
       requestAnimationFrame(() => {
         textarea.selectionStart = start + insertText.length;
@@ -367,15 +900,132 @@ export function StepField({
 
   const handleToolbarAction = useCallback(
     (action: "toggleBold" | "toggleItalic") => {
-      const shortcuts = editorInstanceRef.current?.shortcuts;
-      if (!textareaNode || !shortcuts?.handleAction) {
+      const instance = editorInstanceRef.current;
+      if (!textareaNode || !instance) {
         return;
       }
       textareaNode.focus();
-      shortcuts.handleAction(action);
+
+      const fmtType: "bold" | "italic" = action === "toggleBold" ? "bold" : "italic";
+      const start = textareaNode.selectionStart ?? 0;
+      const end = textareaNode.selectionEnd ?? 0;
+
+      // Check if selection is already formatted
+      const existingIdx = formattingRef.current.findIndex(
+        (f) => f.type === fmtType && f.start <= start && f.end >= end,
+      );
+
+      if (existingIdx !== -1) {
+        // Remove formatting
+        formattingRef.current = formattingRef.current.filter((_, i) => i !== existingIdx);
+      } else if (start !== end) {
+        // Add formatting for selection
+        formattingRef.current = [...formattingRef.current, { start, end, type: fmtType }];
+      } else {
+        // No selection — nothing to format
+        return;
+      }
+
+      const currentValue = instance.getValue();
+      prevTextRef.current = currentValue;
+
+      const markdown = buildFullMarkdown(currentValue, linksRef.current, formattingRef.current);
+      onChangeRef.current?.(markdown);
+      setPlainTextValue(markdownToPlainText(markdown));
+
+      // Re-apply highlights
+      applyFormattingHighlights(instance.preview, formattingRef.current);
+      applyLinkHighlights(instance.preview, linksRef.current);
     },
     [textareaNode],
   );
+
+  const linkPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Close link popover on outside click
+  useEffect(() => {
+    if (!showLinkPopover) return;
+
+    const handleMouseDown = (event: MouseEvent) => {
+      const popover = linkPopoverRef.current;
+      if (popover && !popover.contains(event.target as Node)) {
+        setShowLinkPopover(false);
+        linkSelectionRef.current = null;
+      }
+    };
+
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [showLinkPopover]);
+
+  const handleOpenLinkPopover = useCallback(() => {
+    if (!textareaNode) {
+      return;
+    }
+    const start = textareaNode.selectionStart ?? 0;
+    const end = textareaNode.selectionEnd ?? 0;
+    const text = textareaNode.value.slice(start, end);
+    linkSelectionRef.current = { start, end, text };
+    setShowLinkPopover(true);
+  }, [textareaNode]);
+
+  const handleEditLink = useCallback(
+    (url: string, text: string) => {
+      const instance = editorInstanceRef.current;
+      const sel = linkSelectionRef.current;
+      if (!instance || !sel || !url) {
+        setShowLinkPopover(false);
+        linkSelectionRef.current = null;
+        return;
+      }
+      const currentValue = instance.getValue();
+      const linkText = text || sel.text || url;
+
+      // Replace selected text with link display text (no markdown syntax in textarea)
+      const before = currentValue.slice(0, sel.start);
+      const after = currentValue.slice(sel.end);
+      const nextValue = `${before}${linkText}${after}`;
+
+      // Remove any existing link that overlaps this selection, then add the new one
+      const delta = linkText.length - (sel.end - sel.start);
+      const adjustedLinks = adjustLinksForEdit(
+        linksRef.current.filter((l) => !(l.start < sel.end && l.end > sel.start)),
+        sel.start,
+        delta,
+      );
+      const newLink: LinkMeta = { start: sel.start, end: sel.start + linkText.length, url };
+      linksRef.current = [...adjustedLinks, newLink];
+      formattingRef.current = adjustFormattingForEdit(formattingRef.current, sel.start, delta);
+      prevTextRef.current = nextValue;
+
+      isSyncingRef.current = true;
+      instance.setValue(nextValue);
+      isSyncingRef.current = false;
+
+      const markdown = buildFullMarkdown(nextValue, linksRef.current, formattingRef.current);
+      onChangeRef.current?.(markdown);
+      setPlainTextValue(markdownToPlainText(markdown));
+      setShowLinkPopover(false);
+      linkSelectionRef.current = null;
+      setCursorLink(null);
+      requestAnimationFrame(() => textareaNode?.focus());
+    },
+    [textareaNode],
+  );
+
+  const handleRemoveLink = useCallback(() => {
+    linksRef.current = linksRef.current.filter((l) => l !== cursorLink);
+    setCursorLink(null);
+
+    const instance = editorInstanceRef.current;
+    if (instance) {
+      const markdown = buildFullMarkdown(instance.getValue(), linksRef.current, formattingRef.current);
+      onChangeRef.current?.(markdown);
+      // Re-apply highlights since links changed
+      applyFormattingHighlights(instance.preview, formattingRef.current);
+      applyLinkHighlights(instance.preview, linksRef.current);
+    }
+  }, [cursorLink]);
 
   const suggestionPool = useMemo(() => {
     if (!suggestionFilter) {
@@ -522,6 +1172,23 @@ export function StepField({
         }
       }
 
+      // Intercept Ctrl+B / Ctrl+I to use our formatting system instead of OverType's
+      const modKey = navigator.platform?.toLowerCase().includes("mac") ? event.metaKey : event.ctrlKey;
+      if (modKey && !event.shiftKey) {
+        if (event.key === "b" || event.key === "B") {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          handleToolbarAction("toggleBold");
+          return;
+        }
+        if (event.key === "i" || event.key === "I") {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          handleToolbarAction("toggleItalic");
+          return;
+        }
+      }
+
       if (enableAutocomplete && shouldShowAutocomplete) {
         if (event.key === "ArrowDown") {
           event.preventDefault();
@@ -565,7 +1232,7 @@ export function StepField({
         }
       }
     };
-  }, [activeSuggestionIndex, applySuggestion, enableAutocomplete, filteredSuggestions, focusAdjacentField, readOnly, shouldShowAutocomplete]);
+  }, [activeSuggestionIndex, applySuggestion, enableAutocomplete, filteredSuggestions, focusAdjacentField, handleToolbarAction, readOnly, shouldShowAutocomplete]);
 
   useEffect(() => {
     if (!textareaNode) {
@@ -602,7 +1269,7 @@ export function StepField({
     .join(" ");
 
   const showToolbar =
-    showFormattingButtons || (enableImageUpload && uploadImage && showImageButton) || Boolean(rightAction);
+    showFormattingButtons || (enableImageUpload && uploadImage && showImageButton) || Boolean(rightAction) || enableAutocomplete;
 
   return (
     <div className="bn-step-field">
@@ -628,21 +1295,6 @@ export function StepField({
             ) : (
               <span className="bn-step-field__label">{label}</span>
             )}
-            {enableAutocomplete && (
-              <button
-                type="button"
-                className="bn-step-suggestions-toggle"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  setShowAllSuggestions(true);
-                  textareaNode?.focus();
-                }}
-                aria-label="Show suggestions"
-                tabIndex={-1}
-              >
-                ⌄
-              </button>
-            )}
           </div>
           {labelAction && <div className="bn-step-field__label-action">{labelAction}</div>}
         </div>
@@ -663,13 +1315,58 @@ export function StepField({
             }
           }}
         />
+        {cursorLink && isFocused && (
+          <div className="bn-step-link-tooltip">
+            <span className="bn-step-link-tooltip__url" title={cursorLink.url}>
+              {cursorLink.url.length > 40 ? `${cursorLink.url.slice(0, 40)}...` : cursorLink.url}
+            </span>
+            <button
+              type="button"
+              className="bn-step-link-tooltip__btn"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                linkSelectionRef.current = { start: cursorLink.start, end: cursorLink.end, text: "" };
+                setShowLinkPopover(true);
+              }}
+              tabIndex={-1}
+            >
+              Edit link
+            </button>
+            <a
+              className="bn-step-link-tooltip__btn"
+              href={cursorLink.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onMouseDown={(event) => event.stopPropagation()}
+              tabIndex={-1}
+            >
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+              </svg>
+            </a>
+            <button
+              type="button"
+              className="bn-step-link-tooltip__btn bn-step-link-tooltip__btn--danger"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                handleRemoveLink();
+              }}
+              tabIndex={-1}
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z" />
+              </svg>
+            </button>
+          </div>
+        )}
         {showToolbar && (
           <div className="bn-step-toolbar" aria-label={`${label} controls`}>
             {showFormattingButtons && (
               <>
-            <button
-              type="button"
-              className="bn-step-toolbar__button"
+                <button
+                  type="button"
+                  className="bn-step-toolbar__button"
                   onMouseDown={(event) => {
                     event.preventDefault();
                     handleToolbarAction("toggleBold");
@@ -677,7 +1374,9 @@ export function StepField({
                   aria-label="Bold"
                   tabIndex={-1}
                 >
-                  B
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M4 2.66675H8.33333C8.92064 2.66677 9.49502 2.83918 9.98525 3.1626C10.4755 3.48602 10.86 3.94622 11.0911 4.48613C11.3223 5.02604 11.3898 5.62192 11.2855 6.19988C11.1811 6.77783 10.9094 7.31244 10.504 7.73741C11.0752 8.06825 11.5213 8.57823 11.7733 9.18833C12.0252 9.79844 12.0689 10.4746 11.8976 11.1121C11.7263 11.7495 11.3495 12.3127 10.8256 12.7143C10.3018 13.1159 9.66008 13.3335 9 13.3334H4V12.0001H4.66667V4.00008H4V2.66675ZM6 7.33341H8.33333C8.77536 7.33341 9.19928 7.15782 9.51184 6.84526C9.8244 6.5327 10 6.10878 10 5.66675C10 5.22472 9.8244 4.8008 9.51184 4.48824C9.19928 4.17568 8.77536 4.00008 8.33333 4.00008H6V7.33341ZM6 8.66675V12.0001H9C9.44203 12.0001 9.86595 11.8245 10.1785 11.5119C10.4911 11.1994 10.6667 10.7754 10.6667 10.3334C10.6667 9.89139 10.4911 9.46746 10.1785 9.1549C9.86595 8.84234 9.44203 8.66675 9 8.66675H6Z" fill="currentColor"/>
+                  </svg>
                 </button>
                 <button
                   type="button"
@@ -689,7 +1388,9 @@ export function StepField({
                   aria-label="Italic"
                   tabIndex={-1}
                 >
-                  I
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M8.66699 13.3334H4.66699V12.0001H5.95166L8.69566 4.00008H7.33366V2.66675H11.3337V4.00008H10.049L7.30499 12.0001H8.66699V13.3334Z" fill="currentColor"/>
+                  </svg>
                 </button>
               </>
             )}
@@ -708,6 +1409,71 @@ export function StepField({
               <ImageUploadIcon />
             </button>
           )}
+            {showFormattingButtons && Components && (
+              <Components.Generic.Popover.Root
+                opened={showLinkPopover}
+                position="top"
+              >
+                <Components.Generic.Popover.Trigger>
+                  <button
+                    type="button"
+                    className="bn-step-toolbar__button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      if (showLinkPopover) {
+                        setShowLinkPopover(false);
+                        linkSelectionRef.current = null;
+                      } else {
+                        handleOpenLinkPopover();
+                      }
+                    }}
+                    aria-label="Insert link"
+                    tabIndex={-1}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M6.66699 4.66699C6.85574 4.66707 7.0139 4.73069 7.1416 4.8584C7.26931 4.9861 7.33293 5.14426 7.33301 5.33301C7.33301 5.5219 7.26938 5.68082 7.1416 5.80859C7.01393 5.93619 6.85566 5.99993 6.66699 6H4.66699C4.11151 6 3.63886 6.19423 3.25 6.58301C2.86111 6.9719 2.66699 7.44444 2.66699 8C2.66699 8.55556 2.86111 9.0281 3.25 9.41699C3.63886 9.80577 4.11151 10 4.66699 10H6.66699C6.85566 10.0001 7.01393 10.0638 7.1416 10.1914C7.26938 10.3192 7.33301 10.4781 7.33301 10.667C7.33293 10.8557 7.26931 11.0139 7.1416 11.1416C7.0139 11.2693 6.85574 11.3329 6.66699 11.333H4.66699C3.74485 11.333 2.95856 11.0083 2.30859 10.3584C1.65859 9.7084 1.33301 8.92222 1.33301 8C1.33301 7.07778 1.65859 6.2916 2.30859 5.6416C2.95856 4.99171 3.74485 4.66699 4.66699 4.66699H6.66699ZM11.333 4.66699C12.2552 4.66699 13.0414 4.99171 13.6914 5.6416C14.3414 6.2916 14.667 7.07778 14.667 8C14.667 8.92222 14.3414 9.7084 13.6914 10.3584C13.0414 11.0083 12.2552 11.333 11.333 11.333H9.33301C9.14426 11.3329 8.9861 11.2693 8.8584 11.1416C8.73069 11.0139 8.66707 10.8557 8.66699 10.667C8.66699 10.4781 8.73062 10.3192 8.8584 10.1914C8.98607 10.0638 9.14434 10.0001 9.33301 10H11.333C11.8885 10 12.3611 9.80577 12.75 9.41699C13.1389 9.0281 13.333 8.55556 13.333 8C13.333 7.44444 13.1389 6.9719 12.75 6.58301C12.3611 6.19423 11.8885 6 11.333 6H9.33301C9.14434 5.99993 8.98607 5.93619 8.8584 5.80859C8.73062 5.68082 8.66699 5.5219 8.66699 5.33301C8.66707 5.14426 8.73069 4.9861 8.8584 4.8584C8.9861 4.73069 9.14426 4.66707 9.33301 4.66699H11.333ZM10 7.33301C10.1889 7.33301 10.3468 7.39761 10.4746 7.52539C10.6024 7.65317 10.667 7.81111 10.667 8C10.667 8.18889 10.6024 8.34683 10.4746 8.47461C10.3468 8.60239 10.1889 8.66699 10 8.66699H6C5.81111 8.66699 5.65317 8.60239 5.52539 8.47461C5.39761 8.34683 5.33301 8.18889 5.33301 8C5.33301 7.81111 5.39761 7.65317 5.52539 7.52539C5.65317 7.39761 5.81111 7.33301 6 7.33301H10Z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                </Components.Generic.Popover.Trigger>
+                <Components.Generic.Popover.Content
+                  className="bn-popover-content bn-form-popover"
+                  variant="form-popover"
+                >
+                  <div ref={linkPopoverRef}>
+                    <EditLinkMenuItems
+                      url={(() => {
+                        const sel = linkSelectionRef.current;
+                        if (!sel) return "";
+                        const existing = linksRef.current.find((l) => l.start < sel.end && l.end > sel.start);
+                        return existing?.url ?? "";
+                      })()}
+                      text={linkSelectionRef.current?.text ?? ""}
+                      editLink={handleEditLink}
+                    />
+                  </div>
+                </Components.Generic.Popover.Content>
+              </Components.Generic.Popover.Root>
+            )}
+            {enableAutocomplete && (
+              <>
+                <div className="bn-step-toolbar__divider" />
+                <button
+                  type="button"
+                  className="bn-step-toolbar__button"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    setShowAllSuggestions(true);
+                    textareaNode?.focus();
+                  }}
+                  aria-label="Show suggestions"
+                  tabIndex={-1}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M12 10.667H14V12H12V14H10.667V12H8.66699V10.667H10.667V8.66699H12V10.667ZM12 1.33301C12.74 1.33301 13.333 1.92699 13.333 2.66699V7.86621C12.9265 7.63301 12.4798 7.46669 12 7.38672V2.66699H2.66699V12H7.38672C7.46669 12.4798 7.63301 12.9265 7.86621 13.333H2.66699C1.92699 13.333 1.33301 12.74 1.33301 12V2.66699C1.33301 1.92699 1.92699 1.33301 2.66699 1.33301H12ZM7.33301 10.667H4V9.33301H7.33301V10.667ZM10.667 7.38672C10.1004 7.48005 9.5801 7.69336 9.12012 8H4V6.66699H10.667V7.38672ZM10.667 5.33301H4V4H10.667V5.33301Z" fill="currentColor"/>
+                  </svg>
+                </button>
+              </>
+            )}
             {rightAction}
           </div>
         )}

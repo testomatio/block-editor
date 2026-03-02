@@ -12,16 +12,7 @@ const STEP_DATA_PLACEHOLDER = "Enter step data...";
 const EXPECTED_RESULT_PLACEHOLDER = "Enter expected result...";
 type StepViewMode = "vertical" | "horizontal";
 
-const readExpectedCollapsedPreference = (): boolean => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  try {
-    return window.localStorage.getItem(EXPECTED_COLLAPSED_KEY) === "true";
-  } catch {
-    return false;
-  }
-};
+/* readExpectedCollapsedPreference removed — currently unused */
 
 const writeExpectedCollapsedPreference = (collapsed: boolean) => {
   if (typeof window === "undefined") {
@@ -78,13 +69,10 @@ export const stepBlock = createReactBlockSpec(
       const stepData = (block.props.stepData as string) || "";
       const expectedResult = (block.props.expectedResult as string) || "";
       const expectedHasContent = expectedResult.trim().length > 0;
-      const storedExpectedCollapsed = useMemo(
-        () => readExpectedCollapsedPreference(),
-        [],
-      );
+      /* storedExpectedCollapsed removed — currently unused */
       const dataHasContent = stepData.trim().length > 0;
       const [isExpectedVisible, setIsExpectedVisible] = useState(
-        expectedHasContent ? true : !storedExpectedCollapsed,
+        expectedHasContent,
       );
       const [isDataVisible, setIsDataVisible] = useState(dataHasContent);
       const [shouldFocusDataField, setShouldFocusDataField] = useState(false);
@@ -291,10 +279,14 @@ export const stepBlock = createReactBlockSpec(
                 aria-label="Switch step view"
                 onClick={handleToggleView}
               >
-                <span className="bn-teststep__view-icon" aria-hidden="true">
-                  <span />
-                  <span />
-                </span>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <mask id="mask-toggle" style={{maskType: "alpha"}} maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
+                    <rect width="16" height="16" fill="#D9D9D9"/>
+                  </mask>
+                  <g mask="url(#mask-toggle)">
+                    <path d="M12.6667 2C13.0333 2 13.3472 2.13056 13.6083 2.39167C13.8694 2.65278 14 2.96667 14 3.33333L14 12.6667C14 13.0333 13.8694 13.3472 13.6083 13.6083C13.3472 13.8694 13.0333 14 12.6667 14L10 14C9.63333 14 9.31944 13.8694 9.05833 13.6083C8.79722 13.3472 8.66667 13.0333 8.66667 12.6667L8.66667 3.33333C8.66667 2.96667 8.79722 2.65278 9.05833 2.39167C9.31945 2.13055 9.63333 2 10 2L12.6667 2ZM6 2C6.36667 2 6.68056 2.13055 6.94167 2.39167C7.20278 2.65278 7.33333 2.96667 7.33333 3.33333L7.33333 12.6667C7.33333 13.0333 7.20278 13.3472 6.94167 13.6083C6.68055 13.8694 6.36667 14 6 14L3.33333 14C2.96667 14 2.65278 13.8694 2.39167 13.6083C2.13056 13.3472 2 13.0333 2 12.6667L2 3.33333C2 2.96667 2.13056 2.65278 2.39167 2.39167C2.65278 2.13055 2.96667 2 3.33333 2L6 2ZM3.33333 12.6667L6 12.6667L6 3.33333L3.33333 3.33333L3.33333 12.6667Z" fill="currentColor"/>
+                  </g>
+                </svg>
               </button>
             }
           />
@@ -303,135 +295,144 @@ export const stepBlock = createReactBlockSpec(
 
       return (
         <div className="bn-teststep" data-block-id={block.id}>
-          <div className="bn-teststep__header">
-            <div className="bn-teststep__meta">
-              <span className="bn-teststep__number">{stepNumber}</span>
-              <span className="bn-teststep__title">Step</span>
-            </div>
-            <button
-              type="button"
-              className="bn-teststep__view-toggle"
-              aria-label="Switch step view"
-              onClick={handleToggleView}
-            >
-              <span className="bn-teststep__view-icon" aria-hidden="true">
-                <span />
-                <span />
-              </span>
-            </button>
+          <div className="bn-teststep__timeline">
+            <span className="bn-teststep__number">{stepNumber}</span>
+            <div className="bn-teststep__line" />
           </div>
-          <StepField
-            label="Step"
-            showLabel={false}
-            value={stepTitle}
-            placeholder={STEP_TITLE_PLACEHOLDER}
-            onChange={handleStepTitleChange}
-            autoFocus={stepTitle.length === 0}
-            enableAutocomplete
-            fieldName="title"
-            suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}
-            onFieldFocus={handleFieldFocus}
-            enableImageUpload={false}
-            showFormattingButtons
-            onImageFile={async (file) => {
-              if (!uploadImage) {
-                return;
-              }
-
-              setIsDataVisible(true);
-              setShouldFocusDataField(true);
-              try {
-                const result = await uploadImage(file);
-                if (result?.url) {
-                  const nextValue = stepData.trim().length > 0 ? `${stepData}\n![](${result.url})` : `![](${result.url})`;
-                  editor.updateBlock(block.id, {
-                    props: {
-                      stepData: nextValue,
-                    },
-                  });
+          <div className="bn-teststep__content">
+            <div className="bn-teststep__header">
+              <span className="bn-teststep__title">Step</span>
+              <button
+                type="button"
+                className="bn-teststep__view-toggle"
+                aria-label="Switch step view"
+                onClick={handleToggleView}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <mask id="mask-toggle" style={{maskType: "alpha"}} maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
+                    <rect width="16" height="16" fill="#D9D9D9"/>
+                  </mask>
+                  <g mask="url(#mask-toggle)">
+                    <path d="M12.6667 2C13.0333 2 13.3472 2.13056 13.6083 2.39167C13.8694 2.65278 14 2.96667 14 3.33333L14 12.6667C14 13.0333 13.8694 13.3472 13.6083 13.6083C13.3472 13.8694 13.0333 14 12.6667 14L10 14C9.63333 14 9.31944 13.8694 9.05833 13.6083C8.79722 13.3472 8.66667 13.0333 8.66667 12.6667L8.66667 3.33333C8.66667 2.96667 8.79722 2.65278 9.05833 2.39167C9.31945 2.13055 9.63333 2 10 2L12.6667 2ZM6 2C6.36667 2 6.68056 2.13055 6.94167 2.39167C7.20278 2.65278 7.33333 2.96667 7.33333 3.33333L7.33333 12.6667C7.33333 13.0333 7.20278 13.3472 6.94167 13.6083C6.68055 13.8694 6.36667 14 6 14L3.33333 14C2.96667 14 2.65278 13.8694 2.39167 13.6083C2.13056 13.3472 2 13.0333 2 12.6667L2 3.33333C2 2.96667 2.13056 2.65278 2.39167 2.39167C2.65278 2.13055 2.96667 2 3.33333 2L6 2ZM3.33333 12.6667L6 12.6667L6 3.33333L3.33333 3.33333L3.33333 12.6667Z" fill="currentColor"/>
+                  </g>
+                </svg>
+              </button>
+            </div>
+            <StepField
+              label="Step"
+              showLabel={false}
+              value={stepTitle}
+              placeholder={STEP_TITLE_PLACEHOLDER}
+              onChange={handleStepTitleChange}
+              autoFocus={stepTitle.length === 0}
+              enableAutocomplete
+              fieldName="title"
+              suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}
+              onFieldFocus={handleFieldFocus}
+              enableImageUpload={false}
+              showFormattingButtons
+              onImageFile={async (file) => {
+                if (!uploadImage) {
+                  return;
                 }
-              } catch (error) {
-                console.error("Failed to upload image to Step Data", error);
-              }
-            }}
-          />
-          {isDataVisible ? (
-            <StepField
-              label="Step data"
-              placeholder={STEP_DATA_PLACEHOLDER}
-              labelAction={
-                canToggleData ? (
-                  <button
-                    type="button"
-                    className="bn-step-field__dismiss"
-                    onClick={handleHideData}
-                    aria-label="Hide step data"
-                  >
-                    ×
-                  </button>
-                ) : undefined
-              }
-              value={stepData}
-              onChange={handleStepDataChange}
-              autoFocus={shouldFocusDataField}
-              focusSignal={dataFocusSignal}
-              multiline
-              enableImageUpload
-              showFormattingButtons
-              showImageButton
-              onFieldFocus={handleFieldFocus}
+
+                setIsDataVisible(true);
+                setShouldFocusDataField(true);
+                try {
+                  const result = await uploadImage(file);
+                  if (result?.url) {
+                    const nextValue = stepData.trim().length > 0 ? `${stepData}\n![](${result.url})` : `![](${result.url})`;
+                    editor.updateBlock(block.id, {
+                      props: {
+                        stepData: nextValue,
+                      },
+                    });
+                  }
+                } catch (error) {
+                  console.error("Failed to upload image to Step Data", error);
+                }
+              }}
             />
-          ) : null}
-          {isExpectedVisible ? (
-            <StepField
-              label="Expected result"
-              placeholder={EXPECTED_RESULT_PLACEHOLDER}
-              labelAction={
-                canToggleExpected ? (
-                  <button
-                    type="button"
-                    className="bn-step-field__dismiss"
-                    onClick={handleHideExpected}
-                    tabIndex={-1}
-                    aria-label="Hide expected result"
-                  >
-                    ×
-                  </button>
-                ) : undefined
-              }
-              value={expectedResult}
-              onChange={handleExpectedChange}
-              multiline
-              focusSignal={expectedFocusSignal}
-              enableImageUpload
-              showFormattingButtons
-              showImageButton
-              onFieldFocus={handleFieldFocus}
-            />
-          ) : null}
-          <div className="bn-step-actions">
-            <button type="button" className="bn-step-add" onClick={handleInsertNextStep}>
-              <span className="bn-step-add__icon" aria-hidden="true">
-                +
-              </span>
-              Add new step
-            </button>
-            {!isDataVisible && (
-              <button type="button" className="bn-step-action-link" onClick={handleShowData}>
-                <span className="bn-step-action-link__icon" aria-hidden="true">
-                  +
-                </span>
-                Step data
+            {isDataVisible ? (
+              <StepField
+                label="Step data"
+                placeholder={STEP_DATA_PLACEHOLDER}
+                labelAction={
+                  canToggleData ? (
+                    <button
+                      type="button"
+                      className="bn-step-field__dismiss"
+                      onClick={handleHideData}
+                      aria-label="Hide step data"
+                    >
+                      ×
+                    </button>
+                  ) : undefined
+                }
+                value={stepData}
+                onChange={handleStepDataChange}
+                autoFocus={shouldFocusDataField}
+                focusSignal={dataFocusSignal}
+                multiline
+                enableAutocomplete
+                enableImageUpload
+                showFormattingButtons
+                showImageButton
+                onFieldFocus={handleFieldFocus}
+              />
+            ) : null}
+            {isExpectedVisible ? (
+              <StepField
+                label="Expected result"
+                placeholder={EXPECTED_RESULT_PLACEHOLDER}
+                labelAction={
+                  canToggleExpected ? (
+                    <button
+                      type="button"
+                      className="bn-step-field__dismiss"
+                      onClick={handleHideExpected}
+                      tabIndex={-1}
+                      aria-label="Hide expected result"
+                    >
+                      ×
+                    </button>
+                  ) : undefined
+                }
+                value={expectedResult}
+                onChange={handleExpectedChange}
+                multiline
+                focusSignal={expectedFocusSignal}
+                enableAutocomplete
+                enableImageUpload
+                showFormattingButtons
+                showImageButton
+                onFieldFocus={handleFieldFocus}
+              />
+            ) : null}
+            <div className="bn-step-actions">
+              <button type="button" className="bn-step-action-btn" onClick={handleInsertNextStep}>
+                <svg className="bn-step-action-btn__icon" width="16" height="16" viewBox="0 0 13.334 13.334" fill="none" aria-hidden="true">
+                  <path d="M6.667 0a6.667 6.667 0 1 1 0 13.334A6.667 6.667 0 0 1 6.667 0Zm0 1.334a5.333 5.333 0 1 0 0 10.666 5.333 5.333 0 0 0 0-10.666ZM7.334 3.334V6H10v1.334H7.334V10H6V7.334H3.334V6H6V3.334h1.334Z" fill="currentColor"/>
+                </svg>
+                Add new step
               </button>
-            )}
-            {!isExpectedVisible && (
-              <button type="button" className="bn-step-action-link" onClick={handleShowExpected}>
-                <span className="bn-step-action-link__icon" aria-hidden="true">
-                  +
-                </span>
-                Expected result
-              </button>
-            )}
+              {!isDataVisible && (
+                <button type="button" className="bn-step-action-btn" onClick={handleShowData}>
+                  <svg className="bn-step-action-btn__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M8.666 7.333H12.666V8.667H8.666V12.667H7.332V8.667H3.332V7.333H7.332V3.333H8.666V7.333Z" fill="currentColor"/>
+                  </svg>
+                  Step data
+                </button>
+              )}
+              {!isExpectedVisible && (
+                <button type="button" className="bn-step-action-btn" onClick={handleShowExpected}>
+                  <svg className="bn-step-action-btn__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M8.666 7.333H12.666V8.667H8.666V12.667H7.332V8.667H3.332V7.333H7.332V3.333H8.666V7.333Z" fill="currentColor"/>
+                  </svg>
+                  Expected result
+                </button>
+              )}
+            </div>
           </div>
         </div>
       );
