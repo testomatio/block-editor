@@ -791,14 +791,13 @@
 }
 
 .bn-step-editor .overtype-wrapper textarea.overtype-input::placeholder {
-  color: #a1a1a1 !important;
-  font-weight: 400 !important;
-  opacity: 1 !important;
+  color: transparent !important;
+  opacity: 0 !important;
 }
 
 .bn-step-editor .overtype-wrapper textarea.overtype-input::-webkit-input-placeholder {
-  color: #a1a1a1 !important;
-  font-weight: 400 !important;
+  color: transparent !important;
+  opacity: 0 !important;
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview {
