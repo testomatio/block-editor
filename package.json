@@ -39,6 +39,10 @@
     "testcases",
     "test-automation"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/testomatio/block-editor"
+  },
   "peerDependencies": {
     "@blocknote/core": "^0.31.3",
     "@blocknote/react": "^0.31.3",
