@@ -767,7 +767,7 @@ function parseList(
     // Only try to parse as testStep for top-level items (indentLevel === 0)
     // when we're under a Steps heading AND the list type is bullet
     // Numbered lists under Steps heading are only parsed as test steps if they look like test steps
-    if (indentLevel === 0 && allowEmptySteps) {
+    if (indentLevel === 0 && (allowEmptySteps || listType === "bullet")) {
       // For bullet lists, always try to parse as test steps
       // For numbered lists, only try if they have step-like characteristics
       const looksLikeTestStep = listType === "bullet" ||
@@ -1036,6 +1036,7 @@ function parseTestStep(
     .trim();
 
   if (
+    !isBullet &&
     !isLikelyStep &&
     !expectedResult &&
     stepDataLines.length === 0 &&

@@ -461,6 +461,33 @@ describe("markdownToBlocks", () => {
       {
         type: "testStep",
         props: {
+          stepTitle: "The user is logged into the application.",
+          stepData: "",
+          expectedResult: "",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "The user has the necessary permissions to receive notifications.",
+          stepData: "",
+          expectedResult: "",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "The application is configured to send real-time notifications.",
+          stepData: "",
+          expectedResult: "",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
           stepTitle: "Step 1: Send a chat message to the user.",
           stepData: "",
           expectedResult: "The user receives a real-time notification for the chat message.",
@@ -491,6 +518,24 @@ describe("markdownToBlocks", () => {
           stepTitle: "Step 4: Verify that the notifications are displayed correctly in the application's notification panel.",
           stepData: "",
           expectedResult: "All notifications (chat message, order update, file received) are listed in the notification panel with the correct information (e.g., timestamp, message content).\n",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "The user has received and viewed the notifications.",
+          stepData: "",
+          expectedResult: "",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "The application continues to function as expected after receiving and processing the notifications.",
+          stepData: "",
+          expectedResult: "",
         },
         children: [],
       },
@@ -590,39 +635,30 @@ describe("markdownToBlocks", () => {
         children: [],
       },
       {
-        type: "bulletListItem",
-        props: baseProps,
-        content: [
-          {
-            type: "text",
-            text: "The user is logged into the application.",
-            styles: {},
-          },
-        ],
+        type: "testStep",
+        props: {
+          stepTitle: "The user is logged into the application.",
+          stepData: "",
+          expectedResult: "",
+        },
         children: [],
       },
       {
-        type: "bulletListItem",
-        props: baseProps,
-        content: [
-          {
-            type: "text",
-            text: "The user has the necessary permissions to receive notifications.",
-            styles: {},
-          },
-        ],
+        type: "testStep",
+        props: {
+          stepTitle: "The user has the necessary permissions to receive notifications.",
+          stepData: "",
+          expectedResult: "",
+        },
         children: [],
       },
       {
-        type: "bulletListItem",
-        props: baseProps,
-        content: [
-          {
-            type: "text",
-            text: "The application is configured to send real-time notifications.",
-            styles: {},
-          },
-        ],
+        type: "testStep",
+        props: {
+          stepTitle: "The application is configured to send real-time notifications.",
+          stepData: "",
+          expectedResult: "",
+        },
         children: [],
       },
     ]);
@@ -910,7 +946,23 @@ describe("markdownToBlocks", () => {
 
     const markdown = blocksToMarkdown(blocks);
     const parsed = markdownToBlocks(markdown);
-    expect(parsed).toEqual(blocks.map(toPartial));
+    expect(parsed).toEqual([
+      {
+        type: "paragraph",
+        props: baseProps,
+        content: [{ type: "text", text: "Paragraph", styles: {} }],
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Bullet",
+          stepData: "",
+          expectedResult: "",
+        },
+        children: [],
+      },
+    ]);
   });
 
   it("parses markdown tables", () => {
