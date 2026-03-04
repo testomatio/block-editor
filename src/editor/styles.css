@@ -801,6 +801,10 @@
   font-weight: 400 !important;
 }
 
+.bn-step-editor .overtype-wrapper .overtype-placeholder {
+  display: none !important;
+}
+
 .bn-step-editor .overtype-wrapper .overtype-preview {
   color: var(--text-primary) !important;
 }
