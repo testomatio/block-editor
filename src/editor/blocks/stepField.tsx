@@ -576,10 +576,16 @@ export function StepField({
     const originalUpdatePreview = instance.updatePreview.bind(instance);
     instance.updatePreview = function () {
       originalUpdatePreview();
+      if (!this.textarea.value) {
+        this.preview.innerHTML = "";
+      }
       applyFormattingHighlights(this.preview, formattingRef.current);
       applyLinkHighlights(this.preview, linksRef.current);
     };
-    // Apply initial highlights
+    // Apply initial highlights and clear preview fallback for empty fields
+    if (!instance.textarea.value) {
+      instance.preview.innerHTML = "";
+    }
     applyFormattingHighlights(instance.preview, formattingRef.current);
     applyLinkHighlights(instance.preview, linksRef.current);
 
