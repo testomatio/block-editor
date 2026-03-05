@@ -21,6 +21,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Open the Login page.",
           stepData: "",
           expectedResult: "The Login page loads successfully.",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -99,6 +100,7 @@ describe("markdownToBlocks", () => {
         stepTitle: "Step 1: Send a chat message to the user.",
         stepData: "",
         expectedResult: "The user receives a real-time notification for the chat message.",
+        listStyle: "bullet",
       },
       children: [],
     });

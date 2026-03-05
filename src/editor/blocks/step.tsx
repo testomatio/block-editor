@@ -61,6 +61,9 @@ export const stepBlock = createReactBlockSpec(
       expectedResult: {
         default: "",
       },
+      listStyle: {
+        default: "bullet",
+      },
     },
   },
   {

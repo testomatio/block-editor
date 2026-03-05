@@ -75,6 +75,7 @@ describe("blocksToMarkdown", () => {
           stepTitle: "Open the Login page.",
           stepData: "",
           expectedResult: "The Login page loads successfully.",
+          listStyle: "bullet",
         },
         content: undefined,
         children: [],
@@ -86,6 +87,7 @@ describe("blocksToMarkdown", () => {
           stepTitle: "Enter a valid username.",
           stepData: "",
           expectedResult: "The username is accepted.",
+          listStyle: "bullet",
         },
         content: undefined,
         children: [],
@@ -182,6 +184,7 @@ describe("blocksToMarkdown", () => {
            stepTitle: "**Click** the _Login_ button",
            stepData: "",
            expectedResult: "**Success** is shown\nSecond line with <u>underline</u>",
+           listStyle: "bullet",
          },
          content: undefined,
          children: [],
@@ -206,6 +209,7 @@ describe("blocksToMarkdown", () => {
            stepTitle: "Navigate to login",
            stepData: "Open browser\nGo to login page",
            expectedResult: "Login form visible",
+           listStyle: "bullet",
          },
          content: undefined,
          children: [],
@@ -243,6 +247,7 @@ describe("blocksToMarkdown", () => {
             "![](/attachments/HMhkVtlDrO.png)",
           ].join("\n"),
           expectedResult: "The user receives a real-time notification for the order update.",
+          listStyle: "bullet",
         },
         content: undefined,
         children: [],
@@ -352,6 +357,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Open the Login page.",
           stepData: "",
           expectedResult: "The Login page loads successfully.",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -464,6 +470,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "The user is logged into the application.",
           stepData: "",
           expectedResult: "",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -473,6 +480,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "The user has the necessary permissions to receive notifications.",
           stepData: "",
           expectedResult: "",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -482,6 +490,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "The application is configured to send real-time notifications.",
           stepData: "",
           expectedResult: "",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -491,6 +500,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Step 1: Send a chat message to the user.",
           stepData: "",
           expectedResult: "The user receives a real-time notification for the chat message.",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -500,6 +510,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Step 2: Update an order status.",
           stepData: "",
           expectedResult: "The user receives a real-time notification for the order update.",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -509,6 +520,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Step 3: Send a file to the user.",
           stepData: "",
           expectedResult: "The user receives a real-time notification for the file received.",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -518,6 +530,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Step 4: Verify that the notifications are displayed correctly in the application's notification panel.",
           stepData: "",
           expectedResult: "All notifications (chat message, order update, file received) are listed in the notification panel with the correct information (e.g., timestamp, message content).\n",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -527,6 +540,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "The user has received and viewed the notifications.",
           stepData: "",
           expectedResult: "",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -536,6 +550,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "The application continues to function as expected after receiving and processing the notifications.",
           stepData: "",
           expectedResult: "",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -580,6 +595,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Step 2: Update an order status.",
           stepData: expectedData,
           expectedResult: "The user receives a real-time notification for the order update.",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -593,6 +609,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Step 2: Update an order status.",
           stepData: expectedData,
           expectedResult: "The user receives a real-time notification for the order update.",
+          listStyle: "bullet",
         },
         content: undefined,
         children: [],
@@ -640,6 +657,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "The user is logged into the application.",
           stepData: "",
           expectedResult: "",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -649,6 +667,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "The user has the necessary permissions to receive notifications.",
           stepData: "",
           expectedResult: "",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -658,6 +677,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "The application is configured to send real-time notifications.",
           stepData: "",
           expectedResult: "",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -700,6 +720,7 @@ describe("markdownToBlocks", () => {
            stepTitle: "Open the form.",
            stepData: "",
            expectedResult: "** The form opens.\nFields are empty.",
+           listStyle: "bullet",
          },
          children: [],
        },
@@ -721,6 +742,7 @@ describe("markdownToBlocks", () => {
            stepTitle: "Navigate to login",
            stepData: "Open browser\nGo to login page",
            expectedResult: "Login form visible",
+           listStyle: "bullet",
          },
          children: [],
        },
@@ -742,6 +764,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Prepare test fixtures",
           stepData: "Collect user accounts from staging.\nReset passwords for all test accounts.",
           expectedResult: "Test accounts are ready for execution.",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -761,6 +784,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Display the generated report.",
           stepData: "",
           expectedResult: "![](/attachments/report.png)",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -774,6 +798,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Display the generated report.",
           stepData: "",
           expectedResult: "![](/attachments/report.png)",
+          listStyle: "bullet",
         },
         content: undefined,
         children: [],
@@ -797,6 +822,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Should open login screen",
           stepData: "",
           expectedResult: "Login should look like this\n![](/login.png)",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -810,6 +836,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Should open login screen",
           stepData: "",
           expectedResult: "Login should look like this\n![](/login.png)",
+          listStyle: "bullet",
         },
         content: undefined,
         children: [],
@@ -846,6 +873,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Pass onboarding as mobile user",
           stepData: "",
           expectedResult: "",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -856,6 +884,7 @@ describe("markdownToBlocks", () => {
             "Navigate to More tab -≻ My Profile -≻ Log into the app with user from preconditions",
           stepData: "",
           expectedResult: "* Upsell SS screen is displayed",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -865,6 +894,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Close SS",
           stepData: "",
           expectedResult: "* My Course and More tab are displayed",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -896,6 +926,7 @@ describe("markdownToBlocks", () => {
         stepTitle: "Existing email + invalid password",
         stepData: "",
         expectedResult: "'Oops, wrong email or password' is displayed",
+        listStyle: "bullet",
       },
       children: [],
     });
@@ -906,6 +937,7 @@ describe("markdownToBlocks", () => {
         stepTitle: "Not existing email + valid password",
         stepData: "",
         expectedResult: "'Oops, wrong email or password' is displayed",
+        listStyle: "bullet",
       },
       children: [],
     });
@@ -959,10 +991,42 @@ describe("markdownToBlocks", () => {
           stepTitle: "Bullet",
           stepData: "",
           expectedResult: "",
+          listStyle: "bullet",
         },
         children: [],
       },
     ]);
+  });
+
+  it("round-trips bullet steps preserving bullet style", () => {
+    const markdown = [
+      "* Open the page",
+      "  *Expected*: Page loads",
+      "* Click button",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const output = blocksToMarkdown(blocks as CustomEditorBlock[]);
+
+    expect(output).toContain("* Open the page");
+    expect(output).toContain("* Click button");
+    expect(output).not.toMatch(/^\d+\./m);
+  });
+
+  it("round-trips ordered steps preserving ordered style", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "1. Open the page",
+      "  *Expected*: Page loads",
+      "2. Click button",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const output = blocksToMarkdown(blocks as CustomEditorBlock[]);
+
+    expect(output).toContain("1. Open the page");
+    expect(output).toContain("2. Click button");
   });
 
   it("parses markdown tables", () => {
@@ -1029,6 +1093,7 @@ describe("markdownToBlocks", () => {
           stepTitle: "Step 1: Send a chat message to the user.",
           stepData: "",
           expectedResult: "The user receives a real-time notification for the chat message.",
+          listStyle: "bullet",
         },
         children: [],
       },
@@ -1061,6 +1126,7 @@ describe("markdownToBlocks", () => {
         stepTitle: "Swipe Back",
         stepData: "",
         expectedResult: "",
+        listStyle: "bullet",
       },
       children: [],
     });
@@ -1071,6 +1137,7 @@ describe("markdownToBlocks", () => {
         stepTitle: "Check UI of Sleep score info screen",
         stepData: "- Back button\nHeader: Sleep Score Info\nText: Ever wonder if 6, 8, or 9 hours of sleep are enough? Sleep score takes the guesswork out of your ZZZ's and shows you how well you slept last night based on duration, efficiency, and consistency.",
         expectedResult: "* - 1st block:\n* - 2nd block:\n* - 3d block:",
+        listStyle: "bullet",
       },
       children: [],
     });
@@ -1081,6 +1148,7 @@ describe("markdownToBlocks", () => {
         stepTitle: "Tap 'Back' button",
         stepData: "",
         expectedResult: "",
+        listStyle: "bullet",
       },
       children: [],
     });
@@ -1176,6 +1244,7 @@ describe("markdownToBlocks", () => {
         stepTitle: "Navigate to the product listing page.",
         stepData: "Expected open",
         expectedResult: "",
+        listStyle: "ordered",
       },
       children: [],
     });
@@ -1187,6 +1256,7 @@ describe("markdownToBlocks", () => {
         stepTitle: "Select a product and click the \"Add to Cart\" button.",
         stepData: "Expected result close",
         expectedResult: "",
+        listStyle: "ordered",
       },
       children: [],
     });
@@ -1198,6 +1268,7 @@ describe("markdownToBlocks", () => {
         stepTitle: "Open the shopping cart page.",
         stepData: "**Expected** edit",
         expectedResult: "",
+        listStyle: "ordered",
       },
       children: [],
     });
@@ -1209,17 +1280,17 @@ describe("markdownToBlocks", () => {
         stepTitle: "Verify that the added item is displayed with the correct name, price, and quantity.",
         stepData: "_Expected_ close",
         expectedResult: "",
+        listStyle: "ordered",
       },
       children: [],
     });
 
-    // Test round-trip conversion
-    // Note: Test steps are always serialized as bullet lists, not numbered lists
+    // Test round-trip conversion — numbered steps preserve their ordered style
     const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
-    expect(roundTripMarkdown).toContain("* Navigate to the product listing page.");
-    expect(roundTripMarkdown).toContain("* Select a product and click the \"Add to Cart\" button.");
-    expect(roundTripMarkdown).toContain("* Open the shopping cart page.");
-    expect(roundTripMarkdown).toContain("* Verify that the added item is displayed with the correct name, price, and quantity.");
+    expect(roundTripMarkdown).toContain("1. Navigate to the product listing page.");
+    expect(roundTripMarkdown).toContain("2. Select a product and click the \"Add to Cart\" button.");
+    expect(roundTripMarkdown).toContain("3. Open the shopping cart page.");
+    expect(roundTripMarkdown).toContain("4. Verify that the added item is displayed with the correct name, price, and quantity.");
     // Check that step data is preserved
     expect(roundTripMarkdown).toContain("  Expected open");
     expect(roundTripMarkdown).toContain("  Expected result close");
