@@ -249,8 +249,8 @@
   padding-bottom: 8px;
 }
 
-.bn-teststep__header + .bn-step-field {
-  margin-top: calc(8px - var(--step-section-gap));
+.bn-teststep__content > .bn-teststep__header + .bn-step-field {
+  margin-top: calc(4px - var(--step-section-gap));
 }
 
 .bn-teststep__header {
@@ -579,7 +579,7 @@
 .bn-step-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   position: relative;
 }
 
