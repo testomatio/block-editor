@@ -266,6 +266,7 @@ function serializeBlock(
   block: CustomEditorBlock,
   ctx: MarkdownContext,
   orderedIndex?: number,
+  stepIndex?: number,
 ): string[] {
   const lines: string[] = [];
   const indent = ctx.listDepth > 0 ? "  ".repeat(ctx.listDepth) : "";
@@ -375,7 +376,9 @@ function serializeBlock(
           .join(" ");
 
         if (normalizedTitle.length > 0) {
-          lines.push(`* ${normalizedTitle}`);
+          const listStyle = (block.props as any).listStyle ?? "bullet";
+          const prefix = listStyle === "ordered" ? `${(stepIndex ?? 0) + 1}.` : "*";
+          lines.push(`${prefix} ${normalizedTitle}`);
         }
       }
 
@@ -533,6 +536,7 @@ function serializeBlock(
 function serializeBlocks(blocks: CustomEditorBlock[], ctx: MarkdownContext): string[] {
   const lines: string[] = [];
   let orderedIndex: number | null = null;
+  let stepIndex = 0;
 
   for (const block of blocks) {
     if (block.type === "numberedListItem") {
@@ -547,6 +551,14 @@ function serializeBlocks(blocks: CustomEditorBlock[], ctx: MarkdownContext): str
       continue;
     }
 
+    if (block.type === "testStep") {
+      lines.push(...serializeBlock(block, ctx, undefined, stepIndex));
+      stepIndex += 1;
+      orderedIndex = null;
+      continue;
+    }
+
+    stepIndex = 0;
     orderedIndex = null;
     lines.push(...serializeBlock(block, ctx));
   }
@@ -1061,6 +1073,7 @@ function parseTestStep(
           stepTitle: titleWithPlaceholders,
           stepData: stepDataWithImages,
           expectedResult,
+          listStyle: isNumbered ? "ordered" : "bullet",
         };
 
   const parsedBlock: CustomPartialBlock = {
