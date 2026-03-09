@@ -224,6 +224,10 @@ html.dark .bn-snippet-dropdown__panel {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
+html.dark .bn-snippet-dropdown__search-wrapper {
+  border-bottom-color: #404040;
+}
+
 html.dark .bn-snippet-dropdown__search {
   border-color: #404040;
 }
@@ -240,8 +244,12 @@ html.dark .bn-snippet-dropdown__search-input::placeholder {
   color: #525252;
 }
 
-html.dark .bn-snippet-dropdown__list {
-  border-top-color: #404040;
+html.dark .bn-snippet-dropdown__item--selected {
+  background: #333333;
+}
+
+html.dark .bn-snippet-dropdown__item-check {
+  color: #fafafa;
 }
 
 html.dark .bn-snippet-dropdown__chevron {
@@ -609,7 +617,7 @@ html.dark .bn-step-image-preview__content {
   position: absolute;
   left: 0;
   top: calc(100% + 4px);
-  width: 260px;
+  width: 280px;
   background: white;
   border: 1px solid #e5e5e5;
   border-radius: 8px;
@@ -620,13 +628,17 @@ html.dark .bn-step-image-preview__content {
   padding: 8px 0;
 }
 
+.bn-snippet-dropdown__search-wrapper {
+  padding: 4px 16px 12px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
 .bn-snippet-dropdown__search {
   display: flex;
   align-items: center;
   gap: 8px;
   height: 32px;
   padding: 0 12px;
-  margin: 0 16px 12px;
   border: 1px solid #d4d4d4;
   border-radius: 6px;
   transition: border-color 120ms ease;
@@ -638,8 +650,8 @@ html.dark .bn-step-image-preview__content {
 
 .bn-snippet-dropdown__search-icon {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   color: #a4a4a4;
 }
 
@@ -663,7 +675,6 @@ html.dark .bn-step-image-preview__content {
 .bn-snippet-dropdown__list {
   max-height: 252px;
   overflow-y: auto;
-  border-top: 1px solid #e5e5e5;
 }
 
 .bn-snippet-dropdown__item {
@@ -682,9 +693,25 @@ html.dark .bn-step-image-preview__content {
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
-  white-space: nowrap;
+}
+
+.bn-snippet-dropdown__item-title {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bn-snippet-dropdown__item-check {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--text-primary);
+}
+
+.bn-snippet-dropdown__item--selected {
+  background: #fafafa;
 }
 
 .bn-snippet-dropdown__item:hover {
