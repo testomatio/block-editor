@@ -95,6 +95,163 @@
   --status-blocked-bg: rgba(239, 68, 68, 0.12);
 }
 
+/* Dark mode variable overrides */
+html.dark {
+  --color-white: #171717;
+  --color-slate-900: #fafafa;
+  --color-slate-400: #737373;
+
+  --text-primary: #fafafa;
+  --text-muted: rgba(250, 250, 250, 0.5);
+
+  --border-light: rgba(255, 255, 255, 0.1);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --shadow-subtle: rgba(0, 0, 0, 0.2);
+  --shadow-medium: rgba(0, 0, 0, 0.35);
+  --shadow-heavy: rgba(0, 0, 0, 0.6);
+  --overlay-dark: rgba(0, 0, 0, 0.8);
+
+  --bg-white: rgba(38, 38, 38, 0.85);
+  --bg-white-solid: rgba(38, 38, 38, 0.92);
+  --bg-white-opaque: rgba(38, 38, 38, 0.98);
+  --bg-muted: rgba(255, 255, 255, 0.05);
+
+  /* Step block colors */
+  --step-card-bg: #1a1a1a;
+  --step-card-border: #333333;
+  --step-card-shadow: rgba(0, 0, 0, 0.2);
+  --step-input-border: #404040;
+  --step-input-border-focus: #6366f1;
+  --step-input-shadow: rgba(99, 102, 241, 0.25);
+  --step-text: #e5e5e5;
+  --step-muted: #737373;
+  --step-action: #a3a3a3;
+  --step-bg-button: #262626;
+  --step-bg-button-hover: #333333;
+  --step-border-focus: rgba(99, 102, 241, 0.4);
+  --step-border-light: rgba(255, 255, 255, 0.1);
+  --step-bg-light: rgba(255, 255, 255, 0.06);
+  --step-shadow-hover: rgba(0, 0, 0, 0.2);
+
+  /* Step timeline */
+  --step-number-bg: #404040;
+  --step-number-text: #fafafa;
+  --step-label-color: #a3a3a3;
+  --snippet-dropdown-bg: #262626;
+  --snippet-content-bg: #1a1a1a;
+  --snippet-content-border: #333333;
+
+  /* Snippet block colors */
+  --snippet-border: rgba(16, 185, 129, 0.6);
+  --snippet-bg: rgba(16, 185, 129, 0.08);
+  --snippet-shadow: rgba(16, 185, 129, 0.12);
+  --snippet-border-light: rgba(16, 185, 129, 0.2);
+  --snippet-border-medium: rgba(16, 185, 129, 0.3);
+  --snippet-border-strong: rgba(16, 185, 129, 0.45);
+  --snippet-border-focus: rgba(16, 185, 129, 0.6);
+  --snippet-bg-light: rgba(16, 185, 129, 0.08);
+  --snippet-bg-hover: rgba(16, 185, 129, 0.14);
+  --snippet-focus-ring: rgba(16, 185, 129, 0.15);
+
+  /* Status colors */
+  --status-default-bg: rgba(148, 163, 184, 0.08);
+  --status-ready-bg: rgba(34, 197, 94, 0.08);
+  --status-blocked-bg: rgba(239, 68, 68, 0.08);
+}
+
+/* Dark mode hardcoded color overrides */
+html.dark .bn-step-action-btn {
+  color: #a3a3a3;
+}
+
+html.dark .bn-step-toolbar__button {
+  color: #d4d4d4;
+}
+
+html.dark .bn-step-toolbar__divider {
+  background: #404040;
+}
+
+html.dark .bn-teststep__view-toggle svg {
+  color: #d4d4d4;
+}
+
+html.dark [data-tooltip]::after {
+  background: #262626;
+}
+
+html.dark .bn-step-field__dismiss {
+  color: #737373;
+}
+
+html.dark .bn-step-editor {
+  color: #fafafa;
+}
+
+html.dark .bn-step-editor .overtype-wrapper .overtype-input {
+  caret-color: #fafafa !important;
+}
+
+html.dark .bn-step-editor .overtype-wrapper .overtype-preview {
+  color: #fafafa !important;
+}
+
+html.dark .bn-step-editor .overtype-wrapper textarea.overtype-input::placeholder {
+  color: #525252 !important;
+}
+
+html.dark .bn-step-editor .overtype-wrapper textarea.overtype-input::-webkit-input-placeholder {
+  color: #525252 !important;
+}
+
+html.dark .bn-step-custom-caret {
+  background: #fafafa;
+}
+
+html.dark .bn-step-link-tooltip {
+  background: #262626;
+  border-color: #404040;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .bn-step-link-tooltip__url {
+  color: #737373;
+}
+
+html.dark .bn-snippet-dropdown__panel {
+  background: #262626;
+  border-color: #404040;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .bn-snippet-dropdown__search {
+  border-color: #404040;
+}
+
+html.dark .bn-snippet-dropdown__search-icon {
+  color: #525252;
+}
+
+html.dark .bn-snippet-dropdown__search-input {
+  color: #fafafa;
+}
+
+html.dark .bn-snippet-dropdown__search-input::placeholder {
+  color: #525252;
+}
+
+html.dark .bn-snippet-dropdown__list {
+  border-top-color: #404040;
+}
+
+html.dark .bn-snippet-dropdown__chevron {
+  color: #525252;
+}
+
+html.dark .bn-step-image-preview__content {
+  background: #262626;
+}
+
 .testomatio-editor {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
@@ -322,6 +479,22 @@
 
 .bn-teststep__view-toggle--horizontal {
   transform: rotate(90deg);
+}
+
+.bn-teststep__view-toggle[data-tooltip]::after {
+  bottom: auto;
+  left: auto;
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.bn-teststep__view-toggle--horizontal[data-tooltip]::after {
+  right: auto;
+  top: auto;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) rotate(-90deg);
 }
 
 .bn-teststep__horizontal-fields {
@@ -733,6 +906,41 @@
   background: var(--step-bg-button-hover);
 }
 
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0a0a0a;
+  color: #fafafa;
+  font-family: Inter, sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  z-index: 1000;
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transition-delay: 300ms;
+}
+
+[data-tooltip]:active::after {
+  opacity: 0;
+  transition-delay: 0ms;
+}
+
 .bn-step-editor {
   position: relative;
   border-radius: 0.6rem;
@@ -806,7 +1014,7 @@
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview {
-  color: var(--text-primary) !important;
+  color: #262626 !important;
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-link {

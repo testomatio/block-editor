@@ -1367,6 +1367,7 @@ export function StepField({
                 <button
                   type="button"
                   className="bn-step-toolbar__button"
+                  data-tooltip="Bold"
                   onMouseDown={(event) => {
                     event.preventDefault();
                     handleToolbarAction("toggleBold");
@@ -1381,6 +1382,7 @@ export function StepField({
                 <button
                   type="button"
                   className="bn-step-toolbar__button"
+                  data-tooltip="Italic"
                   onMouseDown={(event) => {
                     event.preventDefault();
                     handleToolbarAction("toggleItalic");
@@ -1398,6 +1400,7 @@ export function StepField({
               <button
                 type="button"
                 className="bn-step-toolbar__button"
+                data-tooltip="Insert image"
                 onMouseDown={(event) => {
                   event.preventDefault();
                   fileInputRef.current?.click();
@@ -1418,6 +1421,7 @@ export function StepField({
                   <button
                     type="button"
                     className="bn-step-toolbar__button"
+                    data-tooltip="Insert link"
                     onMouseDown={(event) => {
                       event.preventDefault();
                       if (showLinkPopover) {
@@ -1460,6 +1464,7 @@ export function StepField({
                 <button
                   type="button"
                   className="bn-step-toolbar__button"
+                  data-tooltip="Show suggestions"
                   onMouseDown={(event) => {
                     event.preventDefault();
                     setShowAllSuggestions(true);
