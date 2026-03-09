@@ -115,7 +115,7 @@ function normalizeJsonApiResource(resource: SnippetJsonApiResource | null | unde
   return {
     id: String(id),
     title: String(title),
-    body: attrs?.body ?? null,
+    body: attrs?.body ?? attrs?.description ?? null,
     description: attrs?.description ?? null,
     usageCount: coerceNumber(attrs?.["usage-count"]),
     isSnippet: true,
