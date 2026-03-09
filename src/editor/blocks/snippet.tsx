@@ -148,7 +148,18 @@ export const snippetBlock = createReactBlockSpec(
       );
 
       const handleFieldFocus = useCallback(() => {
-        editor.setSelection(block.id, block.id);
+        const selection = editor.getSelection();
+        const blocks = selection?.blocks ?? [];
+        const firstId = blocks[0]?.id;
+        const lastId = blocks[blocks.length - 1]?.id;
+        if (firstId === block.id && lastId === block.id) {
+          return;
+        }
+        try {
+          editor.setSelection(block.id, block.id);
+        } catch {
+          //
+        }
       }, [editor, block.id]);
 
       if (!hasSnippets) {
