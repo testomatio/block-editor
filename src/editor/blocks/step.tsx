@@ -279,6 +279,7 @@ export const stepBlock = createReactBlockSpec(
               <button
                 type="button"
                 className="bn-teststep__view-toggle bn-teststep__view-toggle--horizontal"
+                data-tooltip="Switch step view"
                 aria-label="Switch step view"
                 onClick={handleToggleView}
               >
@@ -308,6 +309,7 @@ export const stepBlock = createReactBlockSpec(
               <button
                 type="button"
                 className="bn-teststep__view-toggle"
+                data-tooltip="Switch step view"
                 aria-label="Switch step view"
                 onClick={handleToggleView}
               >
@@ -365,6 +367,7 @@ export const stepBlock = createReactBlockSpec(
                     <button
                       type="button"
                       className="bn-step-field__dismiss"
+                      data-tooltip="Hide step data"
                       onClick={handleHideData}
                       aria-label="Hide step data"
                     >
@@ -393,6 +396,7 @@ export const stepBlock = createReactBlockSpec(
                     <button
                       type="button"
                       className="bn-step-field__dismiss"
+                      data-tooltip="Hide expected result"
                       onClick={handleHideExpected}
                       tabIndex={-1}
                       aria-label="Hide expected result"
