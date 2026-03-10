@@ -19,6 +19,7 @@ describe("snippet autocomplete", () => {
             body: "Open /login",
             description: "Ready state",
             "usage-count": 4,
+            "is-snippet": true,
           },
         },
       ],
