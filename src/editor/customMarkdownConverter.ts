@@ -314,7 +314,7 @@ function serializeBlock(
     }
     case "bulletListItem": {
       const text = inlineToMarkdown(block.content);
-      lines.push(`${indent}- ${text}`.trimEnd());
+      lines.push(`${indent}* ${text}`.trimEnd());
       lines.push(...serializeChildren(block, ctx));
       return lines;
     }
@@ -777,14 +777,12 @@ function parseList(
     }
 
     // Only try to parse as testStep for top-level items (indentLevel === 0)
-    // when we're under a Steps heading AND the list type is bullet
-    // Numbered lists under Steps heading are only parsed as test steps if they look like test steps
-    if (indentLevel === 0 && (allowEmptySteps || listType === "bullet")) {
-      // For bullet lists, always try to parse as test steps
-      // For numbered lists, only try if they have step-like characteristics
+    // Under a Steps heading (allowEmptySteps=true): always try for both bullet and numbered
+    // Outside Steps heading: only if the item looks like a test step (has Expected markers or indented data)
+    if (indentLevel === 0 && (allowEmptySteps || isLikelyStep(lines, index))) {
       const looksLikeTestStep = listType === "bullet" ||
         (listType === "numbered" && (
-          isLikelyStep(lines, index)
+          allowEmptySteps || isLikelyStep(lines, index)
         ));
 
       if (looksLikeTestStep) {
@@ -836,20 +834,26 @@ function parseList(
 
 function isLikelyStep(lines: string[], index: number): boolean {
   // Look ahead to see if there's indented content or expected result
-  if (index + 1 >= lines.length) return false;
+  // Look ahead through subsequent lines for expected result markers or indented content
+  for (let i = index + 1; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
 
-  const nextLine = lines[index + 1];
-  const hasIndent = /^\s{2,}/.test(nextLine);
+    // Stop at blank lines
+    if (!trimmed) break;
 
-  // Check if the next line contains expected result markers
-  const nextTrimmed = nextLine.trim();
-  const hasExpectedResult = EXPECTED_LABEL_REGEX.test(nextTrimmed);
+    // Check for indented content (step data) first — indented lines indicate a test step
+    const hasIndent = /^\s{2,}/.test(line);
+    if (hasIndent) return true;
 
-  // Only consider it a test step if:
-  // 1. It has an expected result, OR
-  // 2. The next line is indented but doesn't start with a numbered or bullet list
-  if (hasExpectedResult) return true;
-  if (hasIndent && !/^\d+[.)]/.test(nextTrimmed) && !/^[-*+]/.test(nextTrimmed)) return true;
+    // Stop at new list items, headings, or other block-level elements (only if not indented)
+    if (/^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed)) break;
+    if (trimmed.startsWith("#") || trimmed.startsWith(">") || trimmed.startsWith("|") || trimmed.startsWith("```") || trimmed.startsWith(":::")) break;
+
+    // Check for expected result markers
+    if (EXPECTED_LABEL_REGEX.test(trimmed)) return true;
+    if (trimmed.match(/^\*[^*]*expected/i)) return true;
+  }
 
   return false;
 }
@@ -1377,7 +1381,9 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
       continue;
     }
 
-    const stepLikeBlock = parseTestStep(lines, index, stepsHeadingLevel !== null);
+    const stepLikeBlock = (stepsHeadingLevel !== null || isLikelyStep(lines, index))
+      ? parseTestStep(lines, index, stepsHeadingLevel !== null)
+      : null;
     if (stepLikeBlock) {
       blocks.push(stepLikeBlock.block);
       index = stepLikeBlock.nextIndex;
