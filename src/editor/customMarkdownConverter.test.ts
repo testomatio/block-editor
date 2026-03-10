@@ -385,6 +385,28 @@ describe("markdownToBlocks", () => {
     ]);
   });
 
+  it("parses snippet markdown with space between # and ID", () => {
+    const markdown = [
+      "<!-- begin snippet # 22289 -->",
+      "* Fill `<Email>` with correct registered email",
+      "* Verify that the update to the target is successful",
+      "<!-- end snippet # 22289 -->",
+    ].join("\n");
+
+    expect(markdownToBlocks(markdown)).toEqual([
+      {
+        type: "snippet",
+        props: {
+          snippetId: "22289",
+          snippetTitle: "",
+          snippetData: "* Fill `<Email>` with correct registered email\n* Verify that the update to the target is successful",
+          snippetExpectedResult: "",
+        },
+        children: [],
+      },
+    ]);
+  });
+
   it("parses snippet bodies and ignores nested snippet markers", () => {
     const markdown = [
       "<!-- begin snippet #888 -->",

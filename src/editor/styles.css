@@ -498,11 +498,11 @@ html.dark .bn-step-image-preview__content {
 }
 
 .bn-teststep__view-toggle--horizontal[data-tooltip]::after {
-  right: auto;
-  top: auto;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: auto;
+  left: auto;
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
 }
 
 .bn-teststep__horizontal-fields {
@@ -656,9 +656,9 @@ html.dark .bn-step-image-preview__content {
 }
 
 .bn-snippet-dropdown__search-input {
-  border: none;
-  outline: none;
-  background: transparent;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
   font-family: inherit;
   font-size: 14px !important;
   font-weight: 500;
@@ -667,7 +667,11 @@ html.dark .bn-step-image-preview__content {
   width: 100%;
   height: auto;
   display: inline !important;
-  padding: 0;
+  padding: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .bn-snippet-dropdown__search-input::placeholder {
