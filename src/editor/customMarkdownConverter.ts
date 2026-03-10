@@ -1238,7 +1238,7 @@ function parseSnippetWrapper(
   index: number,
 ): { block: CustomPartialBlock; nextIndex: number } | null {
   const trimmed = lines[index].trim();
-  const startMatch = trimmed.match(/^<!--\s*begin snippet\s*#?([^\s>]+)\s*-->/i);
+  const startMatch = trimmed.match(/^<!--\s*begin snippet\s*#?\s*([^\s>]+)\s*-->/i);
   if (!startMatch) {
     return null;
   }
@@ -1249,7 +1249,7 @@ function parseSnippetWrapper(
 
   while (next < lines.length) {
     const maybeEnd = lines[next].trim();
-    const endMatch = maybeEnd.match(/^<!--\s*end snippet\s*#?([^\s>]+)?\s*-->/i);
+    const endMatch = maybeEnd.match(/^<!--\s*end snippet\s*#?\s*([^\s>]+)?\s*-->/i);
     if (endMatch) {
       const endId = endMatch[1];
       if (!endId || endId === snippetId) {
@@ -1260,7 +1260,7 @@ function parseSnippetWrapper(
       next += 1;
       continue;
     }
-    const otherStart = maybeEnd.match(/^<!--\s*begin snippet\s*#?([^\s>]+)\s*-->/i);
+    const otherStart = maybeEnd.match(/^<!--\s*begin snippet\s*#?\s*([^\s>]+)\s*-->/i);
     if (otherStart) {
       // Skip nested snippet wrappers from the body entirely.
       next += 1;
