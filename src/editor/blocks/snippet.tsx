@@ -141,6 +141,12 @@ export const snippetBlock = createReactBlockSpec(
       const hasSnippets = snippetSuggestions.length > 0;
       const isSnippetSelected = snippetId.length > 0;
 
+      const resolvedTitle = useMemo(() => {
+        if (snippetTitle) return snippetTitle;
+        if (!snippetId || snippetSuggestions.length === 0) return "";
+        return snippetSuggestions.find((s) => s.id === snippetId)?.title ?? "";
+      }, [snippetTitle, snippetId, snippetSuggestions]);
+
       const handleSnippetSelect = useCallback(
         (suggestion: SnippetSuggestion) => {
           const rawBody = suggestion.body ?? "";
@@ -187,7 +193,7 @@ export const snippetBlock = createReactBlockSpec(
           <div className="bn-snippet__header">
             <span className="bn-snippet__label">Snippet</span>
             <SnippetDropdown
-              value={snippetTitle}
+              value={resolvedTitle}
               placeholder="Select Snippet"
               suggestions={snippetSuggestions}
               selectedId={snippetId}
@@ -195,7 +201,15 @@ export const snippetBlock = createReactBlockSpec(
             />
           </div>
           {isSnippetSelected && snippetData && (
-            <div className="bn-snippet__content" dangerouslySetInnerHTML={{ __html: snippetData }} />
+            <div
+              className="bn-snippet__content"
+              dangerouslySetInnerHTML={{
+                __html: snippetData
+                  .replace(/&/g, "&amp;")
+                  .replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;"),
+              }}
+            />
           )}
         </div>
       );
