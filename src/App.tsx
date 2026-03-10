@@ -254,6 +254,7 @@ const DEMO_SNIPPET_FIXTURES: SnippetJsonApiDocument = {
         body: "Open /login\nWait for form to render\nEnsure no console errors",
         description: "Navigate to login and wait for readiness",
         "usage-count": 12,
+        "is-snippet": true,
       },
     },
     {
@@ -264,6 +265,7 @@ const DEMO_SNIPPET_FIXTURES: SnippetJsonApiDocument = {
         body: "Type email\nType password\nClick Sign In",
         description: "Reusable credentials filler",
         "usage-count": 9,
+        "is-snippet": true,
       },
     },
     {
@@ -274,6 +276,7 @@ const DEMO_SNIPPET_FIXTURES: SnippetJsonApiDocument = {
         body: "Assert toast visible\nWait 3s\nAssert toast removed",
         description: "Shared assertion for ephemeral notifications",
         "usage-count": 7,
+        "is-snippet": true,
       },
     },
   ],

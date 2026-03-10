@@ -502,7 +502,7 @@ html.dark .bn-step-image-preview__content {
   top: auto;
   bottom: calc(100% + 6px);
   left: 50%;
-  transform: translateX(-50%) rotate(-90deg);
+  transform: translateX(-50%);
 }
 
 .bn-teststep__horizontal-fields {
@@ -660,11 +660,13 @@ html.dark .bn-step-image-preview__content {
   outline: none;
   background: transparent;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 14px !important;
   font-weight: 500;
-  line-height: normal;
+  line-height: normal !important;
   color: var(--text-primary);
   width: 100%;
+  height: auto;
+  display: inline !important;
   padding: 0;
 }
 

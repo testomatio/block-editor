@@ -14,6 +14,7 @@ export type SnippetJsonApiAttributes = {
   body?: string | null;
   description?: string | null;
   "usage-count"?: number | string | null;
+  "is-snippet"?: boolean | null;
 };
 
 export type SnippetJsonApiResource = {
@@ -118,7 +119,7 @@ function normalizeJsonApiResource(resource: SnippetJsonApiResource | null | unde
     body: attrs?.body ?? attrs?.description ?? null,
     description: attrs?.description ?? null,
     usageCount: coerceNumber(attrs?.["usage-count"]),
-    isSnippet: true,
+    isSnippet: attrs?.["is-snippet"] === true,
   };
 }
 
