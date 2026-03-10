@@ -354,6 +354,21 @@ html.dark .bn-step-image-preview__content {
   background: var(--status-blocked-bg);
 }
 
+.bn-teststep-plain {
+  padding: 4px 0;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: #262626;
+}
+
+.bn-teststep-plain__data,
+.bn-teststep-plain__expected {
+  display: block;
+  color: #737373;
+  font-size: 13px;
+}
+
 .bn-teststep,
 .bn-teststep button,
 .bn-teststep input,
@@ -490,19 +505,15 @@ html.dark .bn-step-image-preview__content {
 }
 
 .bn-teststep__view-toggle[data-tooltip]::after {
-  bottom: auto;
-  left: auto;
-  right: calc(100% + 6px);
-  top: 50%;
-  transform: translateY(-50%);
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .bn-teststep__view-toggle--horizontal[data-tooltip]::after {
-  bottom: auto;
-  left: auto;
-  right: calc(100% + 6px);
-  top: 50%;
-  transform: translateY(-50%) rotate(-90deg);
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .bn-teststep__horizontal-fields {
@@ -946,7 +957,7 @@ html.dark .bn-step-image-preview__content {
 [data-tooltip]::after {
   content: attr(data-tooltip);
   position: absolute;
-  bottom: calc(100% + 6px);
+  top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
   background: #0a0a0a;
@@ -986,7 +997,7 @@ html.dark .bn-step-image-preview__content {
   font-weight: 400;
   line-height: 20px;
   color: #262626;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .bn-step-editor--multiline {
