@@ -485,37 +485,9 @@ describe("markdownToBlocks", () => {
     const blocks = markdownToBlocks(markdown);
     const stepBlocks = blocks.filter((block) => block.type === "testStep");
 
+    // Preconditions and Postconditions bullets are now parsed as bulletListItem (not testStep)
+    // Only items under the "Steps" heading with Expected markers remain as testSteps
     expect(stepBlocks).toEqual([
-      {
-        type: "testStep",
-        props: {
-          stepTitle: "The user is logged into the application.",
-          stepData: "",
-          expectedResult: "",
-          listStyle: "bullet",
-        },
-        children: [],
-      },
-      {
-        type: "testStep",
-        props: {
-          stepTitle: "The user has the necessary permissions to receive notifications.",
-          stepData: "",
-          expectedResult: "",
-          listStyle: "bullet",
-        },
-        children: [],
-      },
-      {
-        type: "testStep",
-        props: {
-          stepTitle: "The application is configured to send real-time notifications.",
-          stepData: "",
-          expectedResult: "",
-          listStyle: "bullet",
-        },
-        children: [],
-      },
       {
         type: "testStep",
         props: {
@@ -552,26 +524,6 @@ describe("markdownToBlocks", () => {
           stepTitle: "Step 4: Verify that the notifications are displayed correctly in the application's notification panel.",
           stepData: "",
           expectedResult: "All notifications (chat message, order update, file received) are listed in the notification panel with the correct information (e.g., timestamp, message content).\n",
-          listStyle: "bullet",
-        },
-        children: [],
-      },
-      {
-        type: "testStep",
-        props: {
-          stepTitle: "The user has received and viewed the notifications.",
-          stepData: "",
-          expectedResult: "",
-          listStyle: "bullet",
-        },
-        children: [],
-      },
-      {
-        type: "testStep",
-        props: {
-          stepTitle: "The application continues to function as expected after receiving and processing the notifications.",
-          stepData: "",
-          expectedResult: "",
           listStyle: "bullet",
         },
         children: [],
@@ -674,33 +626,21 @@ describe("markdownToBlocks", () => {
         children: [],
       },
       {
-        type: "testStep",
-        props: {
-          stepTitle: "The user is logged into the application.",
-          stepData: "",
-          expectedResult: "",
-          listStyle: "bullet",
-        },
+        type: "bulletListItem",
+        props: baseProps,
+        content: [{ type: "text", text: "The user is logged into the application.", styles: {} }],
         children: [],
       },
       {
-        type: "testStep",
-        props: {
-          stepTitle: "The user has the necessary permissions to receive notifications.",
-          stepData: "",
-          expectedResult: "",
-          listStyle: "bullet",
-        },
+        type: "bulletListItem",
+        props: baseProps,
+        content: [{ type: "text", text: "The user has the necessary permissions to receive notifications.", styles: {} }],
         children: [],
       },
       {
-        type: "testStep",
-        props: {
-          stepTitle: "The application is configured to send real-time notifications.",
-          stepData: "",
-          expectedResult: "",
-          listStyle: "bullet",
-        },
+        type: "bulletListItem",
+        props: baseProps,
+        content: [{ type: "text", text: "The application is configured to send real-time notifications.", styles: {} }],
         children: [],
       },
     ]);
@@ -1008,13 +948,9 @@ describe("markdownToBlocks", () => {
         children: [],
       },
       {
-        type: "testStep",
-        props: {
-          stepTitle: "Bullet",
-          stepData: "",
-          expectedResult: "",
-          listStyle: "bullet",
-        },
+        type: "bulletListItem",
+        props: baseProps,
+        content: [{ type: "text", text: "Bullet", styles: {} }],
         children: [],
       },
     ]);
