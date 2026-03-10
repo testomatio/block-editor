@@ -86,9 +86,18 @@ export const stepBlock = createReactBlockSpec(
       // Calculate step number based on position in document
       const stepNumber = useMemo(() => {
         const allBlocks = editor.document;
-        const stepBlocks = allBlocks.filter((b) => b.type === "testStep");
-        const index = stepBlocks.findIndex((b) => b.id === block.id);
-        return index >= 0 ? index + 1 : 1;
+        const blockIndex = allBlocks.findIndex((b) => b.id === block.id);
+        if (blockIndex < 0) return 1;
+
+        let count = 1;
+        for (let i = blockIndex - 1; i >= 0; i--) {
+          if (allBlocks[i].type === "testStep") {
+            count++;
+          } else {
+            break;
+          }
+        }
+        return count;
       }, [block.id, documentVersion, editor.document]);
 
       useEditorChange(() => {
