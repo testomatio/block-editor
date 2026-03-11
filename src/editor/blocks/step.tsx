@@ -47,6 +47,12 @@ const writeStepViewMode = (mode: StepViewMode) => {
   }
 };
 
+export const isEmptyParagraph = (b: any): boolean =>
+  b.type === "paragraph" &&
+  (!Array.isArray(b.content) ||
+    b.content.length === 0 ||
+    b.content.every((n: any) => n.type === "text" && !n.text?.trim()));
+
 export const stepBlock = createReactBlockSpec(
   {
     type: "testStep",
@@ -91,8 +97,11 @@ export const stepBlock = createReactBlockSpec(
 
         let count = 1;
         for (let i = blockIndex - 1; i >= 0; i--) {
-          if (allBlocks[i].type === "testStep") {
+          const b = allBlocks[i];
+          if (b.type === "testStep") {
             count++;
+          } else if (isEmptyParagraph(b)) {
+            continue;
           } else {
             break;
           }
@@ -108,7 +117,7 @@ export const stepBlock = createReactBlockSpec(
 
         for (let i = blockIndex - 1; i >= 0; i--) {
           const b = allBlocks[i];
-          if (b.type === "testStep" || b.type === "snippet") {
+          if (b.type === "testStep" || b.type === "snippet" || isEmptyParagraph(b)) {
             continue;
           }
           if (b.type === "heading") {
