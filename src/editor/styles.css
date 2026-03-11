@@ -510,11 +510,16 @@ html.dark .bn-step-image-preview__content {
 }
 
 .bn-teststep__horizontal-col {
-  flex: 1 0 0%;
+  flex: 1 1 0%;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  overflow: hidden;
+}
+
+.bn-teststep__horizontal-col .bn-step-field__top {
+  min-height: 28px;
 }
 
 @media (max-width: 860px) {
