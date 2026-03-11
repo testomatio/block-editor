@@ -35,18 +35,10 @@ export function StepHorizontalView({
         <div className="bn-teststep__line" />
       </div>
       <div className="bn-teststep__content">
-        <div className="bn-teststep__header">
-          <span className="bn-teststep__title">Step</span>
-          {viewToggle}
-        </div>
         <div className="bn-teststep__horizontal-fields">
           <div className="bn-teststep__horizontal-col">
-            <div className="bn-teststep__header">
-              <span className="bn-teststep__title">Step</span>
-            </div>
             <StepField
               label="Step"
-              showLabel={false}
               value={stepValue}
               onChange={onStepChange}
               placeholder={STEP_PLACEHOLDER}
@@ -61,12 +53,9 @@ export function StepHorizontalView({
             />
           </div>
           <div className="bn-teststep__horizontal-col">
-            <div className="bn-teststep__header">
-              <span className="bn-teststep__title">Expected result</span>
-            </div>
             <StepField
               label="Expected result"
-              showLabel={false}
+              labelAction={viewToggle}
               value={expectedResult}
               onChange={onExpectedChange}
               placeholder={EXPECTED_RESULT_PLACEHOLDER}
