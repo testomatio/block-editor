@@ -920,6 +920,46 @@ describe("markdownToBlocks", () => {
     );
   });
 
+  it("parses multiple steps separated by blank lines", () => {
+    const markdown = [
+      "## Steps",
+      "* asjkldnkasndkj",
+      "  *Expected*: slkednfkjsdnfkjsdnf",
+      "",
+      "* sdfnsikdfnsikdn",
+      "  *Expected*: sedfnskdijfns",
+      "",
+      "* sdfnksdjfnsdknf",
+      "  *Expected*: sdjfnskdjfnskdfn",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+
+    expect(stepBlocks).toHaveLength(3);
+
+    expect(stepBlocks[0].props).toEqual({
+      stepTitle: "asjkldnkasndkj",
+      stepData: "",
+      expectedResult: "slkednfkjsdnfkjsdnf\n",
+      listStyle: "bullet",
+    });
+
+    expect(stepBlocks[1].props).toEqual({
+      stepTitle: "sdfnsikdfnsikdn",
+      stepData: "",
+      expectedResult: "sedfnskdijfns\n",
+      listStyle: "bullet",
+    });
+
+    expect(stepBlocks[2].props).toEqual({
+      stepTitle: "sdfnksdjfnsdknf",
+      stepData: "",
+      expectedResult: "sdjfnskdjfnskdfn",
+      listStyle: "bullet",
+    });
+  });
+
   it("round-trips simple blocks", () => {
     const blocks: CustomEditorBlock[] = [
       {
