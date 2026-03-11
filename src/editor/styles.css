@@ -500,20 +500,8 @@ html.dark .bn-step-image-preview__content {
   color: #0a0a0a;
 }
 
-.bn-teststep__view-toggle--horizontal {
+.bn-teststep__view-toggle--horizontal svg {
   transform: rotate(90deg);
-}
-
-.bn-teststep__view-toggle[data-tooltip]::after {
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.bn-teststep__view-toggle--horizontal[data-tooltip]::after {
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
 }
 
 .bn-teststep__horizontal-fields {
@@ -997,7 +985,21 @@ html.dark .bn-step-image-preview__content {
   font-weight: 400;
   line-height: 20px;
   color: #262626;
-  overflow: visible;
+  overflow: hidden;
+}
+
+.bn-step-editor .overtype-wrapper .overtype-input {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.bn-step-editor .overtype-wrapper .overtype-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.bn-step-editor .overtype-wrapper .overtype-input::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
 }
 
 .bn-step-editor--multiline {

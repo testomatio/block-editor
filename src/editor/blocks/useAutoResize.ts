@@ -21,7 +21,9 @@ export function useAutoResize({ textarea, multiline = false, minRows = 2, maxRow
       const minHeight = lineHeight * minRows;
       const maxHeight = lineHeight * maxRows;
 
-      textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight)}px`;
+      const clampedHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+      textarea.style.height = `${clampedHeight}px`;
+      textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
     };
 
     const observer = new MutationObserver(resize);
