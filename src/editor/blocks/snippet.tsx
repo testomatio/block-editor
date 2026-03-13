@@ -200,16 +200,21 @@ export const snippetBlock = createReactBlockSpec(
               onSelect={handleSnippetSelect}
             />
           </div>
-          {isSnippetSelected && snippetData && (
-            <div
-              className="bn-snippet__content"
-              dangerouslySetInnerHTML={{
-                __html: snippetData
-                  .replace(/&/g, "&amp;")
-                  .replace(/</g, "&lt;")
-                  .replace(/>/g, "&gt;"),
-              }}
-            />
+          {isSnippetSelected && (
+            <div className="bn-snippet__content">
+              {snippetData ? (
+                <span
+                  dangerouslySetInnerHTML={{
+                    __html: snippetData
+                      .replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;"),
+                  }}
+                />
+              ) : (
+                <span className="bn-snippet__empty">No content here. Please update the snippet.</span>
+              )}
+            </div>
           )}
         </div>
       );

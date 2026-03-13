@@ -335,6 +335,14 @@ function serializeBlock(
       lines.push(...serializeChildren(block, ctx));
       return lines;
     }
+    case "image": {
+      const url = (block.props as any).url || "";
+      const caption = (block.props as any).caption || "";
+      if (url) {
+        lines.push(`![${caption}](${url})`);
+      }
+      return flattenWithBlankLine(lines, true);
+    }
     case "testStep":
     case "snippet": {
       const isSnippet = block.type === "snippet";
@@ -569,9 +577,9 @@ function serializeBlocks(blocks: CustomEditorBlock[], ctx: MarkdownContext): str
 export function blocksToMarkdown(blocks: CustomEditorBlock[]): string {
   const lines = serializeBlocks(blocks, { listDepth: 0, insideQuote: false });
   const cleaned = lines
-    // Collapse more than two blank lines into just two for readability.
+    // Collapse excessive blank lines but preserve one extra for empty paragraphs.
     .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\n{4,}/g, "\n\n\n")
     .trimEnd();
 
   return cleaned;
@@ -1300,15 +1308,6 @@ export function fixMalformedImageBlocks(blocks: CustomPartialBlock[]): CustomPar
     const current = blocks[i];
     const next = blocks[i + 1];
 
-    // Skip empty paragraphs
-    if (
-      current.type === "paragraph" &&
-      (!current.content || !Array.isArray(current.content) || current.content.length === 0)
-    ) {
-      i += 1;
-      continue;
-    }
-
     // Check if current is a paragraph with just "!" - this is definitely a malformed image
     if (
       current.type === "paragraph" &&
@@ -1371,6 +1370,16 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
     const line = lines[index];
     if (!line.trim()) {
       index += 1;
+      // Count consecutive blank lines
+      let blankCount = 1;
+      while (index < lines.length && !lines[index].trim()) {
+        blankCount++;
+        index++;
+      }
+      // Create empty paragraph for each extra blank line beyond the first
+      for (let i = 1; i < blankCount; i++) {
+        blocks.push({ type: "paragraph", content: [], children: [] } as CustomPartialBlock);
+      }
       continue;
     }
 
@@ -1447,12 +1456,36 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
       continue;
     }
 
+    const imageMatch = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (imageMatch) {
+      blocks.push({
+        type: "image",
+        props: {
+          url: imageMatch[2],
+          caption: imageMatch[1] || "",
+          name: "",
+        },
+        children: [],
+      } as CustomPartialBlock);
+      index += 1;
+      continue;
+    }
+
     const paragraph = parseParagraph(lines, index);
     blocks.push(paragraph.block);
     index = paragraph.nextIndex;
   }
 
-  return fixMalformedImageBlocks(blocks);
+  // Insert empty paragraphs between consecutive headings so users can type between them
+  const result: CustomPartialBlock[] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    result.push(blocks[i]);
+    if (blocks[i].type === "heading" && blocks[i + 1]?.type === "heading") {
+      result.push({ type: "paragraph", content: [], children: [] } as CustomPartialBlock);
+    }
+  }
+
+  return fixMalformedImageBlocks(result);
 }
 
 function splitTableRow(line: string): string[] {
