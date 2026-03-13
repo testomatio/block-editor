@@ -335,6 +335,14 @@ function serializeBlock(
       lines.push(...serializeChildren(block, ctx));
       return lines;
     }
+    case "image": {
+      const url = (block.props as any).url || "";
+      const caption = (block.props as any).caption || "";
+      if (url) {
+        lines.push(`![${caption}](${url})`);
+      }
+      return flattenWithBlankLine(lines, true);
+    }
     case "testStep":
     case "snippet": {
       const isSnippet = block.type === "snippet";
@@ -1445,6 +1453,21 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
       );
       blocks.push(...items);
       index = nextIndex;
+      continue;
+    }
+
+    const imageMatch = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (imageMatch) {
+      blocks.push({
+        type: "image",
+        props: {
+          url: imageMatch[2],
+          caption: imageMatch[1] || "",
+          name: "",
+        },
+        children: [],
+      } as CustomPartialBlock);
+      index += 1;
       continue;
     }
 

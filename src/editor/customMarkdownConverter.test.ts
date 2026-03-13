@@ -1173,36 +1173,17 @@ describe("markdownToBlocks", () => {
 
     const blocks = markdownToBlocks(markdown);
 
-    // Find the paragraph blocks that contain the images (links)
-    const imageBlocks = blocks.filter(block =>
-      block.type === "paragraph" &&
-      block.content &&
-      Array.isArray(block.content) &&
-      block.content.some((item: any) =>
-        (item.type === "text" && item.text === "!") ||
-        (item.type === "link" && item.href && item.href.includes("/attachments/"))
-      )
-    );
+    // Find the image blocks
+    const imageBlocks = blocks.filter(block => block.type === "image");
 
-    // Should have two paragraph blocks with images
+    // Should have two image blocks
     expect(imageBlocks.length).toBe(2);
 
-    // Check that both image links are properly parsed
-    const imageLinks: any[] = [];
-    imageBlocks.forEach(block => {
-      if (block.content && Array.isArray(block.content)) {
-        const link = (block.content as any[]).find(item => item.type === "link");
-        if (link) {
-          imageLinks.push(link);
-        }
-      }
-    });
-
-    expect(imageLinks).toHaveLength(2);
-    expect(imageLinks[0].href).toBe("/attachments/se2n8jaGon.png");
-    expect(imageLinks[0].content).toEqual([{ type: "text", text: "logs", styles: {} }]);
-    expect(imageLinks[1].href).toBe("/attachments/p5DgklVeMg.png");
-    expect(imageLinks[1].content).toEqual([{ type: "text", text: "", styles: {} }]);
+    // Check image block props
+    expect((imageBlocks[0].props as any).url).toBe("/attachments/se2n8jaGon.png");
+    expect((imageBlocks[0].props as any).caption).toBe("logs");
+    expect((imageBlocks[1].props as any).url).toBe("/attachments/p5DgklVeMg.png");
+    expect((imageBlocks[1].props as any).caption).toBe("");
 
     // Test round-trip conversion
     const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
@@ -1311,47 +1292,19 @@ describe("markdownToBlocks", () => {
 
     const blocks = markdownToBlocks(markdown);
 
-    // Find image paragraphs
-    const imageParagraphs = blocks.filter(block =>
-      block.type === "paragraph" &&
-      block.content &&
-      Array.isArray(block.content) &&
-      block.content.some((item: any) => item.type === "link")
-    );
+    // Find image blocks
+    const imageBlocks = blocks.filter(block => block.type === "image");
 
-    // Should have exactly 2 image paragraphs
-    expect(imageParagraphs).toHaveLength(2);
+    // Should have exactly 2 image blocks
+    expect(imageBlocks).toHaveLength(2);
 
     // First image with alt text
-    expect(imageParagraphs[0].content).toContainEqual({
-      type: "text",
-      text: "!",
-      styles: {}
-    });
-    expect(imageParagraphs[0].content).toContainEqual({
-      type: "link",
-      href: "/attachments/se2n8jaGon.png",
-      content: [{ type: "text", text: "logs", styles: {} }]
-    });
+    expect((imageBlocks[0].props as any).url).toBe("/attachments/se2n8jaGon.png");
+    expect((imageBlocks[0].props as any).caption).toBe("logs");
 
     // Second image without alt text
-    expect(imageParagraphs[1].content).toContainEqual({
-      type: "text",
-      text: "!",
-      styles: {}
-    });
-    expect(imageParagraphs[1].content).toContainEqual({
-      type: "link",
-      href: "/attachments/p5DgklVeMg.png",
-      content: [{ type: "text", text: "", styles: {} }]
-    });
-
-    // No extra empty paragraphs
-    const emptyParagraphs = blocks.filter(block =>
-      block.type === "paragraph" &&
-      (!block.content || block.content.length === 0)
-    );
-    expect(emptyParagraphs).toHaveLength(0);
+    expect((imageBlocks[1].props as any).url).toBe("/attachments/p5DgklVeMg.png");
+    expect((imageBlocks[1].props as any).caption).toBe("");
 
     // Test round-trip conversion
     const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
@@ -1374,13 +1327,9 @@ describe("markdownToBlocks", () => {
 
     const blocks = markdownToBlocks(markdown);
 
-    // Should have exactly 2 image paragraphs, no empty paragraphs
-    const imageParagraphs = blocks.filter(block =>
-      block.type === "paragraph" &&
-      block.content &&
-      Array.isArray(block.content) &&
-      block.content.some((item: any) => item.type === "link")
-    );
+    // Should have exactly 2 image blocks
+    const imageBlocks = blocks.filter(block => block.type === "image");
+    expect(imageBlocks).toHaveLength(2);
 
     // Check for malformed image blocks (paragraphs with just "!" but no link)
     const malformedBlocks = blocks.filter(block =>
@@ -1390,8 +1339,6 @@ describe("markdownToBlocks", () => {
       block.content.some((item: any) => item.type === "text" && item.text === "!") &&
       !block.content.some((item: any) => item.type === "link")
     );
-
-    expect(imageParagraphs).toHaveLength(2);
     expect(malformedBlocks).toHaveLength(0);
 
     // Test round-trip conversion
@@ -1521,14 +1468,9 @@ describe("markdownToBlocks", () => {
     // Should have at least 3 blocks
     expect(blocks.length).toBeGreaterThanOrEqual(3);
 
-    // Should have at least one paragraph with content (images)
-    const imageBlocks = blocks.filter(b =>
-      b.type === "paragraph" &&
-      b.content &&
-      Array.isArray(b.content) &&
-      b.content.some((item: any) => item.type === "link")
-    );
-    expect(imageBlocks.length).toBeGreaterThan(0);
+    // Should have image blocks
+    const imageBlocks = blocks.filter(b => b.type === "image");
+    expect(imageBlocks.length).toBe(2);
 
     // Test round-trip conversion - check that we get the images back
     const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
