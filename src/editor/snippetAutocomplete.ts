@@ -33,26 +33,31 @@ type SnippetInput = SnippetSuggestion[] | SnippetJsonApiDocument | SnippetJsonAp
 
 let globalFetcher: SnippetSuggestionsFetcher | null = null;
 let cachedSuggestions: SnippetSuggestion[] = [];
+let inflightPromise: Promise<SnippetSuggestion[]> | null = null;
 
 export function setSnippetFetcher(fetcher: SnippetSuggestionsFetcher | null) {
   globalFetcher = fetcher;
   cachedSuggestions = [];
+  inflightPromise = null;
 }
 
 export function useSnippetAutocomplete(): SnippetSuggestion[] {
   const [suggestions, setSuggestions] = useState<SnippetSuggestion[]>(() => {
-    if (cachedSuggestions.length > 0) {
-      return cachedSuggestions;
-    }
-    if (globalFetcher) {
-      const result = globalFetcher();
-      if (!result || typeof (result as Promise<unknown>).then !== "function") {
-        const normalized = normalizeSnippetSuggestions(result as SnippetInput);
-        cachedSuggestions = normalized;
-        return normalized;
+    if (cachedSuggestions.length > 0) return cachedSuggestions;
+    if (!globalFetcher) return [];
+    const result = globalFetcher();
+    if (result && typeof (result as Promise<unknown>).then === "function") {
+      if (!inflightPromise) {
+        inflightPromise = (result as Promise<SnippetInput>)
+          .then((r) => normalizeSnippetSuggestions(r))
+          .then((items) => { cachedSuggestions = items; inflightPromise = null; return items; })
+          .catch((error) => { inflightPromise = null; console.error("Failed to fetch snippet suggestions", error); return [] as SnippetSuggestion[]; });
       }
+      return [];
     }
-    return [];
+    const normalized = normalizeSnippetSuggestions(result as SnippetInput);
+    cachedSuggestions = normalized;
+    return normalized;
   });
 
   useEffect(() => {
@@ -64,14 +69,23 @@ export function useSnippetAutocomplete(): SnippetSuggestion[] {
     }
 
     let cancelled = false;
-    Promise.resolve(globalFetcher())
-      .then((result) => normalizeSnippetSuggestions(result))
-      .then((items) => {
-        if (cancelled) return;
-        cachedSuggestions = items;
-        setSuggestions(items);
-      })
-      .catch((error) => console.error("Failed to fetch snippet suggestions", error));
+    if (!inflightPromise) {
+      inflightPromise = Promise.resolve(globalFetcher())
+        .then((result) => normalizeSnippetSuggestions(result))
+        .then((items) => {
+          cachedSuggestions = items;
+          inflightPromise = null;
+          return items;
+        })
+        .catch((error) => {
+          inflightPromise = null;
+          console.error("Failed to fetch snippet suggestions", error);
+          return [] as SnippetSuggestion[];
+        });
+    }
+    inflightPromise.then((items) => {
+      if (!cancelled) setSuggestions(items);
+    });
 
     return () => {
       cancelled = true;
