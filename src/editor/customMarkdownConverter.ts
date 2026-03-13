@@ -9,6 +9,7 @@ import type {
   Styles,
 } from "@blocknote/core";
 import type { customSchema } from "./customSchema";
+import { isStepsHeading } from "./blocks/step";
 
 // Types derived from the custom schema so the converter stays type-safe when the schema evolves.
 type Schema = typeof customSchema;
@@ -1413,7 +1414,7 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
       const headingText = inlineContentToPlainText(headingBlock.content as any);
       const normalizedHeading = headingText.trim().toLowerCase();
 
-      if (normalizedHeading.replace(/[:\-–—]$/, "") === "steps") {
+      if (isStepsHeading(normalizedHeading.replace(/[:\-–—]$/, ""))) {
         stepsHeadingLevel = headingLevel;
       } else if (
         stepsHeadingLevel !== null &&

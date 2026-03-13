@@ -47,6 +47,15 @@ const writeStepViewMode = (mode: StepViewMode) => {
   }
 };
 
+/**
+ * Returns true when a normalised (lowercased, trailing-punctuation-stripped)
+ * heading text looks like a "Steps" heading.
+ * Accepted forms: steps, step, step(s).
+ */
+export function isStepsHeading(text: string): boolean {
+  return /^step(s|\(s\))?$/.test(text);
+}
+
 export const isEmptyParagraph = (b: any): boolean =>
   b.type === "paragraph" &&
   (!Array.isArray(b.content) ||
@@ -80,7 +89,7 @@ export function canInsertStepOrSnippet(
         .trim()
         .toLowerCase()
         .replace(/[:\-–—]$/, "");
-      return text === "steps";
+      return isStepsHeading(text);
     }
     return false;
   }
@@ -162,7 +171,7 @@ export const stepBlock = createReactBlockSpec(
               .trim()
               .toLowerCase()
               .replace(/[:\-–—]$/, "");
-            return text === "steps";
+            return isStepsHeading(text);
           }
           return false;
         }
