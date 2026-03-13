@@ -39,26 +39,31 @@ type StepInput = StepSuggestion[] | StepJsonApiDocument | StepJsonApiResource[] 
 
 let globalFetcher: StepSuggestionsFetcher | null = null;
 let cachedSuggestions: StepSuggestion[] = [];
+let inflightPromise: Promise<StepSuggestion[]> | null = null;
 
 export function setStepsFetcher(fetcher: StepSuggestionsFetcher | null) {
   globalFetcher = fetcher;
   cachedSuggestions = [];
+  inflightPromise = null;
 }
 
 export function useStepAutocomplete(): StepSuggestion[] {
   const [suggestions, setSuggestions] = useState<StepSuggestion[]>(() => {
-    if (cachedSuggestions.length > 0) {
-      return cachedSuggestions;
-    }
-    if (globalFetcher) {
-      const result = globalFetcher();
-      if (!result || typeof (result as Promise<unknown>).then !== "function") {
-        const normalized = normalizeStepSuggestions(result as StepInput);
-        cachedSuggestions = normalized;
-        return normalized;
+    if (cachedSuggestions.length > 0) return cachedSuggestions;
+    if (!globalFetcher) return [];
+    const result = globalFetcher();
+    if (result && typeof (result as Promise<unknown>).then === "function") {
+      if (!inflightPromise) {
+        inflightPromise = (result as Promise<StepInput>)
+          .then((r) => normalizeStepSuggestions(r))
+          .then((items) => { cachedSuggestions = items; inflightPromise = null; return items; })
+          .catch((error) => { inflightPromise = null; console.error("Failed to fetch step suggestions", error); return [] as StepSuggestion[]; });
       }
+      return [];
     }
-    return [];
+    const normalized = normalizeStepSuggestions(result as StepInput);
+    cachedSuggestions = normalized;
+    return normalized;
   });
 
   useEffect(() => {
@@ -70,14 +75,23 @@ export function useStepAutocomplete(): StepSuggestion[] {
     }
 
     let cancelled = false;
-    Promise.resolve(globalFetcher())
-      .then((result) => normalizeStepSuggestions(result))
-      .then((items) => {
-        if (cancelled) return;
-        cachedSuggestions = items;
-        setSuggestions(items);
-      })
-      .catch((error) => console.error("Failed to fetch step suggestions", error));
+    if (!inflightPromise) {
+      inflightPromise = Promise.resolve(globalFetcher())
+        .then((result) => normalizeStepSuggestions(result))
+        .then((items) => {
+          cachedSuggestions = items;
+          inflightPromise = null;
+          return items;
+        })
+        .catch((error) => {
+          inflightPromise = null;
+          console.error("Failed to fetch step suggestions", error);
+          return [] as StepSuggestion[];
+        });
+    }
+    inflightPromise.then((items) => {
+      if (!cancelled) setSuggestions(items);
+    });
 
     return () => {
       cancelled = true;

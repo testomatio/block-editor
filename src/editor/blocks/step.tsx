@@ -53,6 +53,40 @@ export const isEmptyParagraph = (b: any): boolean =>
     b.content.length === 0 ||
     b.content.every((n: any) => n.type === "text" && !n.text?.trim()));
 
+/**
+ * Check whether a step or snippet can be inserted at / after the given block.
+ * Returns true only when walking backwards from `referenceBlockId` (skipping
+ * other steps, snippets, and empty paragraphs) reaches a heading whose text
+ * is "steps".
+ */
+export function canInsertStepOrSnippet(
+  editor: { document: any[] },
+  referenceBlockId: string,
+): boolean {
+  const allBlocks = editor.document;
+  const blockIndex = allBlocks.findIndex((b: any) => b.id === referenceBlockId);
+  if (blockIndex < 0) return false;
+
+  for (let i = blockIndex; i >= 0; i--) {
+    const b = allBlocks[i];
+    if (b.type === "testStep" || b.type === "snippet" || isEmptyParagraph(b)) {
+      continue;
+    }
+    if (b.type === "heading") {
+      const text = (Array.isArray(b.content) ? b.content : [])
+        .filter((n: any) => n.type === "text")
+        .map((n: any) => n.text ?? "")
+        .join("")
+        .trim()
+        .toLowerCase()
+        .replace(/[:\-–—]$/, "");
+      return text === "steps";
+    }
+    return false;
+  }
+  return false;
+}
+
 export const stepBlock = createReactBlockSpec(
   {
     type: "testStep",
