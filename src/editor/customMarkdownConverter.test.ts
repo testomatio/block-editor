@@ -863,6 +863,40 @@ describe("markdownToBlocks", () => {
     ]);
   });
 
+  it("parses steps under a 'Step' heading (singular)", () => {
+    const markdown = ["## Step", "", "* Open the app", "* Click login"].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+    expect(stepBlocks).toHaveLength(2);
+    expect(stepBlocks[0].props).toMatchObject({ stepTitle: "Open the app" });
+    expect(stepBlocks[1].props).toMatchObject({ stepTitle: "Click login" });
+  });
+
+  it("parses steps under a 'Step(s)' heading", () => {
+    const markdown = ["# Step(s)", "", "1. First step", "2. Second step"].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+    expect(stepBlocks).toHaveLength(2);
+    expect(stepBlocks[0].props).toMatchObject({ stepTitle: "First step", listStyle: "ordered" });
+    expect(stepBlocks[1].props).toMatchObject({ stepTitle: "Second step", listStyle: "ordered" });
+  });
+
+  it("parses steps under an h4 'step' heading (lowercase)", () => {
+    const markdown = ["#### step", "", "* Do something"].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+    expect(stepBlocks).toHaveLength(1);
+    expect(stepBlocks[0].props).toMatchObject({ stepTitle: "Do something" });
+  });
+
+  it("parses steps under a 'Step:' heading with trailing colon", () => {
+    const markdown = ["### Step:", "", "* Verify output"].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+    expect(stepBlocks).toHaveLength(1);
+    expect(stepBlocks[0].props).toMatchObject({ stepTitle: "Verify output" });
+  });
+
   it("handles multiple steps with expected results without extra asterisks", () => {
     const markdown = [
       "### Preconditions",
