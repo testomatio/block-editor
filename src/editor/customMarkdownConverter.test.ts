@@ -1382,11 +1382,6 @@ describe("markdownToBlocks", () => {
       block.content.some((item: any) => item.type === "link")
     );
 
-    const emptyParagraphs = blocks.filter(block =>
-      block.type === "paragraph" &&
-      (!block.content || block.content.length === 0)
-    );
-
     // Check for malformed image blocks (paragraphs with just "!" but no link)
     const malformedBlocks = blocks.filter(block =>
       block.type === "paragraph" &&
@@ -1397,7 +1392,6 @@ describe("markdownToBlocks", () => {
     );
 
     expect(imageParagraphs).toHaveLength(2);
-    expect(emptyParagraphs).toHaveLength(0);
     expect(malformedBlocks).toHaveLength(0);
 
     // Test round-trip conversion
@@ -1489,8 +1483,8 @@ describe("markdownToBlocks", () => {
     // Apply the fixMalformedImageBlocks function
     const fixedBlocks = fixMalformedImageBlocks(malformedBlocks);
 
-    // Should have removed the malformed image blocks (both the "!" only block and the empty block)
-    expect(fixedBlocks.length).toBe(2);
+    // Should have removed the malformed "!" only block but kept the empty paragraph and image block
+    expect(fixedBlocks.length).toBe(3);
     expect(fixedBlocks[0].type).toBe("heading");
     expect(fixedBlocks[1].type).toBe("paragraph");
     expect(fixedBlocks[1].content).toContainEqual(
@@ -1499,6 +1493,8 @@ describe("markdownToBlocks", () => {
     expect(fixedBlocks[1].content).toContainEqual(
       { type: "link", href: "/attachments/se2n8jaGon.png", content: [{ type: "text", text: "logs", styles: {} }] }
     );
+    expect(fixedBlocks[2].type).toBe("paragraph");
+    expect(fixedBlocks[2].content).toHaveLength(0);
   });
 
   it("reproduces the exact Unsplash URL issue", () => {
