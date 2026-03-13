@@ -4,7 +4,7 @@ export {
   type CustomBlock,
   type CustomEditor,
 } from "./editor/customSchema";
-export { stepBlock } from "./editor/blocks/step";
+export { stepBlock, canInsertStepOrSnippet } from "./editor/blocks/step";
 export { snippetBlock } from "./editor/blocks/snippet";
 export { markdownToHtml, htmlToMarkdown } from "./editor/blocks/markdown";
 
