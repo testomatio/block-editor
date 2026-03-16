@@ -14,6 +14,19 @@ export function createMarkdownPasteHandler(
   converter: (markdown: string) => CustomPartialBlock[],
 ) {
   return ({ event, editor, defaultPasteHandler }: PasteHandlerContext): boolean | undefined => {
+    const types = event.clipboardData?.types ?? [];
+
+    if (types.includes("blocknote/html")) return defaultPasteHandler();
+    if (types.includes("vscode-editor-data")) return defaultPasteHandler();
+
+    if (types.includes("text/html")) {
+      const html = event.clipboardData?.getData("text/html") ?? "";
+      if (/<(pre|code)[\s>]/i.test(html)) return defaultPasteHandler();
+    }
+
+    const cursorBlock = editor.getTextCursorPosition().block;
+    if (cursorBlock?.type === "codeBlock" || cursorBlock?.type === "quote" || cursorBlock?.type === "table") return defaultPasteHandler();
+
     const plainText = event.clipboardData?.getData("text/plain") ?? "";
     if (!plainText.trim()) return defaultPasteHandler();
 
