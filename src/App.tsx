@@ -17,6 +17,7 @@ import {
   type CustomEditorBlock,
   type CustomPartialBlock,
 } from "./editor/customMarkdownConverter";
+import { createMarkdownPasteHandler } from "./editor/createMarkdownPasteHandler";
 import { customSchema, type CustomEditor } from "./editor/customSchema";
 import { setStepsFetcher, type StepJsonApiDocument } from "./editor/stepAutocomplete";
 import { setSnippetFetcher, type SnippetJsonApiDocument } from "./editor/snippetAutocomplete";
@@ -347,46 +348,7 @@ function CustomSlashMenu() {
 function App() {
   const editor = useCreateBlockNote({
     schema: customSchema,
-    pasteHandler: ({ event, editor, defaultPasteHandler }) => {
-      const plainText = event.clipboardData?.getData("text/plain") ?? "";
-
-      if (!plainText.trim()) {
-        return defaultPasteHandler();
-      }
-
-      try {
-        const parsedBlocks = markdownToBlocks(plainText);
-
-        if (parsedBlocks.length === 0) {
-          return defaultPasteHandler();
-        }
-
-        const selection = editor.getSelection();
-        const selectedIds = selection?.blocks
-          ?.map((block) => block.id)
-          .filter((id): id is string => Boolean(id)) ?? [];
-
-        if (selectedIds.length > 0) {
-          editor.replaceBlocks(selectedIds, parsedBlocks);
-        } else {
-          const cursorBlock = editor.getTextCursorPosition().block;
-          if (cursorBlock) {
-            editor.replaceBlocks([cursorBlock.id], parsedBlocks);
-          } else if (editor.document.length > 0) {
-            const reference = editor.document[editor.document.length - 1];
-            editor.insertBlocks(parsedBlocks, reference.id, "after");
-          } else {
-            return defaultPasteHandler();
-          }
-        }
-
-        editor.focus();
-        return true;
-      } catch (error) {
-        console.error("Failed to paste custom markdown", error);
-        return defaultPasteHandler();
-      }
-    },
+    pasteHandler: createMarkdownPasteHandler(markdownToBlocks),
   });
   const [markdown, setMarkdown] = useState("");
   const [conversionError, setConversionError] = useState<string | null>(null);
