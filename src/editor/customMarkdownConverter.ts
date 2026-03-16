@@ -578,9 +578,8 @@ function serializeBlocks(blocks: CustomEditorBlock[], ctx: MarkdownContext): str
 export function blocksToMarkdown(blocks: CustomEditorBlock[]): string {
   const lines = serializeBlocks(blocks, { listDepth: 0, insideQuote: false });
   const cleaned = lines
-    // Collapse excessive blank lines but preserve one extra for empty paragraphs.
     .join("\n")
-    .replace(/\n{4,}/g, "\n\n\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trimEnd();
 
   return cleaned;

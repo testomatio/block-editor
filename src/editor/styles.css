@@ -25,7 +25,7 @@
   --color-accent-500: #10b981;
 
   /* Selection */
-  --color-selection: #f4d35e;
+  --color-selection: rgba(0, 120, 215, 0.3);
 
   /* Semantic tokens - these reference the palette above */
   --text-primary: #262626;
@@ -1162,7 +1162,7 @@ html.dark .bn-step-image-preview__content {
 }
 
 .bn-step-field:focus-within .overtype-wrapper .overtype-input::selection {
-  background-color: rgba(244, 211, 94, 0.4) !important;
+  background-color: var(--color-selection) !important;
 }
 
 /* Hide OverType's built-in link tooltip — we use our own */
