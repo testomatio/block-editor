@@ -134,10 +134,11 @@ export function addStepsBlock(editor: {
     let lastIndex = stepsHeadingIndex;
     for (let i = stepsHeadingIndex + 1; i < allBlocks.length; i++) {
       const b = allBlocks[i];
-      if (b.type === "testStep" || b.type === "snippet" || isEmptyParagraph(b)) {
+      if (b.type === "testStep" || b.type === "snippet") {
         lastIndex = i;
         continue;
       }
+      if (isEmptyParagraph(b)) continue;
       break;
     }
     const inserted = editor.insertBlocks([emptyStep], allBlocks[lastIndex].id, "after");
@@ -346,6 +347,12 @@ export const stepBlock = createReactBlockSpec(
       );
 
       const handleInsertNextStep = useCallback(() => {
+        const allBlocks = editor.document;
+        const idx = allBlocks.findIndex((b: any) => b.id === block.id);
+        const next = idx >= 0 ? allBlocks[idx + 1] : null;
+        if (next && isEmptyParagraph(next)) {
+          editor.removeBlocks([next.id]);
+        }
         editor.insertBlocks(
           [
             {
