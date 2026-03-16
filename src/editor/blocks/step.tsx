@@ -96,6 +96,65 @@ export function canInsertStepOrSnippet(
   return false;
 }
 
+/**
+ * Programmatically add an empty step block to the editor.
+ * - If a "Steps" heading exists, inserts after the last step/snippet under it.
+ * - Otherwise, appends a "Steps" heading + empty step at the end.
+ * Returns the inserted step's block ID (for focusing), or null.
+ */
+export function addStepsBlock(editor: {
+  document: any[];
+  insertBlocks: (blocks: any[], referenceId: string, placement: string) => any[];
+}): string | null {
+  const allBlocks = editor.document;
+  const emptyStep = {
+    type: "testStep" as const,
+    props: { stepTitle: "", stepData: "", expectedResult: "" },
+    children: [],
+  };
+
+  let stepsHeadingIndex = -1;
+  for (let i = 0; i < allBlocks.length; i++) {
+    const b = allBlocks[i];
+    if (b.type !== "heading") continue;
+    const text = (Array.isArray(b.content) ? b.content : [])
+      .filter((n: any) => n.type === "text")
+      .map((n: any) => n.text ?? "")
+      .join("")
+      .trim()
+      .toLowerCase()
+      .replace(/[:\-–—]$/, "");
+    if (isStepsHeading(text)) {
+      stepsHeadingIndex = i;
+      break;
+    }
+  }
+
+  if (stepsHeadingIndex >= 0) {
+    let lastIndex = stepsHeadingIndex;
+    for (let i = stepsHeadingIndex + 1; i < allBlocks.length; i++) {
+      const b = allBlocks[i];
+      if (b.type === "testStep" || b.type === "snippet" || isEmptyParagraph(b)) {
+        lastIndex = i;
+        continue;
+      }
+      break;
+    }
+    const inserted = editor.insertBlocks([emptyStep], allBlocks[lastIndex].id, "after");
+    return inserted?.[0]?.id ?? null;
+  }
+
+  const lastBlock = allBlocks[allBlocks.length - 1];
+  const stepsHeading = {
+    type: "heading" as const,
+    props: { level: 3 },
+    content: [{ type: "text" as const, text: "Steps" }],
+    children: [],
+  };
+  const inserted = editor.insertBlocks([stepsHeading, emptyStep], lastBlock.id, "after");
+  return inserted?.[1]?.id ?? null;
+}
+
 export const stepBlock = createReactBlockSpec(
   {
     type: "testStep",
