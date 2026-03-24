@@ -344,6 +344,16 @@ function serializeBlock(
       }
       return flattenWithBlankLine(lines, true);
     }
+    case "file": {
+      const url = (block.props as any).url || "";
+      const name = (block.props as any).name || "";
+      const caption = (block.props as any).caption || "";
+      if (url) {
+        const displayUrl = caption || url;
+        lines.push(`[![${name}](${displayUrl})](${url})`);
+      }
+      return flattenWithBlankLine(lines, true);
+    }
     case "testStep":
     case "snippet": {
       const isSnippet = block.type === "snippet";
@@ -1453,6 +1463,21 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
       );
       blocks.push(...items);
       index = nextIndex;
+      continue;
+    }
+
+    const fileMatch = line.trim().match(/^\[!\[([^\]]*)\]\(([^)]*)\)\]\(([^)]+)\)$/);
+    if (fileMatch) {
+      blocks.push({
+        type: "file",
+        props: {
+          name: fileMatch[1] || "",
+          caption: fileMatch[2] || "",
+          url: fileMatch[3],
+        },
+        children: [],
+      } as CustomPartialBlock);
+      index += 1;
       continue;
     }
 
