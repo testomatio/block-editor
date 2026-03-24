@@ -349,6 +349,9 @@ function App() {
   const editor = useCreateBlockNote({
     schema: customSchema,
     pasteHandler: createMarkdownPasteHandler(markdownToBlocks),
+    uploadFile: async (file: File) => {
+      return `https://placehold.co/600x400?text=${encodeURIComponent(file.name)}`;
+    },
   });
   const [markdown, setMarkdown] = useState("");
   const [conversionError, setConversionError] = useState<string | null>(null);
