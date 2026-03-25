@@ -340,8 +340,10 @@ function serializeBlock(
     case "image": {
       const url = (block.props as any).url || "";
       const caption = (block.props as any).caption || "";
+      const width = (block.props as any).previewWidth;
       if (url) {
-        lines.push(`![${caption}](${url})`);
+        const size = width ? ` =${width}x*` : "";
+        lines.push(`![${caption}](${url}${size})`);
       }
       return flattenWithBlankLine(lines, true);
     }
@@ -1482,14 +1484,16 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
       continue;
     }
 
-    const imageMatch = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    const imageMatch = line.trim().match(/^!\[([^\]]*)\]\(([^)]+?)(?:\s+=(\d+)x(\d+|\*))?\)$/);
     if (imageMatch) {
+      const width = imageMatch[3] ? parseInt(imageMatch[3], 10) : undefined;
       blocks.push({
         type: "image",
         props: {
           url: imageMatch[2],
           caption: imageMatch[1] || "",
           name: "",
+          ...(width ? { previewWidth: width } : {}),
         },
         children: [],
       } as CustomPartialBlock);
