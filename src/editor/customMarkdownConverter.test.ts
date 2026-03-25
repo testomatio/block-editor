@@ -1551,7 +1551,7 @@ describe("file block serialization", () => {
       },
     ];
     const md = blocksToMarkdown(blocks);
-    expect(md).toBe("[![](/images/file-type-icons/pdf.svg)](https://example.com/file.pdf)");
+    expect(md).toBe("[![](/images/file-type-icons/file.svg)](https://example.com/file.pdf)");
   });
 
   it("uses custom resolver when set", () => {
