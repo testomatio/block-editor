@@ -1430,6 +1430,70 @@ describe("markdownToBlocks", () => {
     expect(roundTripMarkdown).toContain("![](/attachments/test.png)");
   });
 
+  it("parses image with size suffix =WIDTHxHEIGHT", () => {
+    const markdown = "![caption](http://localhost:3000/attachments/img.png =200x100)";
+    const blocks = markdownToBlocks(markdown);
+
+    const imageBlocks = blocks.filter(block => block.type === "image");
+    expect(imageBlocks.length).toBe(1);
+    expect((imageBlocks[0].props as any).url).toBe("http://localhost:3000/attachments/img.png");
+    expect((imageBlocks[0].props as any).caption).toBe("caption");
+    expect((imageBlocks[0].props as any).previewWidth).toBe(200);
+  });
+
+  it("parses image with size suffix =WIDTHx*", () => {
+    const markdown = "![](http://localhost:3000/attachments/img.png =150x*)";
+    const blocks = markdownToBlocks(markdown);
+
+    const imageBlocks = blocks.filter(block => block.type === "image");
+    expect(imageBlocks.length).toBe(1);
+    expect((imageBlocks[0].props as any).url).toBe("http://localhost:3000/attachments/img.png");
+    expect((imageBlocks[0].props as any).previewWidth).toBe(150);
+  });
+
+  it("serializes image block with previewWidth to =WIDTHx*", () => {
+    const blocks: any[] = [
+      {
+        type: "image",
+        props: {
+          url: "/attachments/test.png",
+          caption: "test",
+          name: "",
+          previewWidth: 300,
+        },
+        content: [],
+        children: [],
+      },
+    ];
+    const markdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(markdown).toContain("![test](/attachments/test.png =300x*)");
+  });
+
+  it("serializes image block without previewWidth normally", () => {
+    const blocks: any[] = [
+      {
+        type: "image",
+        props: {
+          url: "/attachments/test.png",
+          caption: "",
+          name: "",
+        },
+        content: [],
+        children: [],
+      },
+    ];
+    const markdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(markdown).toContain("![](/attachments/test.png)");
+    expect(markdown).not.toContain("=");
+  });
+
+  it("round-trips image with size preserving width", () => {
+    const markdown = "![photo](/attachments/photo.png =400x250)";
+    const blocks = markdownToBlocks(markdown);
+    const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(roundTripMarkdown).toContain("![photo](/attachments/photo.png =400x*)");
+  });
+
   it("removes malformed image blocks through post-processing", () => {
     // Simulate the malformed blocks you're seeing
     const malformedBlocks: any[] = [

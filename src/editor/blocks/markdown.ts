@@ -1,4 +1,4 @@
-const IMAGE_MARKDOWN_REGEX = /!\[([^\]]*)\]\(([^)]+)\)/g;
+const IMAGE_MARKDOWN_REGEX = /!\[([^\]]*)\]\(([^)]+?)(?:\s+=\d+x(?:\d+|\*))?\)/g;
 const MARKDOWN_ESCAPE_REGEX = /([*_\\])/g;
 const INLINE_SEGMENT_REGEX =
   /(\*\*\*[^*]+\*\*\*|___[^_]+___|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|<u>[^<]+<\/u>)/;
