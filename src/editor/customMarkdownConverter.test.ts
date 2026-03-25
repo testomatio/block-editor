@@ -1516,10 +1516,47 @@ describe("markdownToBlocks", () => {
 });
 
 describe("file block serialization", () => {
-  it("serializes a file block using display url resolver", () => {
-    setFileDisplayUrlResolver((name: string) => {
-      const ext = name.split(".").pop()?.toLowerCase() || "";
-      return `/images/file-type-icons/${ext}.svg`;
+  it("serializes a file block using caption as display url", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "file",
+        props: {
+          ...baseProps,
+          url: "https://example.com/file.pdf",
+          name: "report.pdf",
+          caption: "/images/file-type-icons/pdf.svg",
+        },
+        content: undefined as any,
+        children: [],
+      },
+    ];
+    const md = blocksToMarkdown(blocks);
+    expect(md).toBe("[![report.pdf](/images/file-type-icons/pdf.svg)](https://example.com/file.pdf)");
+  });
+
+  it("derives icon from url when no caption is set", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "file",
+        props: {
+          ...baseProps,
+          url: "https://example.com/file.pdf",
+          name: "",
+          caption: "",
+        },
+        content: undefined as any,
+        children: [],
+      },
+    ];
+    const md = blocksToMarkdown(blocks);
+    expect(md).toBe("[![](/images/file-type-icons/file.svg)](https://example.com/file.pdf)");
+  });
+
+  it("uses custom resolver when set", () => {
+    setFileDisplayUrlResolver(() => {
+      return `/custom-icons/file.svg`;
     });
 
     const blocks: CustomEditorBlock[] = [
@@ -1529,7 +1566,7 @@ describe("file block serialization", () => {
         props: {
           ...baseProps,
           url: "https://example.com/file.pdf",
-          name: "report.pdf",
+          name: "",
           caption: "",
         },
         content: undefined as any,
@@ -1537,28 +1574,9 @@ describe("file block serialization", () => {
       },
     ];
     const md = blocksToMarkdown(blocks);
-    expect(md).toBe("[![report.pdf](/images/file-type-icons/pdf.svg)](https://example.com/file.pdf)");
+    expect(md).toBe("[![](/custom-icons/file.svg)](https://example.com/file.pdf)");
 
     setFileDisplayUrlResolver(null);
-  });
-
-  it("falls back to url when no resolver is set", () => {
-    const blocks: CustomEditorBlock[] = [
-      {
-        id: "1",
-        type: "file",
-        props: {
-          ...baseProps,
-          url: "https://example.com/file.pdf",
-          name: "file.pdf",
-          caption: "",
-        },
-        content: undefined as any,
-        children: [],
-      },
-    ];
-    const md = blocksToMarkdown(blocks);
-    expect(md).toBe("[![file.pdf](/images/file-type-icons/pdf.svg)](https://example.com/file.pdf)");
   });
 
   it("outputs nothing when url is empty", () => {
@@ -1582,22 +1600,24 @@ describe("file block serialization", () => {
 });
 
 describe("file block parsing", () => {
-  it("parses file markdown into a file block", () => {
+  it("parses file markdown and stores display url in caption", () => {
     const markdown = "[![report.pdf](/images/file-type-icons/pdf.svg)](https://example.com/file.pdf)";
     const blocks = markdownToBlocks(markdown);
     expect(blocks).toHaveLength(1);
     expect(blocks[0].type).toBe("file");
     expect((blocks[0].props as any).name).toBe("report.pdf");
     expect((blocks[0].props as any).url).toBe("https://example.com/file.pdf");
+    expect((blocks[0].props as any).caption).toBe("/images/file-type-icons/pdf.svg");
   });
 
   it("parses file markdown with empty name", () => {
-    const markdown = "[![](https://example.com/url)](https://example.com/url)";
+    const markdown = "[![](/images/file-type-icons/json.svg)](https://example.com/file.json)";
     const blocks = markdownToBlocks(markdown);
     expect(blocks).toHaveLength(1);
     expect(blocks[0].type).toBe("file");
     expect((blocks[0].props as any).name).toBe("");
-    expect((blocks[0].props as any).url).toBe("https://example.com/url");
+    expect((blocks[0].props as any).url).toBe("https://example.com/file.json");
+    expect((blocks[0].props as any).caption).toBe("/images/file-type-icons/json.svg");
   });
 
   it("does not confuse file blocks with image blocks", () => {
@@ -1607,12 +1627,7 @@ describe("file block parsing", () => {
     expect(blocks[0].type).toBe("image");
   });
 
-  it("round-trips file blocks through serialize and parse", () => {
-    setFileDisplayUrlResolver((name: string) => {
-      const ext = name.split(".").pop()?.toLowerCase() || "";
-      return `/images/file-type-icons/${ext}.svg`;
-    });
-
+  it("round-trips file blocks preserving icon url in caption", () => {
     const blocks: CustomEditorBlock[] = [
       {
         id: "1",
@@ -1621,19 +1636,27 @@ describe("file block parsing", () => {
           ...baseProps,
           url: "https://example.com/doc.xlsx",
           name: "doc.xlsx",
-          caption: "",
+          caption: "/images/file-type-icons/xlsx.svg",
         },
         content: undefined as any,
         children: [],
       },
     ];
     const md = blocksToMarkdown(blocks);
+    expect(md).toBe("[![doc.xlsx](/images/file-type-icons/xlsx.svg)](https://example.com/doc.xlsx)");
+
     const parsed = markdownToBlocks(md);
     expect(parsed).toHaveLength(1);
     expect(parsed[0].type).toBe("file");
     expect((parsed[0].props as any).url).toBe("https://example.com/doc.xlsx");
     expect((parsed[0].props as any).name).toBe("doc.xlsx");
+    expect((parsed[0].props as any).caption).toBe("/images/file-type-icons/xlsx.svg");
+  });
 
-    setFileDisplayUrlResolver(null);
+  it("round-trips file blocks without name", () => {
+    const markdown = "[![](/images/file-type-icons/json.svg)](https://example.com/data.json)";
+    const parsed = markdownToBlocks(markdown);
+    const md = blocksToMarkdown(parsed as CustomEditorBlock[]);
+    expect(md).toBe(markdown);
   });
 });

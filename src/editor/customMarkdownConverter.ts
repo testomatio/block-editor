@@ -348,8 +348,9 @@ function serializeBlock(
     case "file": {
       const url = (block.props as any).url || "";
       const name = (block.props as any).name || "";
+      const caption = (block.props as any).caption || "";
       if (url) {
-        const displayUrl = resolveFileDisplayUrl(name, url);
+        const displayUrl = caption || resolveFileDisplayUrl(url);
         lines.push(`[![${name}](${displayUrl})](${url})`);
       }
       return flattenWithBlankLine(lines, true);
@@ -1473,6 +1474,7 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
         props: {
           name: fileMatch[1] || "",
           url: fileMatch[3],
+          caption: fileMatch[2] || "",
         },
         children: [],
       } as CustomPartialBlock);
