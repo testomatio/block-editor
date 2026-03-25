@@ -6,6 +6,7 @@ import {
   type CustomEditorBlock,
   type CustomPartialBlock,
 } from "./customMarkdownConverter";
+import { setFileDisplayUrlResolver } from "./fileDisplayUrl";
 
 const baseProps = {
   textAlignment: "left" as const,
@@ -1515,7 +1516,12 @@ describe("markdownToBlocks", () => {
 });
 
 describe("file block serialization", () => {
-  it("serializes a file block with name, caption (display_url), and url", () => {
+  it("serializes a file block using display url resolver", () => {
+    setFileDisplayUrlResolver((name: string) => {
+      const ext = name.split(".").pop()?.toLowerCase() || "";
+      return `/images/file-type-icons/${ext}.svg`;
+    });
+
     const blocks: CustomEditorBlock[] = [
       {
         id: "1",
@@ -1524,7 +1530,6 @@ describe("file block serialization", () => {
           ...baseProps,
           url: "https://example.com/file.pdf",
           name: "report.pdf",
-          caption: "/images/file-type-icons/pdf.svg",
         },
         content: undefined as any,
         children: [],
@@ -1532,9 +1537,11 @@ describe("file block serialization", () => {
     ];
     const md = blocksToMarkdown(blocks);
     expect(md).toBe("[![report.pdf](/images/file-type-icons/pdf.svg)](https://example.com/file.pdf)");
+
+    setFileDisplayUrlResolver(null);
   });
 
-  it("falls back to url when caption is empty", () => {
+  it("falls back to url when no resolver is set", () => {
     const blocks: CustomEditorBlock[] = [
       {
         id: "1",
@@ -1543,14 +1550,13 @@ describe("file block serialization", () => {
           ...baseProps,
           url: "https://example.com/file.pdf",
           name: "file.pdf",
-          caption: "",
         },
         content: undefined as any,
         children: [],
       },
     ];
     const md = blocksToMarkdown(blocks);
-    expect(md).toBe("[![file.pdf](https://example.com/file.pdf)](https://example.com/file.pdf)");
+    expect(md).toBe("[![file.pdf](/images/file-type-icons/pdf.svg)](https://example.com/file.pdf)");
   });
 
   it("outputs nothing when url is empty", () => {
@@ -1562,7 +1568,6 @@ describe("file block serialization", () => {
           ...baseProps,
           url: "",
           name: "file.pdf",
-          caption: "",
         },
         content: undefined as any,
         children: [],
@@ -1580,7 +1585,6 @@ describe("file block parsing", () => {
     expect(blocks).toHaveLength(1);
     expect(blocks[0].type).toBe("file");
     expect((blocks[0].props as any).name).toBe("report.pdf");
-    expect((blocks[0].props as any).caption).toBe("/images/file-type-icons/pdf.svg");
     expect((blocks[0].props as any).url).toBe("https://example.com/file.pdf");
   });
 
@@ -1601,6 +1605,11 @@ describe("file block parsing", () => {
   });
 
   it("round-trips file blocks through serialize and parse", () => {
+    setFileDisplayUrlResolver((name: string) => {
+      const ext = name.split(".").pop()?.toLowerCase() || "";
+      return `/images/file-type-icons/${ext}.svg`;
+    });
+
     const blocks: CustomEditorBlock[] = [
       {
         id: "1",
@@ -1609,7 +1618,6 @@ describe("file block parsing", () => {
           ...baseProps,
           url: "https://example.com/doc.xlsx",
           name: "doc.xlsx",
-          caption: "/images/file-type-icons/xlsx.svg",
         },
         content: undefined as any,
         children: [],
@@ -1621,6 +1629,7 @@ describe("file block parsing", () => {
     expect(parsed[0].type).toBe("file");
     expect((parsed[0].props as any).url).toBe("https://example.com/doc.xlsx");
     expect((parsed[0].props as any).name).toBe("doc.xlsx");
-    expect((parsed[0].props as any).caption).toBe("/images/file-type-icons/xlsx.svg");
+
+    setFileDisplayUrlResolver(null);
   });
 });

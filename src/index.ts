@@ -30,6 +30,12 @@ export {
   type StepImageUploadHandler,
 } from "./editor/stepImageUpload";
 
+export {
+  setFileDisplayUrlResolver,
+  resolveFileDisplayUrl,
+  type FileDisplayUrlResolver,
+} from "./editor/fileDisplayUrl";
+
 export { createMarkdownPasteHandler } from "./editor/createMarkdownPasteHandler";
 
 export const testomatioEditorClassName = "markdown testomatio-editor";

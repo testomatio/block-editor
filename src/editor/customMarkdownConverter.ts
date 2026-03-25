@@ -8,6 +8,7 @@ import type {
   PartialBlock,
   Styles,
 } from "@blocknote/core";
+import { resolveFileDisplayUrl } from "./fileDisplayUrl";
 import type { customSchema } from "./customSchema";
 import { isStepsHeading } from "./blocks/step";
 
@@ -347,9 +348,8 @@ function serializeBlock(
     case "file": {
       const url = (block.props as any).url || "";
       const name = (block.props as any).name || "";
-      const caption = (block.props as any).caption || "";
       if (url) {
-        const displayUrl = caption || url;
+        const displayUrl = resolveFileDisplayUrl(name, url);
         lines.push(`[![${name}](${displayUrl})](${url})`);
       }
       return flattenWithBlankLine(lines, true);
@@ -1472,7 +1472,6 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
         type: "file",
         props: {
           name: fileMatch[1] || "",
-          caption: fileMatch[2] || "",
           url: fileMatch[3],
         },
         children: [],
