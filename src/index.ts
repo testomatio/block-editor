@@ -13,6 +13,7 @@ export {
   markdownToBlocks,
   type CustomEditorBlock,
   type CustomPartialBlock,
+  type MarkdownToBlocksOptions,
 } from "./editor/customMarkdownConverter";
 
 export {
