@@ -995,6 +995,105 @@ describe("markdownToBlocks", () => {
     });
   });
 
+  it("parses all bullet items as steps when blank line follows Steps heading", () => {
+    const markdown = [
+      "### Requirements",
+      "",
+      "### Steps",
+      "",
+      "* next",
+      "  *Expected*: expected",
+      "* next 22",
+      "* next 3",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+
+    expect(stepBlocks).toHaveLength(3);
+    expect(stepBlocks[0].props).toMatchObject({ stepTitle: "next", expectedResult: "expected" });
+    expect(stepBlocks[1].props).toMatchObject({ stepTitle: "next 22" });
+    expect(stepBlocks[2].props).toMatchObject({ stepTitle: "next 3" });
+
+    // Ensure no bullet list items leaked
+    const bulletBlocks = blocks.filter((block) => block.type === "bulletListItem");
+    expect(bulletBlocks).toHaveLength(0);
+  });
+
+  it("parses all bullet items as steps WITHOUT blank line after Steps heading", () => {
+    const markdown = [
+      "### Requirements",
+      "",
+      "### Steps",
+      "* next",
+      "  *Expected*: expected",
+      "* next 22",
+      "* next 3",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+
+    expect(stepBlocks).toHaveLength(3);
+    expect(stepBlocks[0].props).toMatchObject({ stepTitle: "next", expectedResult: "expected" });
+    expect(stepBlocks[1].props).toMatchObject({ stepTitle: "next 22" });
+    expect(stepBlocks[2].props).toMatchObject({ stepTitle: "next 3" });
+
+    const bulletBlocks = blocks.filter((block) => block.type === "bulletListItem");
+    expect(bulletBlocks).toHaveLength(0);
+  });
+
+  it("round-trips steps with blank line after Steps heading", () => {
+    const markdown = [
+      "### Requirements",
+      "",
+      "### Steps",
+      "",
+      "* next",
+      "  *Expected*: expected",
+      "* next 22",
+      "* next 3",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const md = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    const blocks2 = markdownToBlocks(md);
+    const stepBlocks2 = blocks2.filter((block) => block.type === "testStep");
+    expect(stepBlocks2).toHaveLength(3);
+  });
+
+  it("preserveBlankLines: creates empty paragraphs for each blank line", () => {
+    const markdown = [
+      "### Requirements",
+      "",
+      "### Steps",
+      "",
+      "* next",
+      "  *Expected*: expected",
+      "* next 22",
+      "* next 3",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown, { preserveBlankLines: true });
+    const stepBlocks = blocks.filter((block) => block.type === "testStep");
+    const emptyParas = blocks.filter(
+      (block) => block.type === "paragraph" && (!block.content || (block.content as any[]).length === 0),
+    );
+
+    // All 3 items should be test steps
+    expect(stepBlocks).toHaveLength(3);
+    expect(stepBlocks[0].props).toMatchObject({ stepTitle: "next" });
+    expect(stepBlocks[1].props).toMatchObject({ stepTitle: "next 22" });
+    expect(stepBlocks[2].props).toMatchObject({ stepTitle: "next 3" });
+
+    // Each blank line should produce an empty paragraph
+    expect(emptyParas.length).toBeGreaterThanOrEqual(2);
+
+    // No bullet list items
+    const bulletBlocks = blocks.filter((block) => block.type === "bulletListItem");
+    expect(bulletBlocks).toHaveLength(0);
+  });
+
   it("round-trips simple blocks", () => {
     const blocks: CustomEditorBlock[] = [
       {

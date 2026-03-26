@@ -1372,7 +1372,12 @@ export function fixMalformedImageBlocks(blocks: CustomPartialBlock[]): CustomPar
   return result;
 }
 
-export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
+export interface MarkdownToBlocksOptions {
+  /** When true, every blank line produces an empty paragraph block. */
+  preserveBlankLines?: boolean;
+}
+
+export function markdownToBlocks(markdown: string, options?: MarkdownToBlocksOptions): CustomPartialBlock[] {
   const normalized = markdown.replace(/\r\n/g, "\n");
   const lines = normalized.split("\n");
   const blocks: CustomPartialBlock[] = [];
@@ -1382,6 +1387,11 @@ export function markdownToBlocks(markdown: string): CustomPartialBlock[] {
   while (index < lines.length) {
     const line = lines[index];
     if (!line.trim()) {
+      if (options?.preserveBlankLines) {
+        blocks.push({ type: "paragraph", content: [], children: [] } as CustomPartialBlock);
+        index += 1;
+        continue;
+      }
       index += 1;
       // Count consecutive blank lines
       let blankCount = 1;
