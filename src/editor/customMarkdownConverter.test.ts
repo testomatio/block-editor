@@ -1823,3 +1823,43 @@ describe("file block parsing", () => {
     expect(md).toBe(markdown);
   });
 });
+
+describe("video/audio block serialization", () => {
+  it("serializes a video block using the file format", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "video",
+        props: {
+          ...baseProps,
+          url: "https://example.com/video.mp4",
+          name: "recording.mp4",
+          caption: "/images/file-type-icons/mp4.svg",
+        },
+        content: undefined as any,
+        children: [],
+      },
+    ];
+    const md = blocksToMarkdown(blocks);
+    expect(md).toBe("[![recording.mp4](/images/file-type-icons/mp4.svg)](https://example.com/video.mp4)");
+  });
+
+  it("serializes an audio block using the file format", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "audio",
+        props: {
+          ...baseProps,
+          url: "https://example.com/sound.mp3",
+          name: "sound.mp3",
+          caption: "/images/file-type-icons/file.svg",
+        },
+        content: undefined as any,
+        children: [],
+      },
+    ];
+    const md = blocksToMarkdown(blocks);
+    expect(md).toBe("[![sound.mp3](/images/file-type-icons/file.svg)](https://example.com/sound.mp3)");
+  });
+});

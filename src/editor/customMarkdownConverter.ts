@@ -347,7 +347,9 @@ function serializeBlock(
       }
       return flattenWithBlankLine(lines, true);
     }
-    case "file": {
+    case "file":
+    case "video":
+    case "audio": {
       const url = (block.props as any).url || "";
       const name = (block.props as any).name || "";
       const caption = (block.props as any).caption || "";
