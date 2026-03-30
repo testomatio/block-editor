@@ -80,7 +80,7 @@ type ExtractedImage = {
 };
 
 type LinkMeta = { start: number; end: number; url: string };
-type FormattingMeta = { start: number; end: number; type: "bold" | "italic" };
+type FormattingMeta = { start: number; end: number; type: "bold" | "italic" | "code" };
 
 
 function stripInlineMarkdown(markdown: string): {
@@ -207,6 +207,34 @@ function stripInlineMarkdown(markdown: string): {
       }
     }
 
+    // Code block: ```\n...\n``` (triple backticks with newlines)
+    if (markdown[i] === "`" && markdown[i + 1] === "`" && markdown[i + 2] === "`") {
+      const contentStart = markdown[i + 3] === "\n" ? i + 4 : i + 3;
+      const closeIdx = markdown.indexOf("```", contentStart);
+      if (closeIdx !== -1) {
+        const contentEnd = markdown[closeIdx - 1] === "\n" ? closeIdx - 1 : closeIdx;
+        const inner = markdown.slice(contentStart, contentEnd);
+        const start = plainText.length;
+        plainText += inner;
+        formatting.push({ start, end: plainText.length, type: "code" });
+        i = closeIdx + 3;
+        continue;
+      }
+    }
+
+    // Inline code: `text`
+    if (markdown[i] === "`") {
+      const closeIdx = markdown.indexOf("`", i + 1);
+      if (closeIdx !== -1) {
+        const inner = markdown.slice(i + 1, closeIdx);
+        const start = plainText.length;
+        plainText += inner;
+        formatting.push({ start, end: plainText.length, type: "code" });
+        i = closeIdx + 1;
+        continue;
+      }
+    }
+
     plainText += markdown[i];
     i++;
   }
@@ -224,13 +252,23 @@ function buildFullMarkdown(plainText: string, links: LinkMeta[], formatting: For
   const markers: Marker[] = [];
 
   for (const fmt of formatting) {
-    const marker = fmt.type === "bold" ? "**" : "*";
+    let openMarker: string;
+    let closeMarker: string;
+    if (fmt.type === "code") {
+      const content = plainText.slice(fmt.start, fmt.end);
+      const isMultiline = content.includes("\n");
+      openMarker = isMultiline ? "```\n" : "`";
+      closeMarker = isMultiline ? "\n```" : "`";
+    } else {
+      openMarker = fmt.type === "bold" ? "**" : "*";
+      closeMarker = openMarker;
+    }
     // Opening: outer markers (bold) before inner (italic) → bold order=0, italic order=1
     // Closing: inner markers (italic) before outer (bold) → italic order=0, bold order=1
-    const openOrder = fmt.type === "bold" ? 0 : 1;
-    const closeOrder = fmt.type === "bold" ? 1 : 0;
-    markers.push({ pos: fmt.start, text: marker, order: openOrder });
-    markers.push({ pos: fmt.end, text: marker, order: closeOrder });
+    const openOrder = fmt.type === "bold" ? 0 : fmt.type === "code" ? 2 : 1;
+    const closeOrder = fmt.type === "bold" ? 1 : fmt.type === "code" ? -1 : 0;
+    markers.push({ pos: fmt.start, text: openMarker, order: openOrder });
+    markers.push({ pos: fmt.end, text: closeMarker, order: closeOrder });
   }
 
   for (const link of links) {
@@ -265,7 +303,16 @@ function adjustFormattingForEdit(formatting: FormattingMeta[], editPos: number, 
     .filter((fmt) => fmt.end > fmt.start);
 }
 
-function getCaretRectInPreview(preview: HTMLElement, offset: number): { top: number; left: number; height: number } | null {
+function getCaretRectInPreview(preview: HTMLElement, offset: number, textareaValue?: string): { top: number; left: number; height: number } | null {
+  // Convert textarea-space offset to preview-space (strip newlines)
+  let nlCount = 0;
+  if (textareaValue) {
+    for (let i = 0; i < offset && i < textareaValue.length; i++) {
+      if (textareaValue[i] === "\n") nlCount++;
+    }
+  }
+  const previewOffset = offset - nlCount;
+
   const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
   let currentOffset = 0;
 
@@ -273,8 +320,8 @@ function getCaretRectInPreview(preview: HTMLElement, offset: number): { top: num
     const textNode = walker.currentNode as Text;
     const nodeLen = textNode.length;
 
-    if (offset <= currentOffset + nodeLen) {
-      const localOffset = offset - currentOffset;
+    if (previewOffset <= currentOffset + nodeLen) {
+      const localOffset = previewOffset - currentOffset;
       try {
         const range = document.createRange();
         range.setStart(textNode, localOffset);
@@ -297,7 +344,7 @@ function getCaretRectInPreview(preview: HTMLElement, offset: number): { top: num
   return null;
 }
 
-function applyFormattingHighlights(preview: HTMLElement, formatting: FormattingMeta[]) {
+function applyFormattingHighlights(preview: HTMLElement, formatting: FormattingMeta[], textareaValue?: string) {
   if (formatting.length === 0) return;
 
   // Remove previous formatting highlights
@@ -323,10 +370,41 @@ function applyFormattingHighlights(preview: HTMLElement, formatting: FormattingM
       parent.removeChild(el);
     }
   }
+  const existingCode = preview.querySelectorAll("code.step-preview-code");
+  for (let i = 0; i < existingCode.length; i++) {
+    const el = existingCode[i];
+    const parent = el.parentNode;
+    if (parent) {
+      while (el.firstChild) {
+        parent.insertBefore(el.firstChild, el);
+      }
+      parent.removeChild(el);
+    }
+  }
+
+  // After unwrapping formatting elements, merge adjacent/empty text nodes
+  // so the tree walker sees clean text nodes matching the original structure.
+  preview.normalize();
+
+  // OverType splits textarea lines into <div> elements, discarding the \n
+  // characters. Convert textarea-space positions (with \n) to preview-space
+  // positions (without \n) so we can find the correct text nodes.
+  function taToPreview(taPos: number): number {
+    if (!textareaValue) return taPos;
+    let nlCount = 0;
+    for (let i = 0; i < taPos && i < textareaValue.length; i++) {
+      if (textareaValue[i] === "\n") nlCount++;
+    }
+    return taPos - nlCount;
+  }
 
   const sorted = [...formatting].sort((a, b) => b.start - a.start);
 
   for (const fmt of sorted) {
+    const pStart = taToPreview(fmt.start);
+    const pEnd = taToPreview(fmt.end);
+
+    // Collect text nodes with their preview-space offsets
     const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
     let currentOffset = 0;
     let startNode: Text | null = null;
@@ -339,13 +417,13 @@ function applyFormattingHighlights(preview: HTMLElement, formatting: FormattingM
       const nodeStart = currentOffset;
       const nodeEnd = currentOffset + textNode.length;
 
-      if (!startNode && fmt.start >= nodeStart && fmt.start < nodeEnd) {
+      if (!startNode && pStart >= nodeStart && pStart < nodeEnd) {
         startNode = textNode;
-        startLocalOffset = fmt.start - nodeStart;
+        startLocalOffset = pStart - nodeStart;
       }
-      if (!endNode && fmt.end > nodeStart && fmt.end <= nodeEnd) {
+      if (!endNode && pEnd > nodeStart && pEnd <= nodeEnd) {
         endNode = textNode;
-        endLocalOffset = fmt.end - nodeStart;
+        endLocalOffset = pEnd - nodeStart;
       }
 
       currentOffset = nodeEnd;
@@ -354,19 +432,58 @@ function applyFormattingHighlights(preview: HTMLElement, formatting: FormattingM
 
     if (!startNode || !endNode) continue;
 
-    try {
-      const range = document.createRange();
-      range.setStart(startNode, startLocalOffset);
-      range.setEnd(endNode, endLocalOffset);
+    const tagName = fmt.type === "bold" ? "strong" : fmt.type === "code" ? "code" : "em";
+    const className = fmt.type === "bold" ? "step-preview-bold" : fmt.type === "code" ? "step-preview-code" : "step-preview-italic";
 
-      const wrapper = document.createElement(fmt.type === "bold" ? "strong" : "em");
-      wrapper.className = fmt.type === "bold" ? "step-preview-bold" : "step-preview-italic";
-
-      const fragment = range.extractContents();
-      wrapper.appendChild(fragment);
-      range.insertNode(wrapper);
-    } catch {
-      // DOM manipulation can fail if range crosses element boundaries
+    // If start and end are in the same text node, wrap directly
+    if (startNode === endNode) {
+      try {
+        const range = document.createRange();
+        range.setStart(startNode, startLocalOffset);
+        range.setEnd(endNode, endLocalOffset);
+        const wrapper = document.createElement(tagName);
+        wrapper.className = className;
+        const fragment = range.extractContents();
+        wrapper.appendChild(fragment);
+        range.insertNode(wrapper);
+      } catch {
+        // DOM manipulation can fail if range crosses element boundaries
+      }
+    } else {
+      // Multi-node range (e.g. code spanning multiple lines/divs):
+      // collect all text nodes in the range, then wrap each one individually
+      const textNodes: { node: Text; localStart: number; localEnd: number }[] = [];
+      const walker2 = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+      let collecting = false;
+      while (walker2.nextNode()) {
+        const tn = walker2.currentNode as Text;
+        if (tn === startNode) {
+          collecting = true;
+          textNodes.push({ node: tn, localStart: startLocalOffset, localEnd: tn.length });
+        } else if (tn === endNode) {
+          textNodes.push({ node: tn, localStart: 0, localEnd: endLocalOffset });
+          break;
+        } else if (collecting) {
+          textNodes.push({ node: tn, localStart: 0, localEnd: tn.length });
+        }
+      }
+      // Wrap in reverse order to preserve offsets
+      for (let ti = textNodes.length - 1; ti >= 0; ti--) {
+        const { node, localStart, localEnd } = textNodes[ti];
+        if (localStart >= localEnd) continue;
+        try {
+          const range = document.createRange();
+          range.setStart(node, localStart);
+          range.setEnd(node, localEnd);
+          const wrapper = document.createElement(tagName);
+          wrapper.className = className;
+          const fragment = range.extractContents();
+          wrapper.appendChild(fragment);
+          range.insertNode(wrapper);
+        } catch {
+          // skip nodes that can't be wrapped
+        }
+      }
     }
   }
 }
@@ -576,11 +693,11 @@ export function StepField({
     const originalUpdatePreview = instance.updatePreview.bind(instance);
     instance.updatePreview = function () {
       originalUpdatePreview();
-      applyFormattingHighlights(this.preview, formattingRef.current);
+      applyFormattingHighlights(this.preview, formattingRef.current, this.textarea?.value);
       applyLinkHighlights(this.preview, linksRef.current);
     };
     // Apply initial highlights
-    applyFormattingHighlights(instance.preview, formattingRef.current);
+    applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
     applyLinkHighlights(instance.preview, linksRef.current);
 
     // Create custom caret element inside the wrapper
@@ -633,7 +750,7 @@ export function StepField({
         return;
       }
 
-      const rect = getCaretRectInPreview(instance.preview, pos);
+      const rect = getCaretRectInPreview(instance.preview, pos, instance.textarea?.value);
       if (rect) {
         caret.style.display = "block";
         caret.style.top = `${rect.top}px`;
@@ -712,7 +829,7 @@ export function StepField({
       isSyncingRef.current = false;
     } else {
       // Even if text didn't change, formatting/links might have — re-apply highlights
-      applyFormattingHighlights(instance.preview, formatting);
+      applyFormattingHighlights(instance.preview, formatting, instance.textarea?.value);
       applyLinkHighlights(instance.preview, links);
     }
 
@@ -899,14 +1016,14 @@ export function StepField({
   }, [enableImageUpload, insertImageMarkdown, onImageFile, textareaNode, uploadImage]);
 
   const handleToolbarAction = useCallback(
-    (action: "toggleBold" | "toggleItalic") => {
+    (action: "toggleBold" | "toggleItalic" | "toggleCode") => {
       const instance = editorInstanceRef.current;
       if (!textareaNode || !instance) {
         return;
       }
       textareaNode.focus();
 
-      const fmtType: "bold" | "italic" = action === "toggleBold" ? "bold" : "italic";
+      const fmtType: "bold" | "italic" | "code" = action === "toggleBold" ? "bold" : action === "toggleCode" ? "code" : "italic";
       const start = textareaNode.selectionStart ?? 0;
       const end = textareaNode.selectionEnd ?? 0;
 
@@ -934,7 +1051,7 @@ export function StepField({
       setPlainTextValue(markdownToPlainText(markdown));
 
       // Re-apply highlights
-      applyFormattingHighlights(instance.preview, formattingRef.current);
+      applyFormattingHighlights(instance.preview, formattingRef.current, textareaNode?.value);
       applyLinkHighlights(instance.preview, linksRef.current);
     },
     [textareaNode],
@@ -1022,7 +1139,7 @@ export function StepField({
       const markdown = buildFullMarkdown(instance.getValue(), linksRef.current, formattingRef.current);
       onChangeRef.current?.(markdown);
       // Re-apply highlights since links changed
-      applyFormattingHighlights(instance.preview, formattingRef.current);
+      applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
       applyLinkHighlights(instance.preview, linksRef.current);
     }
   }, [cursorLink]);
@@ -1185,6 +1302,12 @@ export function StepField({
           event.preventDefault();
           event.stopImmediatePropagation();
           handleToolbarAction("toggleItalic");
+          return;
+        }
+        if (event.key === "e" || event.key === "E") {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          handleToolbarAction("toggleCode");
           return;
         }
       }
@@ -1392,6 +1515,21 @@ export function StepField({
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M8.66699 13.3334H4.66699V12.0001H5.95166L8.69566 4.00008H7.33366V2.66675H11.3337V4.00008H10.049L7.30499 12.0001H8.66699V13.3334Z" fill="currentColor"/>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="bn-step-toolbar__button"
+                  data-tooltip="Code"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    handleToolbarAction("toggleCode");
+                  }}
+                  aria-label="Code"
+                  tabIndex={-1}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M10.333 12.6667L14 8.00008L10.333 3.33341L9.15833 4.28341L12.1583 8.00008L9.15833 11.7167L10.333 12.6667ZM5.66699 12.6667L6.84166 11.7167L3.84166 8.00008L6.84166 4.28341L5.66699 3.33341L2 8.00008L5.66699 12.6667Z" fill="currentColor"/>
                   </svg>
                 </button>
               </>

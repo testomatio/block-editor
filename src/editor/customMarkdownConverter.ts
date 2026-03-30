@@ -347,7 +347,9 @@ function serializeBlock(
       }
       return flattenWithBlankLine(lines, true);
     }
-    case "file": {
+    case "file":
+    case "video":
+    case "audio": {
       const url = (block.props as any).url || "";
       const name = (block.props as any).name || "";
       const caption = (block.props as any).caption || "";
@@ -511,7 +513,10 @@ function serializeBlock(
       };
 
       const formattedRows = rows.map(normalizeRow);
-      const formatCell = (value: string) => (value.length ? value : " ");
+      const formatCell = (value: string) => {
+        if (!value.length) return " ";
+        return value.replace(/\n/g, "<br/>");
+      };
       const toAlignmentToken = (alignment: string) => {
         switch (alignment) {
           case "center":
@@ -692,6 +697,13 @@ function parseInlineMarkdown(text: string): EditorInline[] {
         i = end + 1;
         continue;
       }
+    }
+
+    const brMatch = cleaned.slice(i).match(/^<br\s*\/?\s*>/i);
+    if (brMatch) {
+      buffer += "\n";
+      i += brMatch[0].length;
+      continue;
     }
 
     buffer += cleaned[i];

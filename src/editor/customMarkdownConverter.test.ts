@@ -328,6 +328,60 @@ describe("blocksToMarkdown", () => {
     );
   });
 
+  it("serializes table cells containing newlines as <br/>", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "tbl2",
+        type: "table",
+        props: { textColor: "default" },
+        content: {
+          type: "tableContent",
+          columnWidths: [undefined, undefined],
+          headerRows: 1,
+          rows: [
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Steps", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Expected Results", styles: {} }],
+                },
+              ],
+            },
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "line1\nline2", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "ok", styles: {} }],
+                },
+              ],
+            },
+          ],
+        },
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      [
+        "| Steps | Expected Results |",
+        "| --- | --- |",
+        "| line1<br/>line2 | ok |",
+      ].join("\n"),
+    );
+  });
+
   it("parses a test step with inline image in the title, moving the image to step data", () => {
     const markdown = [
       "## Steps",
@@ -1212,6 +1266,114 @@ describe("markdownToBlocks", () => {
     ]);
   });
 
+  it("parses <br/> in table cells back to newline", () => {
+    const markdown = [
+      "| A | B |",
+      "| --- | --- |",
+      "| line1<br/>line2 | ok |",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toEqual([
+      {
+        type: "table",
+        props: { textColor: "default" },
+        content: {
+          type: "tableContent",
+          columnWidths: [undefined, undefined],
+          headerRows: 1,
+          rows: [
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "A", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "B", styles: {} }],
+                },
+              ],
+            },
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "line1\nline2", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "ok", styles: {} }],
+                },
+              ],
+            },
+          ],
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("round-trips newlines in table cells", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "tbl3",
+        type: "table",
+        props: { textColor: "default" },
+        content: {
+          type: "tableContent",
+          columnWidths: [undefined, undefined],
+          headerRows: 1,
+          rows: [
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Header", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Info", styles: {} }],
+                },
+              ],
+            },
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "first\nsecond\nthird", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "value", styles: {} }],
+                },
+              ],
+            },
+          ],
+        },
+        children: [],
+      },
+    ];
+
+    const markdown = blocksToMarkdown(blocks);
+    expect(markdown).toContain("first<br/>second<br/>third");
+
+    const parsed = markdownToBlocks(markdown);
+    const row = (parsed[0] as any).content.rows[1];
+    const cellContent = row.cells[0].content;
+    expect(cellContent).toEqual([
+      { type: "text", text: "first\nsecond\nthird", styles: {} },
+    ]);
+  });
+
   it("parses expected result lines written with bold 'Expected Result' prefix for compatibility", () => {
     const markdown = [
       "* Step 1: Send a chat message to the user.",
@@ -1821,5 +1983,48 @@ describe("file block parsing", () => {
     const parsed = markdownToBlocks(markdown);
     const md = blocksToMarkdown(parsed as CustomEditorBlock[]);
     expect(md).toBe(markdown);
+  });
+});
+
+describe("video/audio block serialization", () => {
+  it("serializes a video block using the file format", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "video",
+        props: {
+          ...baseProps,
+          url: "https://example.com/video.mp4",
+          name: "recording.mp4",
+          caption: "/images/file-type-icons/mp4.svg",
+          showPreview: true,
+          previewWidth: 512,
+        },
+        content: undefined as any,
+        children: [],
+      },
+    ];
+    const md = blocksToMarkdown(blocks);
+    expect(md).toBe("[![recording.mp4](/images/file-type-icons/mp4.svg)](https://example.com/video.mp4)");
+  });
+
+  it("serializes an audio block using the file format", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "audio",
+        props: {
+          ...baseProps,
+          url: "https://example.com/sound.mp3",
+          name: "sound.mp3",
+          caption: "/images/file-type-icons/file.svg",
+          showPreview: true,
+        },
+        content: undefined as any,
+        children: [],
+      },
+    ];
+    const md = blocksToMarkdown(blocks);
+    expect(md).toBe("[![sound.mp3](/images/file-type-icons/file.svg)](https://example.com/sound.mp3)");
   });
 });
