@@ -1074,12 +1074,19 @@ html.dark .bn-step-image-preview__content {
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview strong.step-preview-bold {
-  font-weight: bold !important;
+  -webkit-text-stroke: 0.5px currentColor;
+  font-weight: inherit !important;
   color: inherit !important;
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview em.step-preview-italic {
   font-style: italic !important;
+  color: inherit !important;
+}
+
+.bn-step-editor .overtype-wrapper .overtype-preview code.step-preview-code {
+  background-color: rgba(135, 131, 120, 0.15) !important;
+  border-radius: 3px !important;
   color: inherit !important;
 }
 

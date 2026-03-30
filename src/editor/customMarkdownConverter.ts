@@ -513,7 +513,10 @@ function serializeBlock(
       };
 
       const formattedRows = rows.map(normalizeRow);
-      const formatCell = (value: string) => (value.length ? value : " ");
+      const formatCell = (value: string) => {
+        if (!value.length) return " ";
+        return value.replace(/\n/g, "<br/>");
+      };
       const toAlignmentToken = (alignment: string) => {
         switch (alignment) {
           case "center":
@@ -694,6 +697,13 @@ function parseInlineMarkdown(text: string): EditorInline[] {
         i = end + 1;
         continue;
       }
+    }
+
+    const brMatch = cleaned.slice(i).match(/^<br\s*\/?\s*>/i);
+    if (brMatch) {
+      buffer += "\n";
+      i += brMatch[0].length;
+      continue;
     }
 
     buffer += cleaned[i];

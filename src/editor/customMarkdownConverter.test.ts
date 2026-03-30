@@ -328,6 +328,60 @@ describe("blocksToMarkdown", () => {
     );
   });
 
+  it("serializes table cells containing newlines as <br/>", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "tbl2",
+        type: "table",
+        props: { textColor: "default" },
+        content: {
+          type: "tableContent",
+          columnWidths: [undefined, undefined],
+          headerRows: 1,
+          rows: [
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Steps", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Expected Results", styles: {} }],
+                },
+              ],
+            },
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "line1\nline2", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "ok", styles: {} }],
+                },
+              ],
+            },
+          ],
+        },
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      [
+        "| Steps | Expected Results |",
+        "| --- | --- |",
+        "| line1<br/>line2 | ok |",
+      ].join("\n"),
+    );
+  });
+
   it("parses a test step with inline image in the title, moving the image to step data", () => {
     const markdown = [
       "## Steps",
@@ -1209,6 +1263,114 @@ describe("markdownToBlocks", () => {
         },
         children: [],
       },
+    ]);
+  });
+
+  it("parses <br/> in table cells back to newline", () => {
+    const markdown = [
+      "| A | B |",
+      "| --- | --- |",
+      "| line1<br/>line2 | ok |",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toEqual([
+      {
+        type: "table",
+        props: { textColor: "default" },
+        content: {
+          type: "tableContent",
+          columnWidths: [undefined, undefined],
+          headerRows: 1,
+          rows: [
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "A", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "B", styles: {} }],
+                },
+              ],
+            },
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "line1\nline2", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "ok", styles: {} }],
+                },
+              ],
+            },
+          ],
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("round-trips newlines in table cells", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "tbl3",
+        type: "table",
+        props: { textColor: "default" },
+        content: {
+          type: "tableContent",
+          columnWidths: [undefined, undefined],
+          headerRows: 1,
+          rows: [
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Header", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Info", styles: {} }],
+                },
+              ],
+            },
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "first\nsecond\nthird", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "value", styles: {} }],
+                },
+              ],
+            },
+          ],
+        },
+        children: [],
+      },
+    ];
+
+    const markdown = blocksToMarkdown(blocks);
+    expect(markdown).toContain("first<br/>second<br/>third");
+
+    const parsed = markdownToBlocks(markdown);
+    const row = (parsed[0] as any).content.rows[1];
+    const cellContent = row.cells[0].content;
+    expect(cellContent).toEqual([
+      { type: "text", text: "first\nsecond\nthird", styles: {} },
     ]);
   });
 
