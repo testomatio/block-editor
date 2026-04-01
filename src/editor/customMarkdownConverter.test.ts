@@ -394,7 +394,7 @@ describe("blocksToMarkdown", () => {
       {
         id: "q1",
         type: "quote",
-        props: { textColor: "default" },
+        props: { textColor: "default", backgroundColor: "default", textAlignment: "left" },
         content: [{ type: "text", text: "Hello world", styles: {} }],
         children: [],
       },
