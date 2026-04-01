@@ -551,7 +551,7 @@ describe("blocksToMarkdown", () => {
       [
         "| Col A | Col B |",
         "| --- | --- |",
-        "| ok | **opened**<br/>**newline** |",
+        "| ok | **opened**<br>**newline** |",
       ].join("\n"),
     );
   });
