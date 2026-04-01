@@ -389,6 +389,26 @@ describe("blocksToMarkdown", () => {
     );
   });
 
+  it("serializes a blockquote", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "q1",
+        type: "quote",
+        props: { textColor: "default" },
+        content: [{ type: "text", text: "Hello world", styles: {} }],
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe("> Hello world");
+  });
+
+  it("round-trips a blockquote without escaping > in content", () => {
+    const markdown = "> Some quoted text";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as any)).toBe("> Some quoted text");
+  });
+
   it("serializes table cells containing newlines as <br/>", () => {
     const blocks: CustomEditorBlock[] = [
       {
@@ -573,6 +593,48 @@ describe("blocksToMarkdown", () => {
 });
 
 describe("markdownToBlocks", () => {
+  it("parses nested blockquote by flattening to single-level quote", () => {
+    const markdown = ">> The Witch bade her clean the pots.";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toEqual([
+      {
+        type: "quote",
+        props: { textColor: "default", backgroundColor: "default", textAlignment: "left" },
+        content: [{ type: "text", text: "The Witch bade her clean the pots.", styles: {} }],
+        children: [],
+      },
+    ]);
+  });
+
+  it("parses spaced nested blockquote > > text", () => {
+    const markdown = "> > The Witch bade her clean the pots.";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toEqual([
+      {
+        type: "quote",
+        props: { textColor: "default", backgroundColor: "default", textAlignment: "left" },
+        content: [{ type: "text", text: "The Witch bade her clean the pots.", styles: {} }],
+        children: [],
+      },
+    ]);
+  });
+
+  it("round-trips nested blockquote without \\> escaping", () => {
+    const markdown = [
+      "> Dorothy followed her through many of the beautiful rooms in her castle.",
+      ">> The Witch bade her clean the pots.",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const result = blocksToMarkdown(blocks as any);
+    expect(result).toBe(
+      [
+        "> Dorothy followed her through many of the beautiful rooms in her castle.",
+        "> The Witch bade her clean the pots.",
+      ].join("\n"),
+    );
+  });
+
   it("parses test steps and test cases", () => {
     const markdown = [
       "* Open the Login page.",

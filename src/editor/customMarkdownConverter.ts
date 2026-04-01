@@ -60,7 +60,7 @@ const headingPrefixes: Record<number, string> = {
   6: "######",
 };
 
-const SPECIAL_CHAR_REGEX = /([*_`~\[\]()<>\\])/g;
+const SPECIAL_CHAR_REGEX = /([*_`~\[\]()<\\])/g;
 const HTML_SPAN_REGEX = /<\/?span[^>]*>/g;
 const HTML_UNDERLINE_REGEX = /<\/?u>/g;
 const EXPECTED_LABEL_REGEX = /^(?:[*_`]*\s*)?(expected(?:\s+result)?)\s*(?:[*_`]*\s*)?\s*[:\-–—]\s*/i;
@@ -125,7 +125,7 @@ function stripLeadingFormatting(text: string): string {
 }
 
 function unescapeMarkdown(text: string): string {
-  return stripHtmlWrappers(text).replace(/\\([*_`~\[\]()<>\\])/g, "$1");
+  return stripHtmlWrappers(text).replace(/\\([*_`~\[\]()<>\\])/g, "$1").replace(/\\>/g, ">");
 }
 
 function applyTextStyles(text: string, styles: EditorStyles | undefined): string {
@@ -1214,7 +1214,7 @@ function parseQuote(lines: string[], index: number): { block: CustomPartialBlock
     if (!trimmed.startsWith(">")) {
       break;
     }
-    collected.push(trimmed.replace(/^>\s?/, ""));
+    collected.push(trimmed.replace(/^(?:>\s?)+/, ""));
     next += 1;
   }
 
