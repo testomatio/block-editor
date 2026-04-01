@@ -174,12 +174,21 @@ function applyTextStyles(text: string, styles: EditorStyles | undefined): string
     });
   }
 
-  for (const wrapper of wrappers) {
-    const suffix = wrapper.suffix ?? wrapper.prefix;
-    result = `${wrapper.prefix}${result}${suffix}`;
-  }
+  // Split on newlines so that style markers wrap each line individually.
+  // This prevents <br/> (inserted by table cell formatting) from being
+  // trapped inside markers like **bold<br/>text**.
+  const segments = result.split("\n");
+  const wrapped = segments.map((segment) => {
+    if (!segment) return segment;
+    let s = segment;
+    for (const wrapper of wrappers) {
+      const suffix = wrapper.suffix ?? wrapper.prefix;
+      s = `${wrapper.prefix}${s}${suffix}`;
+    }
+    return s;
+  });
 
-  return result;
+  return wrapped.join("\n");
 }
 
 function inlineToMarkdown(content: CustomEditorBlock["content"]): string {
@@ -392,18 +401,19 @@ function serializeBlock(
         return flattenWithBlankLine(lines, true);
       }
 
-      if (stepTitle.length > 0) {
-        const normalizedTitle = stepTitle
-          .split(/\r?\n/)
-          .map((segment: string) => segment.trim())
-          .filter((segment: string) => segment.length > 0)
-          .join(" ");
+      const normalizedTitle = stepTitle
+        .split(/\r?\n/)
+        .map((segment: string) => segment.trim())
+        .filter((segment: string) => segment.length > 0)
+        .join(" ");
 
-        if (normalizedTitle.length > 0) {
-          const listStyle = (block.props as any).listStyle ?? "bullet";
-          const prefix = listStyle === "ordered" ? `${(stepIndex ?? 0) + 1}.` : "*";
-          lines.push(`${prefix} ${normalizedTitle}`);
-        }
+      const normalizedExpectedForCheck = stripExpectedPrefix(expectedResult).trim();
+      const hasContent = stepData.length > 0 || normalizedExpectedForCheck.length > 0;
+
+      if (normalizedTitle.length > 0 || hasContent) {
+        const listStyle = (block.props as any).listStyle ?? "bullet";
+        const prefix = listStyle === "ordered" ? `${(stepIndex ?? 0) + 1}.` : "*";
+        lines.push(normalizedTitle.length > 0 ? `${prefix} ${normalizedTitle}` : `${prefix} `);
       }
 
       if (stepData.length > 0) {
@@ -742,7 +752,7 @@ function detectListType(trimmed: string): "bullet" | "numbered" | "check" | null
   if (/^\d+[.)]\s+/.test(trimmed)) {
     return "numbered";
   }
-  if (/^[-*+]\s+/.test(trimmed)) {
+  if (/^[-*+](\s+|$)/.test(trimmed)) {
     return "bullet";
   }
   return null;
@@ -858,7 +868,7 @@ function parseList(
       });
     } else {
       const bulletMatch = trimmed.match(/^[-*+]\s+(.*)$/);
-      const text = bulletMatch?.[1] ?? trimmed.slice(2);
+      const text = bulletMatch?.[1] ?? (trimmed.length <= 1 ? "" : trimmed.slice(2));
       items.push({
         type: "bulletListItem",
         props: cloneBaseProps(),
@@ -888,7 +898,7 @@ function isLikelyStep(lines: string[], index: number): boolean {
     if (hasIndent) return true;
 
     // Stop at new list items, headings, or other block-level elements (only if not indented)
-    if (/^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed)) break;
+    if (/^[-*+](\s|$)/.test(trimmed) || /^\d+[.)]\s/.test(trimmed)) break;
     if (trimmed.startsWith("#") || trimmed.startsWith(">") || trimmed.startsWith("|") || trimmed.startsWith("```") || trimmed.startsWith(":::")) break;
 
     // Check for expected result markers
@@ -907,7 +917,7 @@ function parseTestStep(
 ): { block: CustomPartialBlock; nextIndex: number } | null {
   const current = lines[index];
   const trimmed = current.trim();
-  const isBullet = trimmed.startsWith("* ") || trimmed.startsWith("- ");
+  const isBullet = trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed === "*" || trimmed === "-";
   const isNumbered = /^\d+[.)]\s+/.test(trimmed);
 
   if (!isBullet && !isNumbered) {
@@ -923,7 +933,9 @@ function parseTestStep(
 
   let rawTitle: string;
   if (isBullet) {
-    rawTitle = unescapeMarkdown(trimmed.slice(2)).trim();
+    rawTitle = unescapeMarkdown(
+      (trimmed.startsWith("* ") || trimmed.startsWith("- ")) ? trimmed.slice(2) : trimmed.slice(1)
+    ).trim();
   } else {
     // For numbered lists, remove the number and delimiter
     rawTitle = unescapeMarkdown(trimmed.replace(/^\d+[.)]\s+/, "")).trim();
@@ -971,7 +983,7 @@ function parseTestStep(
     }
     const isNumberedStep = NUMBERED_STEP_REGEX.test(rawTrimmed);
     const isNewStep =
-      (!hasIndent && (rawTrimmed.startsWith("* ") || rawTrimmed.startsWith("- "))) ||
+      (!hasIndent && (rawTrimmed.startsWith("* ") || rawTrimmed.startsWith("- ") || rawTrimmed === "*" || rawTrimmed === "-")) ||
       (!hasIndent && isNumberedStep);
 
     if (isNewStep) {
