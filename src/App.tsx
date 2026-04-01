@@ -22,7 +22,6 @@ import { customSchema, type CustomEditor } from "./editor/customSchema";
 import { setStepsFetcher, type StepJsonApiDocument } from "./editor/stepAutocomplete";
 import { setSnippetFetcher, type SnippetJsonApiDocument } from "./editor/snippetAutocomplete";
 import { setImageUploadHandler } from "./editor/stepImageUpload";
-import { canInsertStepOrSnippet } from "./editor/blocks/step";
 import "./App.css";
 
 const focusStepField = (
@@ -335,11 +334,7 @@ function CustomSlashMenu() {
       },
     };
 
-    const cursorBlock = editor.getTextCursorPosition()?.block;
-    const canInsert = cursorBlock ? canInsertStepOrSnippet(editor, cursorBlock.id) : false;
-    const customItems = canInsert ? [stepItem, snippetItem] : [];
-
-    return filterSuggestionItems([...defaultItems, ...customItems], query);
+    return filterSuggestionItems([...defaultItems, stepItem, snippetItem], query);
   };
 
   return <SuggestionMenuController triggerCharacter="/" getItems={getItems} />;
@@ -489,7 +484,7 @@ function App() {
     const fallbackBlock = documentBlocks[documentBlocks.length - 1];
     const referenceId = selectedBlock?.id ?? fallbackBlock?.id;
 
-    if (!referenceId || !canInsertStepOrSnippet(editor, referenceId)) {
+    if (!referenceId) {
       return;
     }
 

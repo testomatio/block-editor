@@ -212,32 +212,6 @@ export const stepBlock = createReactBlockSpec(
         return count;
       }, [block.id, documentVersion, editor.document]);
 
-      // Check if there is a preceding "Steps" heading
-      const hasStepsHeading = useMemo(() => {
-        const allBlocks = editor.document;
-        const blockIndex = allBlocks.findIndex((b) => b.id === block.id);
-        if (blockIndex < 0) return false;
-
-        for (let i = blockIndex - 1; i >= 0; i--) {
-          const b = allBlocks[i];
-          if (b.type === "testStep" || b.type === "snippet" || isEmptyParagraph(b)) {
-            continue;
-          }
-          if (b.type === "heading") {
-            const text = (Array.isArray(b.content) ? b.content : [])
-              .filter((n: any) => n.type === "text")
-              .map((n: any) => n.text ?? "")
-              .join("")
-              .trim()
-              .toLowerCase()
-              .replace(/[:\-–—]$/, "");
-            return isStepsHeading(text);
-          }
-          return false;
-        }
-        return false;
-      }, [block.id, documentVersion, editor.document]);
-
       useEditorChange(() => {
         setDocumentVersion((version) => version + 1);
       }, editor);
@@ -416,17 +390,6 @@ export const stepBlock = createReactBlockSpec(
 
       const canToggleData = !dataHasContent;
       const canToggleExpected = !expectedHasContent;
-
-      // Render as plain text when not under a "Steps" heading
-      if (!hasStepsHeading) {
-        return (
-          <div className="bn-teststep-plain" data-block-id={block.id}>
-            <span>{stepTitle || "(empty step)"}</span>
-            {stepData ? <span className="bn-teststep-plain__data">{stepData}</span> : null}
-            {expectedResult ? <span className="bn-teststep-plain__expected">{expectedResult}</span> : null}
-          </div>
-        );
-      }
 
       if (viewMode === "horizontal") {
         return (

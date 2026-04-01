@@ -105,6 +105,67 @@ describe("blocksToMarkdown", () => {
     );
   });
 
+  it("serializes a step with empty title but with stepData", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "s1",
+        type: "testStep",
+        props: {
+          stepTitle: "",
+          stepData: "Navigate to the page",
+          expectedResult: "",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      ["* ", "  Navigate to the page"].join("\n"),
+    );
+  });
+
+  it("serializes a step with empty title but with expectedResult", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "s1",
+        type: "testStep",
+        props: {
+          stepTitle: "",
+          stepData: "",
+          expectedResult: "Login form visible",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      ["* ", "  *Expected*: Login form visible"].join("\n"),
+    );
+  });
+
+  it("drops completely empty step (no title, no data, no expected)", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "s1",
+        type: "testStep",
+        props: {
+          stepTitle: "",
+          stepData: "",
+          expectedResult: "",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe("");
+  });
+
   it("serializes a snippet block with prefixed title", () => {
     const blocks: CustomEditorBlock[] = [
       {
@@ -382,6 +443,62 @@ describe("blocksToMarkdown", () => {
     );
   });
 
+  it("serializes table cells with styled text and newlines without trapping <br/> inside markers", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "tbl3",
+        type: "table",
+        props: { textColor: "default" },
+        content: {
+          type: "tableContent",
+          columnWidths: [undefined, undefined],
+          headerRows: 1,
+          rows: [
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Col A", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Col B", styles: {} }],
+                },
+              ],
+            },
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "ok", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [
+                    { type: "text", text: "opened\nnewline", styles: { bold: true } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      [
+        "| Col A | Col B |",
+        "| --- | --- |",
+        "| ok | **opened**<br/>**newline** |",
+      ].join("\n"),
+    );
+  });
+
   it("parses a test step with inline image in the title, moving the image to step data", () => {
     const markdown = [
       "## Steps",
@@ -412,6 +529,55 @@ describe("markdownToBlocks", () => {
           stepTitle: "Open the Login page.",
           stepData: "",
           expectedResult: "The Login page loads successfully.",
+          listStyle: "bullet",
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("parses a step with empty title but with step data", () => {
+    const markdown = ["* ", "  Navigate to the page"].join("\n");
+
+    expect(markdownToBlocks(markdown)).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "",
+          stepData: "Navigate to the page",
+          expectedResult: "",
+          listStyle: "bullet",
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("round-trips a title-less step with data", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "s1",
+        type: "testStep",
+        props: {
+          stepTitle: "",
+          stepData: "Open the browser",
+          expectedResult: "Page loads",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ];
+
+    const md = blocksToMarkdown(blocks);
+    const parsed = markdownToBlocks(md);
+    expect(parsed).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "",
+          stepData: "Open the browser",
+          expectedResult: "Page loads",
           listStyle: "bullet",
         },
         children: [],
