@@ -377,7 +377,64 @@ describe("blocksToMarkdown", () => {
       [
         "| Steps | Expected Results |",
         "| --- | --- |",
-        "| line1<br/>line2 | ok |",
+        "| line1<br>line2 | ok |",
+      ].join("\n"),
+    );
+  });
+
+  it("serializes table cell with code style and newline placing br outside backticks", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "tbl-code",
+        type: "table",
+        props: { textColor: "default" },
+        content: {
+          type: "tableContent",
+          columnWidths: [undefined, undefined],
+          headerRows: 1,
+          rows: [
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "A", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "B", styles: {} }],
+                },
+              ],
+            },
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [
+                    { type: "text", text: "code", styles: { code: true } },
+                    { type: "text", text: "\nnext line", styles: {} },
+                  ],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "ok", styles: {} }],
+                },
+              ],
+            },
+          ],
+        },
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      [
+        "| A | B |",
+        "| --- | --- |",
+        "| `code`<br>next line | ok |",
       ].join("\n"),
     );
   });
@@ -1270,7 +1327,7 @@ describe("markdownToBlocks", () => {
     const markdown = [
       "| A | B |",
       "| --- | --- |",
-      "| line1<br/>line2 | ok |",
+      "| line1<br>line2 | ok |",
     ].join("\n");
 
     const blocks = markdownToBlocks(markdown);
@@ -1364,7 +1421,7 @@ describe("markdownToBlocks", () => {
     ];
 
     const markdown = blocksToMarkdown(blocks);
-    expect(markdown).toContain("first<br/>second<br/>third");
+    expect(markdown).toContain("first<br>second<br>third");
 
     const parsed = markdownToBlocks(markdown);
     const row = (parsed[0] as any).content.rows[1];

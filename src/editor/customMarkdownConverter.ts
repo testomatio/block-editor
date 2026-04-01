@@ -515,7 +515,15 @@ function serializeBlock(
       const formattedRows = rows.map(normalizeRow);
       const formatCell = (value: string) => {
         if (!value.length) return " ";
-        return value.replace(/\n/g, "<br/>");
+        // Handle newlines inside backtick code spans:
+        // close code before <br>, reopen after
+        let result = value.replace(/`([^`]*)`/g, (match) => {
+          if (!match.includes("\n")) return match;
+          const inner = match.slice(1, -1);
+          const parts = inner.split("\n");
+          return parts.map((p) => (p ? `\`${p}\`` : "")).join("<br>");
+        });
+        return result.replace(/\n/g, "<br>");
       };
       const toAlignmentToken = (alignment: string) => {
         switch (alignment) {
