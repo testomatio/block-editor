@@ -174,12 +174,21 @@ function applyTextStyles(text: string, styles: EditorStyles | undefined): string
     });
   }
 
-  for (const wrapper of wrappers) {
-    const suffix = wrapper.suffix ?? wrapper.prefix;
-    result = `${wrapper.prefix}${result}${suffix}`;
-  }
+  // Split on newlines so that style markers wrap each line individually.
+  // This prevents <br/> (inserted by table cell formatting) from being
+  // trapped inside markers like **bold<br/>text**.
+  const segments = result.split("\n");
+  const wrapped = segments.map((segment) => {
+    if (!segment) return segment;
+    let s = segment;
+    for (const wrapper of wrappers) {
+      const suffix = wrapper.suffix ?? wrapper.prefix;
+      s = `${wrapper.prefix}${s}${suffix}`;
+    }
+    return s;
+  });
 
-  return result;
+  return wrapped.join("\n");
 }
 
 function inlineToMarkdown(content: CustomEditorBlock["content"]): string {

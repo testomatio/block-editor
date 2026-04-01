@@ -443,6 +443,62 @@ describe("blocksToMarkdown", () => {
     );
   });
 
+  it("serializes table cells with styled text and newlines without trapping <br/> inside markers", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "tbl3",
+        type: "table",
+        props: { textColor: "default" },
+        content: {
+          type: "tableContent",
+          columnWidths: [undefined, undefined],
+          headerRows: 1,
+          rows: [
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Col A", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "Col B", styles: {} }],
+                },
+              ],
+            },
+            {
+              cells: [
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [{ type: "text", text: "ok", styles: {} }],
+                },
+                {
+                  type: "tableCell",
+                  props: cellProps,
+                  content: [
+                    { type: "text", text: "opened\nnewline", styles: { bold: true } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe(
+      [
+        "| Col A | Col B |",
+        "| --- | --- |",
+        "| ok | **opened**<br/>**newline** |",
+      ].join("\n"),
+    );
+  });
+
   it("parses a test step with inline image in the title, moving the image to step data", () => {
     const markdown = [
       "## Steps",
