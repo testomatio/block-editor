@@ -51,14 +51,13 @@ export function useStepAutocomplete(): StepSuggestion[] {
   const [suggestions, setSuggestions] = useState<StepSuggestion[]>(() => {
     if (cachedSuggestions.length > 0) return cachedSuggestions;
     if (!globalFetcher) return [];
+    if (inflightPromise) return [];
     const result = globalFetcher();
     if (result && typeof (result as Promise<unknown>).then === "function") {
-      if (!inflightPromise) {
-        inflightPromise = (result as Promise<StepInput>)
-          .then((r) => normalizeStepSuggestions(r))
-          .then((items) => { cachedSuggestions = items; inflightPromise = null; return items; })
-          .catch((error) => { inflightPromise = null; console.error("Failed to fetch step suggestions", error); return [] as StepSuggestion[]; });
-      }
+      inflightPromise = (result as Promise<StepInput>)
+        .then((r) => normalizeStepSuggestions(r))
+        .then((items) => { cachedSuggestions = items; inflightPromise = null; return items; })
+        .catch((error) => { inflightPromise = null; console.error("Failed to fetch step suggestions", error); return [] as StepSuggestion[]; });
       return [];
     }
     const normalized = normalizeStepSuggestions(result as StepInput);

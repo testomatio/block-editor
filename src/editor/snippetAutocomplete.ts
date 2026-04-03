@@ -45,14 +45,13 @@ export function useSnippetAutocomplete(): SnippetSuggestion[] {
   const [suggestions, setSuggestions] = useState<SnippetSuggestion[]>(() => {
     if (cachedSuggestions.length > 0) return cachedSuggestions;
     if (!globalFetcher) return [];
+    if (inflightPromise) return [];
     const result = globalFetcher();
     if (result && typeof (result as Promise<unknown>).then === "function") {
-      if (!inflightPromise) {
-        inflightPromise = (result as Promise<SnippetInput>)
-          .then((r) => normalizeSnippetSuggestions(r))
-          .then((items) => { cachedSuggestions = items; inflightPromise = null; return items; })
-          .catch((error) => { inflightPromise = null; console.error("Failed to fetch snippet suggestions", error); return [] as SnippetSuggestion[]; });
-      }
+      inflightPromise = (result as Promise<SnippetInput>)
+        .then((r) => normalizeSnippetSuggestions(r))
+        .then((items) => { cachedSuggestions = items; inflightPromise = null; return items; })
+        .catch((error) => { inflightPromise = null; console.error("Failed to fetch snippet suggestions", error); return [] as SnippetSuggestion[]; });
       return [];
     }
     const normalized = normalizeSnippetSuggestions(result as SnippetInput);

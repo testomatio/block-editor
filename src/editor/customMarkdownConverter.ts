@@ -796,7 +796,7 @@ function parseList(
     // Check if this line should be parsed as nested content
     // Only go deeper if indent is at least 2 more than the next level's expected indent
     const nextLevelExpectedIndent = (indentLevel + 1) * 2;
-    if (indent >= nextLevelExpectedIndent) {
+    if (indent >= nextLevelExpectedIndent && items.length > 0) {
       const lastItem = items.at(-1);
       if (!lastItem) {
         break;
