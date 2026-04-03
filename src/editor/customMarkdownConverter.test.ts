@@ -1008,6 +1008,24 @@ describe("markdownToBlocks", () => {
     expect(nestedChildren.some((child) => child.type === "bulletListItem")).toBe(true);
   });
 
+  it("does not freeze on indented list items without a parent", () => {
+    const markdown = [
+      "### Requirements",
+      "",
+      "  * The system should log in the user {{username}} with password ${password} successfully.",
+      "",
+      "  ### Steps",
+      "",
+      "  * Open login page",
+      "    *Expected*: The main page is opened",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks.length).toBeGreaterThan(0);
+    const bullets = blocks.filter((b) => b.type === "bulletListItem");
+    expect(bullets.length).toBeGreaterThanOrEqual(1);
+  });
+
    it("parses expected result prefixes with emphasis", () => {
      const markdown = [
        "* Open the form.",
