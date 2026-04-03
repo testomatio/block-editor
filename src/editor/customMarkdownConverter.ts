@@ -964,10 +964,12 @@ function parseTestStep(
   let expectedResult = "";
   let next = index + 1;
   let inExpectedResult = false;
+  const stepIndent = current.length - current.trimStart().length;
 
   while (next < lines.length) {
     const line = lines[next];
-    const hasIndent = /^\s{2,}/.test(line);
+    const lineIndent = line.length - line.trimStart().length;
+    const hasIndent = lineIndent > stepIndent;
     const rawTrimmed = line.trim();
 
     if (!rawTrimmed) {

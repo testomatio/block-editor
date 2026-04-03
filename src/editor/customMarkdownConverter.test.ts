@@ -1018,12 +1018,21 @@ describe("markdownToBlocks", () => {
       "",
       "  * Open login page",
       "    *Expected*: The main page is opened",
+      "  * Enter username {{username}} and password ${password}",
+      "  * Click login button",
+      "  * Verify user is redirected to the dashboard",
     ].join("\n");
 
     const blocks = markdownToBlocks(markdown);
     expect(blocks.length).toBeGreaterThan(0);
-    const bullets = blocks.filter((b) => b.type === "bulletListItem");
-    expect(bullets.length).toBeGreaterThanOrEqual(1);
+
+    const steps = blocks.filter((b) => b.type === "testStep");
+    expect(steps).toHaveLength(4);
+    expect((steps[0].props as any).stepTitle).toBe("Open login page");
+    expect((steps[0].props as any).expectedResult).toBe("The main page is opened");
+    expect((steps[1].props as any).stepTitle).toBe("Enter username {{username}} and password ${password}");
+    expect((steps[2].props as any).stepTitle).toBe("Click login button");
+    expect((steps[3].props as any).stepTitle).toBe("Verify user is redirected to the dashboard");
   });
 
    it("parses expected result prefixes with emphasis", () => {
