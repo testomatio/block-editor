@@ -412,8 +412,8 @@ export const stepBlock = createReactBlockSpec(
         <button
           type="button"
           className={`bn-teststep__view-toggle${!effectiveVertical ? " bn-teststep__view-toggle--horizontal" : ""}${forceVertical ? " bn-teststep__view-toggle--disabled" : ""}`}
-          data-tooltip="Switch step view"
-          aria-label="Switch step view"
+          data-tooltip={forceVertical ? "Not enough space for horizontal view" : "Switch step view"}
+          aria-label={forceVertical ? "Not enough space for horizontal view" : "Switch step view"}
           onClick={forceVertical ? undefined : handleToggleView}
           aria-disabled={forceVertical}
         >
