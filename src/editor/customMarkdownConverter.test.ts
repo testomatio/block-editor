@@ -46,6 +46,73 @@ describe("blocksToMarkdown", () => {
     expect(blocksToMarkdown(blocks)).toBe("Hello **world***!*");
   });
 
+  it("places bold markers outside leading/trailing spaces", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "some ", styles: {} },
+          { type: "text", text: " bold ", styles: { bold: true } },
+          { type: "text", text: " text", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("some  **bold**  text");
+  });
+
+  it("places italic markers outside trailing space", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "word ", styles: { italic: true } },
+          { type: "text", text: "next", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("*word* next");
+  });
+
+  it("places code backticks outside leading/trailing spaces", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "see ", styles: {} },
+          { type: "text", text: " code ", styles: { code: true } },
+          { type: "text", text: " here", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("see  `code`  here");
+  });
+
+  it("returns all-whitespace text unformatted", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "a", styles: {} },
+          { type: "text", text: "   ", styles: { bold: true } },
+          { type: "text", text: "b", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("a   b");
+  });
+
   it("serializes a numbered list", () => {
     const blocks: CustomEditorBlock[] = [
       {
@@ -1048,7 +1115,7 @@ describe("markdownToBlocks", () => {
          props: {
            stepTitle: "Open the form.",
            stepData: "",
-           expectedResult: "** The form opens.\nFields are empty.",
+           expectedResult: "The form opens.\nFields are empty.",
            listStyle: "bullet",
          },
          children: [],
@@ -1212,7 +1279,7 @@ describe("markdownToBlocks", () => {
           stepTitle:
             "Navigate to More tab -≻ My Profile -≻ Log into the app with user from preconditions",
           stepData: "",
-          expectedResult: "* Upsell SS screen is displayed",
+          expectedResult: "Upsell SS screen is displayed",
           listStyle: "bullet",
         },
         children: [],
@@ -1222,7 +1289,7 @@ describe("markdownToBlocks", () => {
         props: {
           stepTitle: "Close SS",
           stepData: "",
-          expectedResult: "* My Course and More tab are displayed",
+          expectedResult: "My Course and More tab are displayed",
           listStyle: "bullet",
         },
         children: [],
@@ -1742,7 +1809,7 @@ describe("markdownToBlocks", () => {
       props: {
         stepTitle: "Check UI of Sleep score info screen",
         stepData: "- Back button\nHeader: Sleep Score Info\nText: Ever wonder if 6, 8, or 9 hours of sleep are enough? Sleep score takes the guesswork out of your ZZZ's and shows you how well you slept last night based on duration, efficiency, and consistency.",
-        expectedResult: "* - 1st block:\n* - 2nd block:\n* - 3d block:",
+        expectedResult: "- 1st block:\n- 2nd block:\n- 3d block:",
         listStyle: "bullet",
       },
       children: [],

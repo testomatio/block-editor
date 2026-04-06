@@ -1,5 +1,5 @@
 import { createReactBlockSpec, useEditorChange } from "@blocknote/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StepField } from "./stepField";
 import { StepHorizontalView } from "./stepHorizontalView";
 import { useStepImageUpload } from "../stepImageUpload";
@@ -11,6 +11,7 @@ const STEP_TITLE_PLACEHOLDER = "Enter step title...";
 const STEP_DATA_PLACEHOLDER = "Enter step data...";
 const EXPECTED_RESULT_PLACEHOLDER = "Enter expected result...";
 type StepViewMode = "vertical" | "horizontal";
+const FORCE_VERTICAL_WIDTH = 550;
 
 /* readExpectedCollapsedPreference removed — currently unused */
 
@@ -191,6 +192,22 @@ export const stepBlock = createReactBlockSpec(
       const [documentVersion, setDocumentVersion] = useState(0);
       const uploadImage = useStepImageUpload();
       const [viewMode, setViewMode] = useState<StepViewMode>(() => readStepViewMode());
+      const containerRef = useRef<HTMLDivElement>(null);
+      const [forceVertical, setForceVertical] = useState(false);
+
+      useEffect(() => {
+        const el = containerRef.current?.parentElement;
+        if (!el) return;
+        const observer = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            setForceVertical(entry.contentRect.width < FORCE_VERTICAL_WIDTH);
+          }
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+      }, []);
+
+      const effectiveVertical = forceVertical || viewMode === "vertical";
 
       // Calculate step number based on position in document
       const stepNumber = useMemo(() => {
@@ -391,9 +408,30 @@ export const stepBlock = createReactBlockSpec(
       const canToggleData = !dataHasContent;
       const canToggleExpected = !expectedHasContent;
 
-      if (viewMode === "horizontal") {
+      const viewToggleButton = (
+        <button
+          type="button"
+          className={`bn-teststep__view-toggle${!effectiveVertical ? " bn-teststep__view-toggle--horizontal" : ""}${forceVertical ? " bn-teststep__view-toggle--disabled" : ""}`}
+          data-tooltip="Switch step view"
+          aria-label="Switch step view"
+          onClick={forceVertical ? undefined : handleToggleView}
+          aria-disabled={forceVertical}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <mask id="mask-toggle" style={{maskType: "alpha"}} maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
+              <rect width="16" height="16" fill="#D9D9D9"/>
+            </mask>
+            <g mask="url(#mask-toggle)">
+              <path d="M12.6667 2C13.0333 2 13.3472 2.13056 13.6083 2.39167C13.8694 2.65278 14 2.96667 14 3.33333L14 12.6667C14 13.0333 13.8694 13.3472 13.6083 13.6083C13.3472 13.8694 13.0333 14 12.6667 14L10 14C9.63333 14 9.31944 13.8694 9.05833 13.6083C8.79722 13.3472 8.66667 13.0333 8.66667 12.6667L8.66667 3.33333C8.66667 2.96667 8.79722 2.65278 9.05833 2.39167C9.31945 2.13055 9.63333 2 10 2L12.6667 2ZM6 2C6.36667 2 6.68056 2.13055 6.94167 2.39167C7.20278 2.65278 7.33333 2.96667 7.33333 3.33333L7.33333 12.6667C7.33333 13.0333 7.20278 13.3472 6.94167 13.6083C6.68055 13.8694 6.36667 14 6 14L3.33333 14C2.96667 14 2.65278 13.8694 2.39167 13.6083C2.13056 13.3472 2 13.0333 2 12.6667L2 3.33333C2 2.96667 2.13056 2.65278 2.39167 2.39167C2.65278 2.13055 2.96667 2 3.33333 2L6 2ZM3.33333 12.6667L6 12.6667L6 3.33333L3.33333 3.33333L3.33333 12.6667Z" fill="currentColor"/>
+            </g>
+          </svg>
+        </button>
+      );
+
+      if (!effectiveVertical) {
         return (
           <StepHorizontalView
+            ref={containerRef}
             blockId={block.id}
             stepNumber={stepNumber}
             stepValue={combinedStepValue}
@@ -402,30 +440,13 @@ export const stepBlock = createReactBlockSpec(
             onExpectedChange={handleExpectedChange}
             onInsertNextStep={handleInsertNextStep}
             onFieldFocus={handleFieldFocus}
-            viewToggle={
-              <button
-                type="button"
-                className="bn-teststep__view-toggle bn-teststep__view-toggle--horizontal"
-                data-tooltip="Switch step view"
-                aria-label="Switch step view"
-                onClick={handleToggleView}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <mask id="mask-toggle" style={{maskType: "alpha"}} maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
-                    <rect width="16" height="16" fill="#D9D9D9"/>
-                  </mask>
-                  <g mask="url(#mask-toggle)">
-                    <path d="M12.6667 2C13.0333 2 13.3472 2.13056 13.6083 2.39167C13.8694 2.65278 14 2.96667 14 3.33333L14 12.6667C14 13.0333 13.8694 13.3472 13.6083 13.6083C13.3472 13.8694 13.0333 14 12.6667 14L10 14C9.63333 14 9.31944 13.8694 9.05833 13.6083C8.79722 13.3472 8.66667 13.0333 8.66667 12.6667L8.66667 3.33333C8.66667 2.96667 8.79722 2.65278 9.05833 2.39167C9.31945 2.13055 9.63333 2 10 2L12.6667 2ZM6 2C6.36667 2 6.68056 2.13055 6.94167 2.39167C7.20278 2.65278 7.33333 2.96667 7.33333 3.33333L7.33333 12.6667C7.33333 13.0333 7.20278 13.3472 6.94167 13.6083C6.68055 13.8694 6.36667 14 6 14L3.33333 14C2.96667 14 2.65278 13.8694 2.39167 13.6083C2.13056 13.3472 2 13.0333 2 12.6667L2 3.33333C2 2.96667 2.13056 2.65278 2.39167 2.39167C2.65278 2.13055 2.96667 2 3.33333 2L6 2ZM3.33333 12.6667L6 12.6667L6 3.33333L3.33333 3.33333L3.33333 12.6667Z" fill="currentColor"/>
-                  </g>
-                </svg>
-              </button>
-            }
+            viewToggle={viewToggleButton}
           />
         );
       }
 
       return (
-        <div className="bn-teststep" data-block-id={block.id}>
+        <div className="bn-teststep" data-block-id={block.id} ref={containerRef}>
           <div className="bn-teststep__timeline">
             <span className="bn-teststep__number">{stepNumber}</span>
             <div className="bn-teststep__line" />
@@ -433,22 +454,7 @@ export const stepBlock = createReactBlockSpec(
           <div className="bn-teststep__content">
             <div className="bn-teststep__header">
               <span className="bn-teststep__title">Step</span>
-              <button
-                type="button"
-                className="bn-teststep__view-toggle"
-                data-tooltip="Switch step view"
-                aria-label="Switch step view"
-                onClick={handleToggleView}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <mask id="mask-toggle" style={{maskType: "alpha"}} maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
-                    <rect width="16" height="16" fill="#D9D9D9"/>
-                  </mask>
-                  <g mask="url(#mask-toggle)">
-                    <path d="M12.6667 2C13.0333 2 13.3472 2.13056 13.6083 2.39167C13.8694 2.65278 14 2.96667 14 3.33333L14 12.6667C14 13.0333 13.8694 13.3472 13.6083 13.6083C13.3472 13.8694 13.0333 14 12.6667 14L10 14C9.63333 14 9.31944 13.8694 9.05833 13.6083C8.79722 13.3472 8.66667 13.0333 8.66667 12.6667L8.66667 3.33333C8.66667 2.96667 8.79722 2.65278 9.05833 2.39167C9.31945 2.13055 9.63333 2 10 2L12.6667 2ZM6 2C6.36667 2 6.68056 2.13055 6.94167 2.39167C7.20278 2.65278 7.33333 2.96667 7.33333 3.33333L7.33333 12.6667C7.33333 13.0333 7.20278 13.3472 6.94167 13.6083C6.68055 13.8694 6.36667 14 6 14L3.33333 14C2.96667 14 2.65278 13.8694 2.39167 13.6083C2.13056 13.3472 2 13.0333 2 12.6667L2 3.33333C2 2.96667 2.13056 2.65278 2.39167 2.39167C2.65278 2.13055 2.96667 2 3.33333 2L6 2ZM3.33333 12.6667L6 12.6667L6 3.33333L3.33333 3.33333L3.33333 12.6667Z" fill="currentColor"/>
-                  </g>
-                </svg>
-              </button>
+              {viewToggleButton}
             </div>
             <StepField
               label="Step"

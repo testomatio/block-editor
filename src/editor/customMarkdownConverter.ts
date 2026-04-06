@@ -137,9 +137,12 @@ function applyTextStyles(text: string, styles: EditorStyles | undefined): string
   let result = text;
 
   if (hasCode) {
-    result = "`" + result.replace(/`/g, "\\`") + "`";
+    const leadingWs = result.match(/^(\s*)/)?.[1] ?? "";
+    const trailingWs = result.match(/(\s*)$/)?.[1] ?? "";
+    const trimmed = result.slice(leadingWs.length, result.length - trailingWs.length || undefined);
+    if (!trimmed) return result;
     // Code style supersedes other styles in Markdown.
-    return result;
+    return leadingWs + "`" + trimmed.replace(/`/g, "\\`") + "`" + trailingWs;
   }
 
   const wrappers: Array<{ prefix: string; suffix?: string }> = [];
@@ -180,12 +183,16 @@ function applyTextStyles(text: string, styles: EditorStyles | undefined): string
   const segments = result.split("\n");
   const wrapped = segments.map((segment) => {
     if (!segment) return segment;
-    let s = segment;
+    const leadingWs = segment.match(/^(\s*)/)?.[1] ?? "";
+    const trailingWs = segment.match(/(\s*)$/)?.[1] ?? "";
+    const trimmed = segment.slice(leadingWs.length, segment.length - trailingWs.length || undefined);
+    if (!trimmed) return segment;
+    let s = trimmed;
     for (const wrapper of wrappers) {
       const suffix = wrapper.suffix ?? wrapper.prefix;
       s = `${wrapper.prefix}${s}${suffix}`;
     }
-    return s;
+    return leadingWs + s + trailingWs;
   });
 
   return wrapped.join("\n");
@@ -1004,12 +1011,18 @@ function parseTestStep(
     // Check for expected result labels with different formatting
     const expectedMatch = rawTrimmed.match(EXPECTED_LABEL_REGEX);
     const expectedStarMatch = rawTrimmed.match(/^\*expected\s*\*:\s*(.*)$/i) ||
-                               rawTrimmed.match(/^\*expected\*:\s*(.*)$/i);
+                               rawTrimmed.match(/^\*expected\*:\s*(.*)$/i) ||
+                               rawTrimmed.match(/^\*{1,2}expected\s*:\*{1,2}\s*(.*)$/i);
 
     if (expectedMatch || expectedStarMatch) {
       inExpectedResult = true;
-      const label = expectedMatch ? expectedMatch[0] : (expectedStarMatch ? expectedStarMatch[0] : '');
-      let content = rawTrimmed.slice(label.length).trim();
+      // Prefer the star match (more specific about formatting) to avoid leaking markers
+      let content: string;
+      if (expectedStarMatch) {
+        content = (expectedStarMatch[1] || '').trim();
+      } else {
+        content = rawTrimmed.slice(expectedMatch![0].length).trim();
+      }
 
       // Add the content (if any) from this line
       if (content) {
