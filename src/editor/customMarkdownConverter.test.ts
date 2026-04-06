@@ -46,6 +46,73 @@ describe("blocksToMarkdown", () => {
     expect(blocksToMarkdown(blocks)).toBe("Hello **world***!*");
   });
 
+  it("places bold markers outside leading/trailing spaces", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "some ", styles: {} },
+          { type: "text", text: " bold ", styles: { bold: true } },
+          { type: "text", text: " text", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("some  **bold**  text");
+  });
+
+  it("places italic markers outside trailing space", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "word ", styles: { italic: true } },
+          { type: "text", text: "next", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("*word* next");
+  });
+
+  it("places code backticks outside leading/trailing spaces", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "see ", styles: {} },
+          { type: "text", text: " code ", styles: { code: true } },
+          { type: "text", text: " here", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("see  `code`  here");
+  });
+
+  it("returns all-whitespace text unformatted", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "1",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "a", styles: {} },
+          { type: "text", text: "   ", styles: { bold: true } },
+          { type: "text", text: "b", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("a   b");
+  });
+
   it("serializes a numbered list", () => {
     const blocks: CustomEditorBlock[] = [
       {

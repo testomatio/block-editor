@@ -137,9 +137,12 @@ function applyTextStyles(text: string, styles: EditorStyles | undefined): string
   let result = text;
 
   if (hasCode) {
-    result = "`" + result.replace(/`/g, "\\`") + "`";
+    const leadingWs = result.match(/^(\s*)/)?.[1] ?? "";
+    const trailingWs = result.match(/(\s*)$/)?.[1] ?? "";
+    const trimmed = result.slice(leadingWs.length, result.length - trailingWs.length || undefined);
+    if (!trimmed) return result;
     // Code style supersedes other styles in Markdown.
-    return result;
+    return leadingWs + "`" + trimmed.replace(/`/g, "\\`") + "`" + trailingWs;
   }
 
   const wrappers: Array<{ prefix: string; suffix?: string }> = [];
@@ -180,12 +183,16 @@ function applyTextStyles(text: string, styles: EditorStyles | undefined): string
   const segments = result.split("\n");
   const wrapped = segments.map((segment) => {
     if (!segment) return segment;
-    let s = segment;
+    const leadingWs = segment.match(/^(\s*)/)?.[1] ?? "";
+    const trailingWs = segment.match(/(\s*)$/)?.[1] ?? "";
+    const trimmed = segment.slice(leadingWs.length, segment.length - trailingWs.length || undefined);
+    if (!trimmed) return segment;
+    let s = trimmed;
     for (const wrapper of wrappers) {
       const suffix = wrapper.suffix ?? wrapper.prefix;
       s = `${wrapper.prefix}${s}${suffix}`;
     }
-    return s;
+    return leadingWs + s + trailingWs;
   });
 
   return wrapped.join("\n");
