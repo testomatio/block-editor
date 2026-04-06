@@ -504,6 +504,11 @@ html.dark .bn-step-image-preview__content {
   transform: rotate(90deg);
 }
 
+.bn-teststep__view-toggle--disabled {
+  cursor: not-allowed;
+  opacity: 0.3 !important;
+}
+
 .bn-teststep__horizontal-fields {
   display: flex;
   gap: 16px;
@@ -521,11 +526,6 @@ html.dark .bn-step-image-preview__content {
   min-height: 28px;
 }
 
-@media (max-width: 860px) {
-  .bn-teststep__horizontal-fields {
-    flex-direction: column;
-  }
-}
 
 .bn-snippet .bn-step-field__input {
   border-color: var(--snippet-border-light);

@@ -1011,12 +1011,18 @@ function parseTestStep(
     // Check for expected result labels with different formatting
     const expectedMatch = rawTrimmed.match(EXPECTED_LABEL_REGEX);
     const expectedStarMatch = rawTrimmed.match(/^\*expected\s*\*:\s*(.*)$/i) ||
-                               rawTrimmed.match(/^\*expected\*:\s*(.*)$/i);
+                               rawTrimmed.match(/^\*expected\*:\s*(.*)$/i) ||
+                               rawTrimmed.match(/^\*{1,2}expected\s*:\*{1,2}\s*(.*)$/i);
 
     if (expectedMatch || expectedStarMatch) {
       inExpectedResult = true;
-      const label = expectedMatch ? expectedMatch[0] : (expectedStarMatch ? expectedStarMatch[0] : '');
-      let content = rawTrimmed.slice(label.length).trim();
+      // Prefer the star match (more specific about formatting) to avoid leaking markers
+      let content: string;
+      if (expectedStarMatch) {
+        content = (expectedStarMatch[1] || '').trim();
+      } else {
+        content = rawTrimmed.slice(expectedMatch![0].length).trim();
+      }
 
       // Add the content (if any) from this line
       if (content) {

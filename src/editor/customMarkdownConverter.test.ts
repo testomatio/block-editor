@@ -1115,7 +1115,7 @@ describe("markdownToBlocks", () => {
          props: {
            stepTitle: "Open the form.",
            stepData: "",
-           expectedResult: "** The form opens.\nFields are empty.",
+           expectedResult: "The form opens.\nFields are empty.",
            listStyle: "bullet",
          },
          children: [],
@@ -1279,7 +1279,7 @@ describe("markdownToBlocks", () => {
           stepTitle:
             "Navigate to More tab -≻ My Profile -≻ Log into the app with user from preconditions",
           stepData: "",
-          expectedResult: "* Upsell SS screen is displayed",
+          expectedResult: "Upsell SS screen is displayed",
           listStyle: "bullet",
         },
         children: [],
@@ -1289,7 +1289,7 @@ describe("markdownToBlocks", () => {
         props: {
           stepTitle: "Close SS",
           stepData: "",
-          expectedResult: "* My Course and More tab are displayed",
+          expectedResult: "My Course and More tab are displayed",
           listStyle: "bullet",
         },
         children: [],
@@ -1809,7 +1809,7 @@ describe("markdownToBlocks", () => {
       props: {
         stepTitle: "Check UI of Sleep score info screen",
         stepData: "- Back button\nHeader: Sleep Score Info\nText: Ever wonder if 6, 8, or 9 hours of sleep are enough? Sleep score takes the guesswork out of your ZZZ's and shows you how well you slept last night based on duration, efficiency, and consistency.",
-        expectedResult: "* - 1st block:\n* - 2nd block:\n* - 3d block:",
+        expectedResult: "- 1st block:\n- 2nd block:\n- 3d block:",
         listStyle: "bullet",
       },
       children: [],

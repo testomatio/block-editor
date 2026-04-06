@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 import { StepField } from "./stepField";
 import type { StepSuggestion } from "../stepAutocomplete";
 
@@ -17,7 +17,7 @@ type StepHorizontalViewProps = {
   viewToggle?: ReactNode;
 };
 
-export function StepHorizontalView({
+export const StepHorizontalView = forwardRef<HTMLDivElement, StepHorizontalViewProps>(function StepHorizontalView({
   blockId,
   stepNumber,
   stepValue,
@@ -27,9 +27,9 @@ export function StepHorizontalView({
   onInsertNextStep,
   onFieldFocus,
   viewToggle,
-}: StepHorizontalViewProps) {
+}, ref) {
   return (
-    <div className="bn-teststep bn-teststep--horizontal" data-block-id={blockId}>
+    <div className="bn-teststep bn-teststep--horizontal" data-block-id={blockId} ref={ref}>
       <div className="bn-teststep__timeline">
         <span className="bn-teststep__number">{stepNumber}</span>
         <div className="bn-teststep__line" />
@@ -79,4 +79,4 @@ export function StepHorizontalView({
       </div>
     </div>
   );
-}
+});
