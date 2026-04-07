@@ -1024,8 +1024,19 @@ export function StepField({
       textareaNode.focus();
 
       const fmtType: "bold" | "italic" | "code" = action === "toggleBold" ? "bold" : action === "toggleCode" ? "code" : "italic";
-      const start = textareaNode.selectionStart ?? 0;
-      const end = textareaNode.selectionEnd ?? 0;
+      const rawStart = textareaNode.selectionStart ?? 0;
+      const rawEnd = textareaNode.selectionEnd ?? 0;
+
+      // Trim leading/trailing whitespace from the selection so that
+      // formatting markers wrap only the meaningful content.
+      const selectedText = textareaNode.value.slice(rawStart, rawEnd);
+      const leadingWs = selectedText.match(/^(\s*)/)?.[1].length ?? 0;
+      const trailingWs = selectedText.match(/(\s*)$/)?.[1].length ?? 0;
+      const start = rawStart + leadingWs;
+      const end = rawEnd - trailingWs;
+
+      // If selection is all whitespace, nothing to format
+      if (start >= end) return;
 
       // Check if selection is already formatted
       const existingIdx = formattingRef.current.findIndex(
