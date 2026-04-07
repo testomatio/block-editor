@@ -942,6 +942,11 @@ html.dark .bn-step-image-preview__content {
   background: var(--step-bg-button-hover);
 }
 
+.bn-step-toolbar__button--active {
+  background: var(--step-bg-button-hover);
+  color: var(--step-input-border-focus);
+}
+
 [data-tooltip] {
   position: relative;
 }
@@ -1074,8 +1079,7 @@ html.dark .bn-step-image-preview__content {
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview strong.step-preview-bold {
-  -webkit-text-stroke: 0.5px currentColor;
-  font-weight: inherit !important;
+  font-weight: 600 !important;
   color: inherit !important;
 }
 
@@ -1085,9 +1089,10 @@ html.dark .bn-step-image-preview__content {
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview code.step-preview-code {
-  background-color: rgba(135, 131, 120, 0.15) !important;
+  background-color: transparent !important;
   border-radius: 3px !important;
-  color: inherit !important;
+  font-family: "Fira Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  color: rgb(146, 64, 14) !important;
 }
 
 .bn-step-custom-caret {

@@ -81,6 +81,22 @@ type ExtractedImage = {
 
 type LinkMeta = { start: number; end: number; url: string };
 type FormattingMeta = { start: number; end: number; type: "bold" | "italic" | "code" };
+type FormatType = "bold" | "italic" | "code";
+
+function getActiveFormats(
+  formatting: FormattingMeta[],
+  selStart: number,
+  selEnd: number,
+): Set<FormatType> {
+  const active = new Set<FormatType>();
+  if (selStart === selEnd) return active;
+  for (const f of formatting) {
+    if (selStart < f.end && selEnd > f.start) {
+      active.add(f.type);
+    }
+  }
+  return active;
+}
 
 
 function stripInlineMarkdown(markdown: string): {
@@ -345,8 +361,6 @@ function getCaretRectInPreview(preview: HTMLElement, offset: number, textareaVal
 }
 
 function applyFormattingHighlights(preview: HTMLElement, formatting: FormattingMeta[], textareaValue?: string) {
-  if (formatting.length === 0) return;
-
   // Remove previous formatting highlights
   const existingBold = preview.querySelectorAll("strong.step-preview-bold");
   for (let i = 0; i < existingBold.length; i++) {
@@ -385,6 +399,8 @@ function applyFormattingHighlights(preview: HTMLElement, formatting: FormattingM
   // After unwrapping formatting elements, merge adjacent/empty text nodes
   // so the tree walker sees clean text nodes matching the original structure.
   preview.normalize();
+
+  if (formatting.length === 0) return;
 
   // OverType splits textarea lines into <div> elements, discarding the \n
   // characters. Convert textarea-space positions (with \n) to preview-space
@@ -632,10 +648,14 @@ export function StepField({
   const linkSelectionRef = useRef<{ start: number; end: number; text: string } | null>(null);
   const linksRef = useRef<LinkMeta[]>([]);
   const formattingRef = useRef<FormattingMeta[]>([]);
+  const formattingUndoRef = useRef<Array<{ formatting: FormattingMeta[]; links: LinkMeta[] }>>([]);
+  const formattingRedoRef = useRef<Array<{ formatting: FormattingMeta[]; links: LinkMeta[] }>>([]);
   const caretRef = useRef<HTMLDivElement | null>(null);
   const prevTextRef = useRef("");
   const isSyncingRef = useRef(false);
   const [cursorLink, setCursorLink] = useState<LinkMeta | null>(null);
+  const [activeFormats, setActiveFormats] = useState<Set<FormatType>>(new Set());
+  const [linkActive, setLinkActive] = useState(false);
   const Components = useComponentsContext();
   const resolvedPlaceholder = placeholder ?? "";
 
@@ -658,6 +678,8 @@ export function StepField({
 
     linksRef.current = adjustLinksForEdit(linksRef.current, editPos, delta);
     formattingRef.current = adjustFormattingForEdit(formattingRef.current, editPos, delta);
+    formattingUndoRef.current = [];
+    formattingRedoRef.current = [];
     prevTextRef.current = nextValue;
 
     const markdown = buildFullMarkdown(nextValue, linksRef.current, formattingRef.current);
@@ -1024,13 +1046,31 @@ export function StepField({
       textareaNode.focus();
 
       const fmtType: "bold" | "italic" | "code" = action === "toggleBold" ? "bold" : action === "toggleCode" ? "code" : "italic";
-      const start = textareaNode.selectionStart ?? 0;
-      const end = textareaNode.selectionEnd ?? 0;
+      const rawStart = textareaNode.selectionStart ?? 0;
+      const rawEnd = textareaNode.selectionEnd ?? 0;
+
+      // Trim leading/trailing whitespace from the selection so that
+      // formatting markers wrap only the meaningful content.
+      const selectedText = textareaNode.value.slice(rawStart, rawEnd);
+      const leadingWs = selectedText.match(/^(\s*)/)?.[1].length ?? 0;
+      const trailingWs = selectedText.match(/(\s*)$/)?.[1].length ?? 0;
+      const start = rawStart + leadingWs;
+      const end = rawEnd - trailingWs;
+
+      // If selection is all whitespace, nothing to format
+      if (start >= end) return;
 
       // Check if selection is already formatted
       const existingIdx = formattingRef.current.findIndex(
         (f) => f.type === fmtType && f.start <= start && f.end >= end,
       );
+
+      // Save current state for undo before modifying
+      formattingUndoRef.current = [
+        ...formattingUndoRef.current,
+        { formatting: [...formattingRef.current], links: [...linksRef.current] },
+      ];
+      formattingRedoRef.current = [];
 
       if (existingIdx !== -1) {
         // Remove formatting
@@ -1040,6 +1080,7 @@ export function StepField({
         formattingRef.current = [...formattingRef.current, { start, end, type: fmtType }];
       } else {
         // No selection — nothing to format
+        formattingUndoRef.current = formattingUndoRef.current.slice(0, -1);
         return;
       }
 
@@ -1056,6 +1097,46 @@ export function StepField({
     },
     [textareaNode],
   );
+
+  const updateActiveFormats = useCallback(() => {
+    if (!textareaNode) return;
+    const selStart = textareaNode.selectionStart ?? 0;
+    const selEnd = textareaNode.selectionEnd ?? 0;
+    const next = getActiveFormats(formattingRef.current, selStart, selEnd);
+    setActiveFormats((prev) => {
+      if (prev.size === next.size && [...prev].every((t) => next.has(t))) return prev;
+      return next;
+    });
+    const hasLink = selStart !== selEnd && linksRef.current.some((l) => selStart < l.end && selEnd > l.start);
+    setLinkActive(hasLink);
+  }, [textareaNode]);
+
+  useEffect(() => {
+    if (!textareaNode) return;
+
+    const onSelectionChange = () => {
+      if (document.activeElement === textareaNode) {
+        updateActiveFormats();
+      }
+    };
+
+    const onBlur = () => {
+      setActiveFormats(new Set());
+      setLinkActive(false);
+    };
+
+    document.addEventListener("selectionchange", onSelectionChange);
+    textareaNode.addEventListener("keyup", updateActiveFormats);
+    textareaNode.addEventListener("mouseup", updateActiveFormats);
+    textareaNode.addEventListener("blur", onBlur);
+
+    return () => {
+      document.removeEventListener("selectionchange", onSelectionChange);
+      textareaNode.removeEventListener("keyup", updateActiveFormats);
+      textareaNode.removeEventListener("mouseup", updateActiveFormats);
+      textareaNode.removeEventListener("blur", onBlur);
+    };
+  }, [textareaNode, updateActiveFormats]);
 
   const linkPopoverRef = useRef<HTMLDivElement>(null);
 
@@ -1310,6 +1391,54 @@ export function StepField({
           handleToolbarAction("toggleCode");
           return;
         }
+        if (event.key === "z" || event.key === "Z") {
+          const undoStack = formattingUndoRef.current;
+          if (undoStack.length > 0) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            formattingRedoRef.current = [
+              ...formattingRedoRef.current,
+              { formatting: [...formattingRef.current], links: [...linksRef.current] },
+            ];
+            const prev = undoStack[undoStack.length - 1];
+            formattingUndoRef.current = undoStack.slice(0, -1);
+            formattingRef.current = prev.formatting;
+            linksRef.current = prev.links;
+            const instance = editorInstanceRef.current;
+            if (instance) {
+              const markdown = buildFullMarkdown(instance.getValue(), linksRef.current, formattingRef.current);
+              onChangeRef.current?.(markdown);
+              setPlainTextValue(markdownToPlainText(markdown));
+              applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
+              applyLinkHighlights(instance.preview, linksRef.current);
+            }
+            return;
+          }
+        }
+      }
+      if (modKey && event.shiftKey && (event.key === "z" || event.key === "Z")) {
+        const redoStack = formattingRedoRef.current;
+        if (redoStack.length > 0) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          formattingUndoRef.current = [
+            ...formattingUndoRef.current,
+            { formatting: [...formattingRef.current], links: [...linksRef.current] },
+          ];
+          const next = redoStack[redoStack.length - 1];
+          formattingRedoRef.current = redoStack.slice(0, -1);
+          formattingRef.current = next.formatting;
+          linksRef.current = next.links;
+          const instance = editorInstanceRef.current;
+          if (instance) {
+            const markdown = buildFullMarkdown(instance.getValue(), linksRef.current, formattingRef.current);
+            onChangeRef.current?.(markdown);
+            setPlainTextValue(markdownToPlainText(markdown));
+            applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
+            applyLinkHighlights(instance.preview, linksRef.current);
+          }
+          return;
+        }
       }
 
       if (enableAutocomplete && shouldShowAutocomplete) {
@@ -1489,7 +1618,7 @@ export function StepField({
               <>
                 <button
                   type="button"
-                  className="bn-step-toolbar__button"
+                  className={`bn-step-toolbar__button${activeFormats.has("bold") ? " bn-step-toolbar__button--active" : ""}`}
                   data-tooltip="Bold"
                   onMouseDown={(event) => {
                     event.preventDefault();
@@ -1504,7 +1633,7 @@ export function StepField({
                 </button>
                 <button
                   type="button"
-                  className="bn-step-toolbar__button"
+                  className={`bn-step-toolbar__button${activeFormats.has("italic") ? " bn-step-toolbar__button--active" : ""}`}
                   data-tooltip="Italic"
                   onMouseDown={(event) => {
                     event.preventDefault();
@@ -1519,7 +1648,7 @@ export function StepField({
                 </button>
                 <button
                   type="button"
-                  className="bn-step-toolbar__button"
+                  className={`bn-step-toolbar__button${activeFormats.has("code") ? " bn-step-toolbar__button--active" : ""}`}
                   data-tooltip="Code"
                   onMouseDown={(event) => {
                     event.preventDefault();
@@ -1558,7 +1687,7 @@ export function StepField({
                 <Components.Generic.Popover.Trigger>
                   <button
                     type="button"
-                    className="bn-step-toolbar__button"
+                    className={`bn-step-toolbar__button${linkActive ? " bn-step-toolbar__button--active" : ""}`}
                     data-tooltip="Insert link"
                     onMouseDown={(event) => {
                       event.preventDefault();
