@@ -1339,6 +1339,11 @@ html.dark .bn-step-image-preview__content {
   pointer-events: none;
 }
 
+.bn-suggestion-menu .mantine-Badge-label {
+  text-transform: none;
+  font-size: var(--badge-fz-sm);
+}
+
 .bn-suggestion-icon {
   display: inline-flex;
   align-items: center;

@@ -1076,6 +1076,10 @@ export function StepField({
         // Remove formatting
         formattingRef.current = formattingRef.current.filter((_, i) => i !== existingIdx);
       } else if (start !== end) {
+        // Remove overlapping formatting of other types before applying new format
+        formattingRef.current = formattingRef.current.filter(
+          (f) => f.type === fmtType || f.start >= end || f.end <= start,
+        );
         // Add formatting for selection
         formattingRef.current = [...formattingRef.current, { start, end, type: fmtType }];
       } else {

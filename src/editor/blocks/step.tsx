@@ -105,7 +105,7 @@ export function canInsertStepOrSnippet(
  */
 export function addStepsBlock(editor: {
   document: any[];
-  insertBlocks: (blocks: any[], referenceId: string, placement: string) => any[];
+  insertBlocks: (blocks: any[], referenceId: string, placement: "before" | "after") => any[];
 }): string | null {
   const allBlocks = editor.document;
   const emptyStep = {
@@ -154,6 +154,66 @@ export function addStepsBlock(editor: {
     children: [],
   };
   const inserted = editor.insertBlocks([stepsHeading, emptyStep], lastBlock.id, "after");
+  return inserted?.[1]?.id ?? null;
+}
+
+/**
+ * Programmatically add an empty snippet block to the editor.
+ * - If a "Steps" heading exists, inserts after the last step/snippet under it.
+ * - Otherwise, appends a "Steps" heading + empty snippet at the end.
+ * Returns the inserted snippet's block ID (for focusing), or null.
+ */
+export function addSnippetBlock(editor: {
+  document: any[];
+  insertBlocks: (blocks: any[], referenceId: string, placement: "before" | "after") => any[];
+}): string | null {
+  const allBlocks = editor.document;
+  const emptySnippet = {
+    type: "snippet" as const,
+    props: { snippetId: "", snippetTitle: "", snippetData: "", snippetExpectedResult: "" },
+    children: [],
+  };
+
+  let stepsHeadingIndex = -1;
+  for (let i = 0; i < allBlocks.length; i++) {
+    const b = allBlocks[i];
+    if (b.type !== "heading") continue;
+    const text = (Array.isArray(b.content) ? b.content : [])
+      .filter((n: any) => n.type === "text")
+      .map((n: any) => n.text ?? "")
+      .join("")
+      .trim()
+      .toLowerCase()
+      .replace(/[:\-–—]$/, "");
+    if (isStepsHeading(text)) {
+      stepsHeadingIndex = i;
+      break;
+    }
+  }
+
+  if (stepsHeadingIndex >= 0) {
+    let lastIndex = stepsHeadingIndex;
+    for (let i = stepsHeadingIndex + 1; i < allBlocks.length; i++) {
+      const b = allBlocks[i];
+      if (b.type === "testStep" || b.type === "snippet") {
+        lastIndex = i;
+        continue;
+      }
+      if (isEmptyParagraph(b)) continue;
+      break;
+    }
+    const inserted = editor.insertBlocks([emptySnippet], allBlocks[lastIndex].id, "after");
+    return inserted?.[0]?.id ?? null;
+  }
+
+  const lastBlock = allBlocks[allBlocks.length - 1];
+  const stepsHeading = {
+    type: "heading" as const,
+    props: { level: 3 },
+    content: [{ type: "text" as const, text: "Steps" }],
+    children: [],
+  };
+  const inserted = editor.insertBlocks([stepsHeading, emptySnippet], lastBlock.id, "after");
   return inserted?.[1]?.id ?? null;
 }
 

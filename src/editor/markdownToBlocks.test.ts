@@ -10,11 +10,15 @@ const baseProps = {
 describe("markdownToBlocks", () => {
   it("parses test steps and test cases", () => {
     const markdown = [
+      "### Steps",
+      "",
       "* Open the Login page.",
       "  *Expected*: The Login page loads successfully.",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
       {
         type: "testStep",
         props: {
@@ -30,12 +34,16 @@ describe("markdownToBlocks", () => {
 
   it("parses snippet markdown into snippet blocks", () => {
     const markdown = [
+      "### Steps",
+      "",
       "<!-- begin snippet #501 -->",
       "Run the seeder",
       "<!-- end snippet #501 -->",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const snippetBlocks = blocks.filter((b) => b.type === "snippet");
+    expect(snippetBlocks).toEqual([
       {
         type: "snippet",
         props: {
@@ -51,6 +59,8 @@ describe("markdownToBlocks", () => {
 
   it("parses snippet bodies and ignores nested snippet markers", () => {
     const markdown = [
+      "### Steps",
+      "",
       "<!-- begin snippet #888 -->",
       "Prep DB",
       "<!-- begin snippet #ignored -->",
@@ -59,7 +69,9 @@ describe("markdownToBlocks", () => {
       "<!-- end snippet #888 -->",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const snippetBlocks = blocks.filter((b) => b.type === "snippet");
+    expect(snippetBlocks).toEqual([
       {
         type: "snippet",
         props: {

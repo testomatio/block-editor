@@ -15,13 +15,14 @@ import {
   blocksToMarkdown,
   markdownToBlocks,
   type CustomEditorBlock,
-  type CustomPartialBlock,
+
 } from "./editor/customMarkdownConverter";
 import { createMarkdownPasteHandler } from "./editor/createMarkdownPasteHandler";
 import { customSchema, type CustomEditor } from "./editor/customSchema";
 import { setStepsFetcher, type StepJsonApiDocument } from "./editor/stepAutocomplete";
 import { setSnippetFetcher, type SnippetJsonApiDocument } from "./editor/snippetAutocomplete";
 import { setImageUploadHandler } from "./editor/stepImageUpload";
+import { canInsertStepOrSnippet, addStepsBlock, addSnippetBlock } from "./editor/blocks/step";
 import "./App.css";
 
 const focusStepField = (
@@ -291,7 +292,18 @@ function CustomSlashMenu() {
   }
 
   const getItems = async (query: string) => {
-    const defaultItems = getDefaultReactSlashMenuItems(editor);
+    const isMac =
+      typeof navigator !== "undefined" &&
+      (/Mac/.test(navigator.platform) ||
+        (/AppleWebKit/.test(navigator.userAgent) &&
+          /Mobile\/\w+/.test(navigator.userAgent)));
+
+    const defaultItems = getDefaultReactSlashMenuItems(editor).map((item) => {
+      if (item.badge && isMac) {
+        return { ...item, badge: item.badge.replace("Alt", "Option") };
+      }
+      return item;
+    });
 
     const stepItem = {
       key: "test_step" as any,
@@ -334,7 +346,12 @@ function CustomSlashMenu() {
       },
     };
 
-    return filterSuggestionItems([...defaultItems, stepItem, snippetItem], query);
+    const currentBlock = editor.getTextCursorPosition().block;
+    const canInsert = canInsertStepOrSnippet(editor, currentBlock.id);
+    const items = canInsert
+      ? [...defaultItems, stepItem, snippetItem]
+      : defaultItems;
+    return filterSuggestionItems(items, query);
   };
 
   return <SuggestionMenuController triggerCharacter="/" getItems={getItems} />;
@@ -451,52 +468,14 @@ function App() {
     };
   }, [editor, uploadStepImage]);
 
-  const createTestStepBlock = useMemo<() => CustomPartialBlock>(() => {
-    return () => ({
-      type: "testStep",
-      props: {
-        stepTitle: "",
-        stepData: "",
-        expectedResult: "",
-      },
-      children: [],
-    });
-  }, []);
-
-  const createSnippetBlock = useMemo<() => CustomPartialBlock>(() => {
-    return () => ({
-      type: "snippet",
-      props: {
-        snippetId: "",
-        snippetTitle: "",
-        snippetData: "",
-        snippetExpectedResult: "",
-      },
-      children: [],
-    });
-  }, []);
-
-  const insertBlockAfterSelection = (createBlock: () => CustomPartialBlock, focusFieldName?: string) => {
-    const selection = editor.getSelection();
-    const selectedBlocks = selection?.blocks ?? [];
-    const selectedBlock = selectedBlocks[selectedBlocks.length - 1];
-    const documentBlocks = editor.document;
-    const fallbackBlock = documentBlocks[documentBlocks.length - 1];
-    const referenceId = selectedBlock?.id ?? fallbackBlock?.id;
-
-    if (!referenceId) {
-      return;
-    }
-
-    const inserted = editor.insertBlocks([createBlock()], referenceId, "after");
-    const firstInserted = inserted[0];
-    if (firstInserted && focusFieldName) {
-      focusStepField(editor, firstInserted.id, focusFieldName);
-    }
+  const insertTestStep = () => {
+    const id = addStepsBlock(editor);
+    if (id) focusStepField(editor, id, "title");
   };
-
-  const insertTestStep = () => insertBlockAfterSelection(createTestStepBlock, "title");
-  const insertSnippet = () => insertBlockAfterSelection(createSnippetBlock, "snippet-title");
+  const insertSnippet = () => {
+    const id = addSnippetBlock(editor);
+    if (id) focusStepField(editor, id, "snippet-title");
+  };
 
   const handleCopyMarkdown = async () => {
     if (conversionError) {
