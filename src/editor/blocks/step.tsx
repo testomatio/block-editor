@@ -105,7 +105,7 @@ export function canInsertStepOrSnippet(
  */
 export function addStepsBlock(editor: {
   document: any[];
-  insertBlocks: (blocks: any[], referenceId: string, placement: string) => any[];
+  insertBlocks: (blocks: any[], referenceId: string, placement: "before" | "after") => any[];
 }): string | null {
   const allBlocks = editor.document;
   const emptyStep = {
@@ -165,7 +165,7 @@ export function addStepsBlock(editor: {
  */
 export function addSnippetBlock(editor: {
   document: any[];
-  insertBlocks: (blocks: any[], referenceId: string, placement: string) => any[];
+  insertBlocks: (blocks: any[], referenceId: string, placement: "before" | "after") => any[];
 }): string | null {
   const allBlocks = editor.document;
   const emptySnippet = {
