@@ -834,14 +834,9 @@ function parseList(
       break;
     }
 
-    // Only try to parse as testStep for top-level items (indentLevel === 0)
-    // Under a Steps heading (allowEmptySteps=true): always try for both bullet and numbered
-    // Outside Steps heading: only if the item looks like a test step (has Expected markers or indented data)
-    if (indentLevel === 0 && (allowEmptySteps || isLikelyStep(lines, index))) {
-      const looksLikeTestStep = listType === "bullet" ||
-        (listType === "numbered" && (
-          allowEmptySteps || isLikelyStep(lines, index)
-        ));
+    // Only try to parse as testStep for top-level items under a Steps heading
+    if (indentLevel === 0 && allowEmptySteps) {
+      const looksLikeTestStep = listType === "bullet" || listType === "numbered";
 
       if (looksLikeTestStep) {
         const nextStep = parseTestStep(lines, index, allowEmptySteps);
@@ -890,31 +885,6 @@ function parseList(
   return { items, nextIndex: index };
 }
 
-function isLikelyStep(lines: string[], index: number): boolean {
-  // Look ahead to see if there's indented content or expected result
-  // Look ahead through subsequent lines for expected result markers or indented content
-  for (let i = index + 1; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    // Stop at blank lines
-    if (!trimmed) break;
-
-    // Check for indented content (step data) first — indented lines indicate a test step
-    const hasIndent = /^\s{2,}/.test(line);
-    if (hasIndent) return true;
-
-    // Stop at new list items, headings, or other block-level elements (only if not indented)
-    if (/^[-*+](\s|$)/.test(trimmed) || /^\d+[.)]\s/.test(trimmed)) break;
-    if (trimmed.startsWith("#") || trimmed.startsWith(">") || trimmed.startsWith("|") || trimmed.startsWith("```") || trimmed.startsWith(":::")) break;
-
-    // Check for expected result markers
-    if (EXPECTED_LABEL_REGEX.test(trimmed)) return true;
-    if (trimmed.match(/^\*[^*]*expected/i)) return true;
-  }
-
-  return false;
-}
 
 function parseTestStep(
   lines: string[],
@@ -1453,15 +1423,17 @@ export function markdownToBlocks(markdown: string, options?: MarkdownToBlocksOpt
       continue;
     }
 
-    const snippetWrapper = parseSnippetWrapper(lines, index);
+    const snippetWrapper = stepsHeadingLevel !== null
+      ? parseSnippetWrapper(lines, index)
+      : null;
     if (snippetWrapper) {
       blocks.push(snippetWrapper.block);
       index = snippetWrapper.nextIndex;
       continue;
     }
 
-    const stepLikeBlock = (stepsHeadingLevel !== null || isLikelyStep(lines, index))
-      ? parseTestStep(lines, index, stepsHeadingLevel !== null)
+    const stepLikeBlock = stepsHeadingLevel !== null
+      ? parseTestStep(lines, index, true)
       : null;
     if (stepLikeBlock) {
       blocks.push(stepLikeBlock.block);

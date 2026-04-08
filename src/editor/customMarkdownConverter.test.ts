@@ -704,11 +704,15 @@ describe("markdownToBlocks", () => {
 
   it("parses test steps and test cases", () => {
     const markdown = [
+      "### Steps",
+      "",
       "* Open the Login page.",
       "  *Expected*: The Login page loads successfully.",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
       {
         type: "testStep",
         props: {
@@ -723,9 +727,11 @@ describe("markdownToBlocks", () => {
   });
 
   it("parses a step with empty title but with step data", () => {
-    const markdown = ["* ", "  Navigate to the page"].join("\n");
+    const markdown = ["### Steps", "", "* ", "  Navigate to the page"].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
       {
         type: "testStep",
         props: {
@@ -742,6 +748,13 @@ describe("markdownToBlocks", () => {
   it("round-trips a title-less step with data", () => {
     const blocks: CustomEditorBlock[] = [
       {
+        id: "h1",
+        type: "heading",
+        props: { level: 3, textColor: "default", backgroundColor: "default", textAlignment: "left" as const },
+        content: [{ type: "text" as const, text: "Steps", styles: {} }],
+        children: [],
+      },
+      {
         id: "s1",
         type: "testStep",
         props: {
@@ -757,7 +770,8 @@ describe("markdownToBlocks", () => {
 
     const md = blocksToMarkdown(blocks);
     const parsed = markdownToBlocks(md);
-    expect(parsed).toEqual([
+    const stepBlocks = parsed.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
       {
         type: "testStep",
         props: {
@@ -773,12 +787,16 @@ describe("markdownToBlocks", () => {
 
   it("parses snippet markdown into snippet blocks", () => {
     const markdown = [
+      "### Steps",
+      "",
       "<!-- begin snippet #501 -->",
       "Run the seeder",
       "<!-- end snippet #501 -->",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const snippetBlocks = blocks.filter((b) => b.type === "snippet");
+    expect(snippetBlocks).toEqual([
       {
         type: "snippet",
         props: {
@@ -794,13 +812,17 @@ describe("markdownToBlocks", () => {
 
   it("parses snippet markdown with space between # and ID", () => {
     const markdown = [
+      "### Steps",
+      "",
       "<!-- begin snippet # 22289 -->",
       "* Fill `<Email>` with correct registered email",
       "* Verify that the update to the target is successful",
       "<!-- end snippet # 22289 -->",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const snippetBlocks = blocks.filter((b) => b.type === "snippet");
+    expect(snippetBlocks).toEqual([
       {
         type: "snippet",
         props: {
@@ -816,6 +838,8 @@ describe("markdownToBlocks", () => {
 
   it("parses snippet bodies and ignores nested snippet markers", () => {
     const markdown = [
+      "### Steps",
+      "",
       "<!-- begin snippet #888 -->",
       "Prep DB",
       "<!-- begin snippet #ignored -->",
@@ -824,7 +848,9 @@ describe("markdownToBlocks", () => {
       "<!-- end snippet #888 -->",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const snippetBlocks = blocks.filter((b) => b.type === "snippet");
+    expect(snippetBlocks).toEqual([
       {
         type: "snippet",
         props: {
@@ -940,6 +966,8 @@ describe("markdownToBlocks", () => {
 
   it("parses step data containing code fences, blank lines, and images", () => {
     const markdown = [
+      "### Steps",
+      "",
       "* Step 2: Update an order status.",
       "  ```",
       "  SQL CREATE bnbmnbm mnbmb mm",
@@ -969,7 +997,9 @@ describe("markdownToBlocks", () => {
       "![](/attachments/HMhkVtlDrO.png)",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
       {
         type: "testStep",
         props: {
@@ -1104,12 +1134,16 @@ describe("markdownToBlocks", () => {
 
    it("parses expected result prefixes with emphasis", () => {
      const markdown = [
+       "### Steps",
+       "",
        "* Open the form.",
        "  **Expected:** The form opens.",
        "  Expected: Fields are empty.",
      ].join("\n");
 
-     expect(markdownToBlocks(markdown)).toEqual([
+     const blocks = markdownToBlocks(markdown);
+     const stepBlocks = blocks.filter((b) => b.type === "testStep");
+     expect(stepBlocks).toEqual([
        {
          type: "testStep",
          props: {
@@ -1125,13 +1159,17 @@ describe("markdownToBlocks", () => {
 
    it("parses test step with data", () => {
      const markdown = [
+       "### Steps",
+       "",
        "* Navigate to login",
        "  Open browser",
        "  Go to login page",
        "  *Expected*: Login form visible",
      ].join("\n");
 
-     expect(markdownToBlocks(markdown)).toEqual([
+     const blocks = markdownToBlocks(markdown);
+     const stepBlocks = blocks.filter((b) => b.type === "testStep");
+     expect(stepBlocks).toEqual([
        {
          type: "testStep",
          props: {
@@ -1147,13 +1185,17 @@ describe("markdownToBlocks", () => {
 
   it("parses unindented step data between the title and expected result", () => {
     const markdown = [
+      "### Steps",
+      "",
       "* Prepare test fixtures",
       "Collect user accounts from staging.",
       "Reset passwords for all test accounts.",
       "*Expected*: Test accounts are ready for execution.",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
       {
         type: "testStep",
         props: {
@@ -1169,11 +1211,15 @@ describe("markdownToBlocks", () => {
 
   it("parses expected result containing a markdown image", () => {
     const markdown = [
+      "### Steps",
+      "",
       "* Display the generated report.",
       "  *Expected*: ![](/attachments/report.png)",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
       {
         type: "testStep",
         props: {
@@ -1201,17 +1247,26 @@ describe("markdownToBlocks", () => {
       },
     ]);
 
-    expect(markdownRoundTrip).toBe(markdown);
+    expect(markdownRoundTrip).toBe(
+      [
+        "* Display the generated report.",
+        "  *Expected*: ![](/attachments/report.png)",
+      ].join("\n"),
+    );
   });
 
   it("parses expected result with short expected label and image", () => {
     const markdown = [
+      "### Steps",
+      "",
       "* Should open login screen",
       "  *Expected*: Login should look like this",
       "  ![](/login.png)",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
       {
         type: "testStep",
         props: {
@@ -1755,11 +1810,15 @@ describe("markdownToBlocks", () => {
 
   it("parses expected result lines written with bold 'Expected Result' prefix for compatibility", () => {
     const markdown = [
+      "### Steps",
+      "",
       "* Step 1: Send a chat message to the user.",
       "**Expected Result**: The user receives a real-time notification for the chat message.",
     ].join("\n");
 
-    expect(markdownToBlocks(markdown)).toEqual([
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
       {
         type: "testStep",
         props: {
@@ -2405,5 +2464,44 @@ describe("video/audio block serialization", () => {
     ];
     const md = blocksToMarkdown(blocks);
     expect(md).toBe("[![sound.mp3](/images/file-type-icons/file.svg)](https://example.com/sound.mp3)");
+  });
+});
+
+describe("steps require Steps heading", () => {
+  it("does not parse bullet items with Expected markers as steps without a Steps heading", () => {
+    const markdown = [
+      "### Preconditions",
+      "",
+      "* Open the Login page.",
+      "  *Expected*: The Login page loads successfully.",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks.filter((b) => b.type === "testStep")).toHaveLength(0);
+    expect(blocks.filter((b) => b.type === "bulletListItem")).toHaveLength(1);
+  });
+
+  it("does not parse snippet comments as snippet blocks without a Steps heading", () => {
+    const markdown = [
+      "<!-- begin snippet #501 -->",
+      "Run the seeder",
+      "<!-- end snippet #501 -->",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks.filter((b) => b.type === "snippet")).toHaveLength(0);
+  });
+
+  it("parses bullet items as steps when preceded by a Steps heading", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* next 22",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toHaveLength(1);
+    expect((stepBlocks[0].props as any).stepTitle).toBe("next 22");
   });
 });
