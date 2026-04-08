@@ -291,7 +291,18 @@ function CustomSlashMenu() {
   }
 
   const getItems = async (query: string) => {
-    const defaultItems = getDefaultReactSlashMenuItems(editor);
+    const isMac =
+      typeof navigator !== "undefined" &&
+      (/Mac/.test(navigator.platform) ||
+        (/AppleWebKit/.test(navigator.userAgent) &&
+          /Mobile\/\w+/.test(navigator.userAgent)));
+
+    const defaultItems = getDefaultReactSlashMenuItems(editor).map((item) => {
+      if (item.badge && isMac) {
+        return { ...item, badge: item.badge.replace("Alt", "Option") };
+      }
+      return item;
+    });
 
     const stepItem = {
       key: "test_step" as any,
