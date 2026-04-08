@@ -941,6 +941,7 @@ function parseTestStep(
   let expectedResult = "";
   let next = index + 1;
   let inExpectedResult = false;
+  let blankLineSeenOutsideCodeBlock = false;
   const stepIndent = current.length - current.trimStart().length;
 
   while (next < lines.length) {
@@ -955,6 +956,7 @@ function parseTestStep(
           expectedResult += "\n";
         } else {
           stepDataLines.push("");
+          blankLineSeenOutsideCodeBlock = true;
         }
       }
       next += 1;
@@ -1064,6 +1066,11 @@ function parseTestStep(
       }
       next += 1;
       continue;
+    }
+
+    // After a blank line outside a code block, stop adding to step data
+    if (blankLineSeenOutsideCodeBlock) {
+      break;
     }
 
     if (STEP_DATA_LINE_REGEX.test(rawTrimmed)) {

@@ -1046,6 +1046,26 @@ describe("markdownToBlocks", () => {
     );
   });
 
+  it("does not include content after a blank line in step data", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* step",
+      "  expected",
+      "",
+      "  ![](http://localhost:3000/attachments/mlbix3nOJa.png =303x*)",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toHaveLength(1);
+    expect(stepBlocks[0].props).toMatchObject({
+      stepTitle: "step",
+      stepData: "expected",
+      expectedResult: "",
+    });
+  });
+
   it("parses bullet lists written with asterisk markers", () => {
     const markdown = [
       "### Preconditions",
