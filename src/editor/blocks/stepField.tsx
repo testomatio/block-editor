@@ -318,13 +318,19 @@ function buildFullMarkdown(plainText: string, links: LinkMeta[], formatting: For
 function adjustFormattingForEdit(formatting: FormattingMeta[], editPos: number, delta: number): FormattingMeta[] {
   return formatting
     .map((fmt) => {
-      if (editPos <= fmt.start) {
-        return { ...fmt, start: fmt.start + delta, end: fmt.end + delta };
+      if (delta >= 0) {
+        if (editPos <= fmt.start) {
+          return { ...fmt, start: fmt.start + delta, end: fmt.end + delta };
+        }
+        if (editPos >= fmt.end) {
+          return fmt;
+        }
+        return { ...fmt, end: fmt.end + delta };
       }
-      if (editPos >= fmt.end) {
-        return fmt;
-      }
-      return { ...fmt, end: fmt.end + delta };
+      const delEnd = editPos + Math.abs(delta);
+      const newStart = fmt.start < editPos ? fmt.start : fmt.start >= delEnd ? fmt.start + delta : editPos;
+      const newEnd = fmt.end <= editPos ? fmt.end : fmt.end >= delEnd ? fmt.end + delta : editPos;
+      return { ...fmt, start: newStart, end: newEnd };
     })
     .filter((fmt) => fmt.end > fmt.start);
 }
@@ -529,13 +535,19 @@ function applyFormattingHighlights(preview: HTMLElement, formatting: FormattingM
 function adjustLinksForEdit(links: LinkMeta[], editPos: number, delta: number): LinkMeta[] {
   return links
     .map((link) => {
-      if (editPos <= link.start) {
-        return { ...link, start: link.start + delta, end: link.end + delta };
+      if (delta >= 0) {
+        if (editPos <= link.start) {
+          return { ...link, start: link.start + delta, end: link.end + delta };
+        }
+        if (editPos >= link.end) {
+          return link;
+        }
+        return { ...link, end: link.end + delta };
       }
-      if (editPos >= link.end) {
-        return link;
-      }
-      return { ...link, end: link.end + delta };
+      const delEnd = editPos + Math.abs(delta);
+      const newStart = link.start < editPos ? link.start : link.start >= delEnd ? link.start + delta : editPos;
+      const newEnd = link.end <= editPos ? link.end : link.end >= delEnd ? link.end + delta : editPos;
+      return { ...link, start: newStart, end: newEnd };
     })
     .filter((link) => link.end > link.start);
 }
@@ -793,13 +805,18 @@ export function StepField({
 
     // Safety net: re-apply formatting if the preview gets reset externally
     // (e.g. by the original updatePreview being called outside our monkey-patch)
+    let isApplyingFormatting = false;
     const formattingObserver = new MutationObserver(() => {
+      if (isApplyingFormatting) return;
       const hasFormatting = formattingRef.current.length > 0;
-      const hasStrong = instance.preview.querySelector("strong.step-preview-bold") !== null;
-      if (hasFormatting && !hasStrong) {
+      const hasAnyFormattingElement =
+        instance.preview.querySelector("strong.step-preview-bold, em.step-preview-italic, code.step-preview-code") !== null;
+      if (hasFormatting && !hasAnyFormattingElement) {
+        isApplyingFormatting = true;
         applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
         applyLinkHighlights(instance.preview, linksRef.current);
         syncTextareaWeight();
+        isApplyingFormatting = false;
       }
     });
     formattingObserver.observe(instance.preview, { childList: true, subtree: true });
