@@ -92,7 +92,6 @@ type EditorSnapshot = {
 };
 
 const UNDO_STACK_LIMIT = 100;
-const UNDO_DEBOUNCE_MS = 300;
 
 function getActiveFormats(
   formatting: FormattingMeta[],
@@ -672,8 +671,6 @@ export function StepField({
   const formattingRef = useRef<FormattingMeta[]>([]);
   const undoStackRef = useRef<EditorSnapshot[]>([]);
   const redoStackRef = useRef<EditorSnapshot[]>([]);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSnapshotTextRef = useRef<string>("");
   const caretRef = useRef<HTMLDivElement | null>(null);
   const prevTextRef = useRef("");
   const isSyncingRef = useRef(false);
@@ -694,48 +691,29 @@ export function StepField({
       links: LinkMeta[],
       cursorStart: number,
       cursorEnd: number,
-      options?: { immediate?: boolean },
     ) => {
-      const snapshot: EditorSnapshot = {
-        text,
-        formatting: [...formatting],
-        links: [...links],
-        cursorStart,
-        cursorEnd,
-      };
-
-      if (debounceTimerRef.current !== null) {
-        clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
+      const lastSnapshot = undoStackRef.current[undoStackRef.current.length - 1];
+      if (
+        lastSnapshot &&
+        lastSnapshot.text === text &&
+        JSON.stringify(lastSnapshot.formatting) === JSON.stringify(formatting) &&
+        JSON.stringify(lastSnapshot.links) === JSON.stringify(links)
+      ) {
+        return;
       }
 
-      const commit = () => {
-        const lastSnapshot = undoStackRef.current[undoStackRef.current.length - 1];
-        if (
-          lastSnapshot &&
-          lastSnapshot.text === snapshot.text &&
-          JSON.stringify(lastSnapshot.formatting) === JSON.stringify(snapshot.formatting) &&
-          JSON.stringify(lastSnapshot.links) === JSON.stringify(snapshot.links)
-        ) {
-          return;
-        }
-
-        undoStackRef.current = [...undoStackRef.current.slice(-(UNDO_STACK_LIMIT - 1)), snapshot];
-        lastSnapshotTextRef.current = snapshot.text;
-        redoStackRef.current = [];
-      };
-
-      if (options?.immediate) {
-        commit();
-      } else {
-        debounceTimerRef.current = setTimeout(commit, UNDO_DEBOUNCE_MS);
-      }
+      undoStackRef.current = [
+        ...undoStackRef.current.slice(-(UNDO_STACK_LIMIT - 1)),
+        { text, formatting: [...formatting], links: [...links], cursorStart, cursorEnd },
+      ];
+      redoStackRef.current = [];
     },
     [],
   );
 
   const handleEditorChange = useCallback((nextValue: string) => {
     if (isSyncingRef.current) return;
+    if (nextValue === prevTextRef.current) return;
 
     const prevText = prevTextRef.current;
     const delta = nextValue.length - prevText.length;
@@ -754,7 +732,7 @@ export function StepField({
     linksRef.current = adjustLinksForEdit(linksRef.current, editPos, delta);
     formattingRef.current = adjustFormattingForEdit(formattingRef.current, editPos, delta);
 
-    // Push pre-edit state to undo stack (debounced for grouping rapid keystrokes)
+    // Push pre-edit state to undo stack
     pushUndoSnapshot(prevText, prevFormatting, prevLinks, editPos, editPos);
 
     prevTextRef.current = nextValue;
@@ -783,7 +761,6 @@ export function StepField({
       { text: plainText, formatting: [...formatting], links: [...links], cursorStart: 0, cursorEnd: 0 },
     ];
     redoStackRef.current = [];
-    lastSnapshotTextRef.current = plainText;
 
     const [instance] = OverType.init(container, {
       value: plainText,
@@ -839,10 +816,6 @@ export function StepField({
     return () => {
       formattingObserver.disconnect();
       caretRef.current = null;
-      if (debounceTimerRef.current !== null) {
-        clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
       instance.destroy();
       editorInstanceRef.current = null;
       setTextareaNode(null);
@@ -951,6 +924,7 @@ export function StepField({
     }
 
     const { plainText, links, formatting } = stripInlineMarkdown(value);
+
     linksRef.current = links;
     formattingRef.current = formatting;
     prevTextRef.current = plainText;
@@ -988,6 +962,21 @@ export function StepField({
       delete textareaNode.dataset.stepField;
     }
   }, [fieldName, textareaNode]);
+
+  // Block native undo/redo at the beforeinput level so the browser never
+  // applies its own history on the textarea — our custom stack handles it.
+  useEffect(() => {
+    if (!textareaNode) return;
+    const blockNativeUndoRedo = (e: InputEvent) => {
+      if (e.inputType === "historyUndo" || e.inputType === "historyRedo") {
+        e.preventDefault();
+      }
+    };
+    textareaNode.addEventListener("beforeinput", blockNativeUndoRedo as EventListener);
+    return () => {
+      textareaNode.removeEventListener("beforeinput", blockNativeUndoRedo as EventListener);
+    };
+  }, [textareaNode]);
 
   useEffect(() => {
     if (!textareaNode) {
@@ -1191,12 +1180,8 @@ export function StepField({
       );
 
       // Save current state for undo before modifying
-      if (debounceTimerRef.current !== null) {
-        clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
       const currentText = instance.getValue();
-      pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, start, end, { immediate: true });
+      pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, start, end);
 
       if (existingIdx !== -1) {
         // Remove formatting
@@ -1308,11 +1293,7 @@ export function StepField({
       const currentValue = instance.getValue();
 
       // Push undo snapshot before link edit
-      if (debounceTimerRef.current !== null) {
-        clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
-      pushUndoSnapshot(currentValue, formattingRef.current, linksRef.current, sel.start, sel.end, { immediate: true });
+      pushUndoSnapshot(currentValue, formattingRef.current, linksRef.current, sel.start, sel.end);
 
       const linkText = text || sel.text || url;
 
@@ -1353,13 +1334,9 @@ export function StepField({
 
     // Push undo snapshot before link removal
     if (instance) {
-      if (debounceTimerRef.current !== null) {
-        clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
       const currentText = instance.getValue();
       const cursorPos = instance.textarea?.selectionStart ?? 0;
-      pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, cursorPos, cursorPos, { immediate: true });
+      pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, cursorPos, cursorPos);
     }
 
     linksRef.current = linksRef.current.filter((l) => l !== cursorLink);
@@ -1442,12 +1419,8 @@ export function StepField({
     (image: ExtractedImage) => {
       // Push undo snapshot before image removal
       if (editorInstanceRef.current) {
-        if (debounceTimerRef.current !== null) {
-          clearTimeout(debounceTimerRef.current);
-          debounceTimerRef.current = null;
-        }
         const currentText = editorInstanceRef.current.getValue();
-        pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, image.start, image.end, { immediate: true });
+        pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, image.start, image.end);
       }
 
       const before = value.slice(0, image.start);
@@ -1499,13 +1472,9 @@ export function StepField({
       const instance = editorInstanceRef.current;
       if (instance) {
         // Push undo snapshot before applying suggestion
-        if (debounceTimerRef.current !== null) {
-          clearTimeout(debounceTimerRef.current);
-          debounceTimerRef.current = null;
-        }
         const currentText = instance.getValue();
         const cursorPos = textareaNode?.selectionStart ?? 0;
-        pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, cursorPos, cursorPos, { immediate: true });
+        pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, cursorPos, cursorPos);
         instance.setValue(escaped);
       }
       setPlainTextValue(suggestion.title);
@@ -1561,12 +1530,6 @@ export function StepField({
           event.preventDefault();
           event.stopImmediatePropagation();
 
-          // Flush any pending debounced snapshot
-          if (debounceTimerRef.current !== null) {
-            clearTimeout(debounceTimerRef.current);
-            debounceTimerRef.current = null;
-          }
-
           const stack = undoStackRef.current;
           if (stack.length === 0) return;
 
@@ -1589,7 +1552,6 @@ export function StepField({
           // Pop from undo stack
           const prev = stack[stack.length - 1];
           undoStackRef.current = stack.slice(0, -1);
-          lastSnapshotTextRef.current = prev.text;
 
           // Restore state
           formattingRef.current = prev.formatting;
@@ -1639,7 +1601,6 @@ export function StepField({
         // Pop from redo stack
         const next = stack[stack.length - 1];
         redoStackRef.current = stack.slice(0, -1);
-        lastSnapshotTextRef.current = next.text;
 
         // Restore state
         formattingRef.current = next.formatting;
