@@ -337,12 +337,6 @@ export const stepBlock = createReactBlockSpec(
         [block.id, combinedStepValue, editor],
       );
 
-      useEffect(() => {
-        if (dataHasContent && !isDataVisible) {
-          setIsDataVisible(true);
-        }
-      }, [dataHasContent, isDataVisible]);
-
       const handleStepTitleChange = useCallback(
         (next: string) => {
           if (next === stepTitle) {
@@ -380,7 +374,8 @@ export const stepBlock = createReactBlockSpec(
 
       const handleHideData = useCallback(() => {
         setIsDataVisible(false);
-      }, []);
+        editor.updateBlock(block.id, { props: { stepData: "" } });
+      }, [editor, block.id]);
 
       const handleExpectedChange = useCallback(
         (next: string) => {
@@ -457,16 +452,8 @@ export const stepBlock = createReactBlockSpec(
       const handleHideExpected = useCallback(() => {
         setIsExpectedVisible(false);
         writeExpectedCollapsedPreference(true);
-      }, []);
-
-      useEffect(() => {
-        if (expectedHasContent && !isExpectedVisible) {
-          setIsExpectedVisible(true);
-        }
-      }, [expectedHasContent, isExpectedVisible]);
-
-      const canToggleData = !dataHasContent;
-      const canToggleExpected = !expectedHasContent;
+        editor.updateBlock(block.id, { props: { expectedResult: "" } });
+      }, [editor, block.id]);
 
       const viewToggleButton = (
         <button
@@ -523,6 +510,7 @@ export const stepBlock = createReactBlockSpec(
               placeholder={STEP_TITLE_PLACEHOLDER}
               onChange={handleStepTitleChange}
               autoFocus={stepTitle.length === 0}
+              multiline
               enableAutocomplete
               fieldName="title"
               suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}
@@ -556,17 +544,15 @@ export const stepBlock = createReactBlockSpec(
                 label="Step data"
                 placeholder={STEP_DATA_PLACEHOLDER}
                 labelAction={
-                  canToggleData ? (
-                    <button
-                      type="button"
-                      className="bn-step-field__dismiss"
-                      data-tooltip="Hide step data"
-                      onClick={handleHideData}
-                      aria-label="Hide step data"
-                    >
-                      ×
-                    </button>
-                  ) : undefined
+                  <button
+                    type="button"
+                    className="bn-step-field__dismiss"
+                    data-tooltip="Hide step data"
+                    onClick={handleHideData}
+                    aria-label="Hide step data"
+                  >
+                    ×
+                  </button>
                 }
                 value={stepData}
                 onChange={handleStepDataChange}
@@ -585,18 +571,16 @@ export const stepBlock = createReactBlockSpec(
                 label="Expected result"
                 placeholder={EXPECTED_RESULT_PLACEHOLDER}
                 labelAction={
-                  canToggleExpected ? (
-                    <button
-                      type="button"
-                      className="bn-step-field__dismiss"
-                      data-tooltip="Hide expected result"
-                      onClick={handleHideExpected}
-                      tabIndex={-1}
-                      aria-label="Hide expected result"
-                    >
-                      ×
-                    </button>
-                  ) : undefined
+                  <button
+                    type="button"
+                    className="bn-step-field__dismiss"
+                    data-tooltip="Hide expected result"
+                    onClick={handleHideExpected}
+                    tabIndex={-1}
+                    aria-label="Hide expected result"
+                  >
+                    ×
+                  </button>
                 }
                 value={expectedResult}
                 onChange={handleExpectedChange}

@@ -1357,3 +1357,11 @@ html.dark .bn-step-image-preview__content {
 .bn-testcase--draft {
   --status-color: var(--status-default);
 }
+
+/* Prevent unnecessary horizontal scrollbar on BlockNote tables.
+   ProseMirror sets overflow-x: auto on .tableWrapper, but the
+   table-widgets-container extends slightly past the wrapper edge,
+   triggering a scrollbar even when table content fits. */
+.bn-editor [data-content-type="table"] .tableWrapper {
+  overflow-x: hidden;
+}
