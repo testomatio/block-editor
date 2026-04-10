@@ -806,7 +806,6 @@ export function StepField({
         isApplyingFormatting = true;
         applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
         applyLinkHighlights(instance.preview, linksRef.current);
-        syncTextareaWeight();
         isApplyingFormatting = false;
       }
     });
