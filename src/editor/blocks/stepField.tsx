@@ -79,9 +79,19 @@ type ExtractedImage = {
   markdown: string;
 };
 
-type LinkMeta = { start: number; end: number; url: string };
-type FormattingMeta = { start: number; end: number; type: "bold" | "italic" | "code" };
+export type LinkMeta = { start: number; end: number; url: string };
+export type FormattingMeta = { start: number; end: number; type: "bold" | "italic" | "code" };
 type FormatType = "bold" | "italic" | "code";
+
+type EditorSnapshot = {
+  text: string;
+  formatting: FormattingMeta[];
+  links: LinkMeta[];
+  cursorStart: number;
+  cursorEnd: number;
+};
+
+const UNDO_STACK_LIMIT = 100;
 
 function getActiveFormats(
   formatting: FormattingMeta[],
@@ -258,7 +268,7 @@ function stripInlineMarkdown(markdown: string): {
   return { plainText, links, formatting };
 }
 
-function buildFullMarkdown(plainText: string, links: LinkMeta[], formatting: FormattingMeta[]): string {
+export function buildFullMarkdown(plainText: string, links: LinkMeta[], formatting: FormattingMeta[]): string {
   if (links.length === 0 && formatting.length === 0) return plainText;
 
   // Collect all marker insertions at each position in plainText space.
@@ -308,13 +318,19 @@ function buildFullMarkdown(plainText: string, links: LinkMeta[], formatting: For
 function adjustFormattingForEdit(formatting: FormattingMeta[], editPos: number, delta: number): FormattingMeta[] {
   return formatting
     .map((fmt) => {
-      if (editPos <= fmt.start) {
-        return { ...fmt, start: fmt.start + delta, end: fmt.end + delta };
+      if (delta >= 0) {
+        if (editPos <= fmt.start) {
+          return { ...fmt, start: fmt.start + delta, end: fmt.end + delta };
+        }
+        if (editPos >= fmt.end) {
+          return fmt;
+        }
+        return { ...fmt, end: fmt.end + delta };
       }
-      if (editPos >= fmt.end) {
-        return fmt;
-      }
-      return { ...fmt, end: fmt.end + delta };
+      const delEnd = editPos + Math.abs(delta);
+      const newStart = fmt.start < editPos ? fmt.start : fmt.start >= delEnd ? fmt.start + delta : editPos;
+      const newEnd = fmt.end <= editPos ? fmt.end : fmt.end >= delEnd ? fmt.end + delta : editPos;
+      return { ...fmt, start: newStart, end: newEnd };
     })
     .filter((fmt) => fmt.end > fmt.start);
 }
@@ -342,7 +358,18 @@ function getCaretRectInPreview(preview: HTMLElement, offset: number, textareaVal
         const range = document.createRange();
         range.setStart(textNode, localOffset);
         range.collapse(true);
-        const rect = range.getBoundingClientRect();
+        let rect = range.getBoundingClientRect();
+
+        // Collapsed ranges at position 0 can return an empty rect in some browsers
+        if (rect.height === 0 && rect.top === 0 && rect.left === 0) {
+          const span = document.createElement("span");
+          span.textContent = "\u200B";
+          range.insertNode(span);
+          rect = span.getBoundingClientRect();
+          span.parentNode?.removeChild(span);
+          preview.normalize();
+        }
+
         const previewRect = preview.getBoundingClientRect();
         return {
           top: rect.top - previewRect.top + preview.scrollTop,
@@ -508,13 +535,19 @@ function applyFormattingHighlights(preview: HTMLElement, formatting: FormattingM
 function adjustLinksForEdit(links: LinkMeta[], editPos: number, delta: number): LinkMeta[] {
   return links
     .map((link) => {
-      if (editPos <= link.start) {
-        return { ...link, start: link.start + delta, end: link.end + delta };
+      if (delta >= 0) {
+        if (editPos <= link.start) {
+          return { ...link, start: link.start + delta, end: link.end + delta };
+        }
+        if (editPos >= link.end) {
+          return link;
+        }
+        return { ...link, end: link.end + delta };
       }
-      if (editPos >= link.end) {
-        return link;
-      }
-      return { ...link, end: link.end + delta };
+      const delEnd = editPos + Math.abs(delta);
+      const newStart = link.start < editPos ? link.start : link.start >= delEnd ? link.start + delta : editPos;
+      const newEnd = link.end <= editPos ? link.end : link.end >= delEnd ? link.end + delta : editPos;
+      return { ...link, start: newStart, end: newEnd };
     })
     .filter((link) => link.end > link.start);
 }
@@ -648,8 +681,8 @@ export function StepField({
   const linkSelectionRef = useRef<{ start: number; end: number; text: string } | null>(null);
   const linksRef = useRef<LinkMeta[]>([]);
   const formattingRef = useRef<FormattingMeta[]>([]);
-  const formattingUndoRef = useRef<Array<{ formatting: FormattingMeta[]; links: LinkMeta[] }>>([]);
-  const formattingRedoRef = useRef<Array<{ formatting: FormattingMeta[]; links: LinkMeta[] }>>([]);
+  const undoStackRef = useRef<EditorSnapshot[]>([]);
+  const redoStackRef = useRef<EditorSnapshot[]>([]);
   const caretRef = useRef<HTMLDivElement | null>(null);
   const prevTextRef = useRef("");
   const isSyncingRef = useRef(false);
@@ -663,8 +696,36 @@ export function StepField({
     onChangeRef.current = onChange;
   }, [onChange]);
 
+  const pushUndoSnapshot = useCallback(
+    (
+      text: string,
+      formatting: FormattingMeta[],
+      links: LinkMeta[],
+      cursorStart: number,
+      cursorEnd: number,
+    ) => {
+      const lastSnapshot = undoStackRef.current[undoStackRef.current.length - 1];
+      if (
+        lastSnapshot &&
+        lastSnapshot.text === text &&
+        JSON.stringify(lastSnapshot.formatting) === JSON.stringify(formatting) &&
+        JSON.stringify(lastSnapshot.links) === JSON.stringify(links)
+      ) {
+        return;
+      }
+
+      undoStackRef.current = [
+        ...undoStackRef.current.slice(-(UNDO_STACK_LIMIT - 1)),
+        { text, formatting: [...formatting], links: [...links], cursorStart, cursorEnd },
+      ];
+      redoStackRef.current = [];
+    },
+    [],
+  );
+
   const handleEditorChange = useCallback((nextValue: string) => {
     if (isSyncingRef.current) return;
+    if (nextValue === prevTextRef.current) return;
 
     const prevText = prevTextRef.current;
     const delta = nextValue.length - prevText.length;
@@ -676,10 +737,16 @@ export function StepField({
       editPos++;
     }
 
+    // Capture pre-edit state for undo BEFORE mutating
+    const prevFormatting = [...formattingRef.current];
+    const prevLinks = [...linksRef.current];
+
     linksRef.current = adjustLinksForEdit(linksRef.current, editPos, delta);
     formattingRef.current = adjustFormattingForEdit(formattingRef.current, editPos, delta);
-    formattingUndoRef.current = [];
-    formattingRedoRef.current = [];
+
+    // Push pre-edit state to undo stack
+    pushUndoSnapshot(prevText, prevFormatting, prevLinks, editPos, editPos);
+
     prevTextRef.current = nextValue;
 
     const markdown = buildFullMarkdown(nextValue, linksRef.current, formattingRef.current);
@@ -688,7 +755,7 @@ export function StepField({
       return prev === normalized ? prev : normalized;
     });
     onChangeRef.current?.(markdown);
-  }, []);
+  }, [pushUndoSnapshot]);
 
   useEffect(() => {
     const container = editorContainerRef.current;
@@ -700,6 +767,12 @@ export function StepField({
     linksRef.current = links;
     formattingRef.current = formatting;
     prevTextRef.current = plainText;
+
+    // Push initial state as the baseline undo snapshot
+    undoStackRef.current = [
+      { text: plainText, formatting: [...formatting], links: [...links], cursorStart: 0, cursorEnd: 0 },
+    ];
+    redoStackRef.current = [];
 
     const [instance] = OverType.init(container, {
       value: plainText,
@@ -718,9 +791,25 @@ export function StepField({
       applyFormattingHighlights(this.preview, formattingRef.current, this.textarea?.value);
       applyLinkHighlights(this.preview, linksRef.current);
     };
-    // Apply initial highlights
-    applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
-    applyLinkHighlights(instance.preview, linksRef.current);
+    // Force a full update through the monkey-patched pipeline
+    instance.updatePreview();
+
+    // Safety net: re-apply formatting if the preview gets reset externally
+    // (e.g. by the original updatePreview being called outside our monkey-patch)
+    let isApplyingFormatting = false;
+    const formattingObserver = new MutationObserver(() => {
+      if (isApplyingFormatting) return;
+      const hasFormatting = formattingRef.current.length > 0;
+      const hasAnyFormattingElement =
+        instance.preview.querySelector("strong.step-preview-bold, em.step-preview-italic, code.step-preview-code") !== null;
+      if (hasFormatting && !hasAnyFormattingElement) {
+        isApplyingFormatting = true;
+        applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
+        applyLinkHighlights(instance.preview, linksRef.current);
+        isApplyingFormatting = false;
+      }
+    });
+    formattingObserver.observe(instance.preview, { childList: true, subtree: true });
 
     // Create custom caret element inside the wrapper
     const caretEl = document.createElement("div");
@@ -732,6 +821,7 @@ export function StepField({
     setTextareaNode(instance.textarea);
 
     return () => {
+      formattingObserver.disconnect();
       caretRef.current = null;
       instance.destroy();
       editorInstanceRef.current = null;
@@ -841,6 +931,7 @@ export function StepField({
     }
 
     const { plainText, links, formatting } = stripInlineMarkdown(value);
+
     linksRef.current = links;
     formattingRef.current = formatting;
     prevTextRef.current = plainText;
@@ -873,6 +964,21 @@ export function StepField({
     }
   }, [fieldName, textareaNode]);
 
+  // Block native undo/redo at the beforeinput level so the browser never
+  // applies its own history on the textarea — our custom stack handles it.
+  useEffect(() => {
+    if (!textareaNode) return;
+    const blockNativeUndoRedo = (e: InputEvent) => {
+      if (e.inputType === "historyUndo" || e.inputType === "historyRedo") {
+        e.preventDefault();
+      }
+    };
+    textareaNode.addEventListener("beforeinput", blockNativeUndoRedo as EventListener);
+    return () => {
+      textareaNode.removeEventListener("beforeinput", blockNativeUndoRedo as EventListener);
+    };
+  }, [textareaNode]);
+
   useEffect(() => {
     if (!textareaNode) {
       return;
@@ -904,6 +1010,15 @@ export function StepField({
     const handleBlur = () => {
       setIsFocused(false);
       setShowAllSuggestions(false);
+      // Re-apply formatting highlights after blur because OverType may
+      // re-render the preview (via debounced selectionchange) and strip them.
+      const instance = editorInstanceRef.current;
+      if (instance) {
+        requestAnimationFrame(() => {
+          applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
+          applyLinkHighlights(instance.preview, linksRef.current);
+        });
+      }
     };
 
     textareaNode.addEventListener("focus", handleFocus);
@@ -1066,25 +1181,23 @@ export function StepField({
       );
 
       // Save current state for undo before modifying
-      formattingUndoRef.current = [
-        ...formattingUndoRef.current,
-        { formatting: [...formattingRef.current], links: [...linksRef.current] },
-      ];
-      formattingRedoRef.current = [];
+      const currentText = instance.getValue();
+      pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, start, end);
 
       if (existingIdx !== -1) {
         // Remove formatting
         formattingRef.current = formattingRef.current.filter((_, i) => i !== existingIdx);
       } else if (start !== end) {
-        // Remove overlapping formatting of other types before applying new format
+        // Remove overlapping formatting:
+        // - Code: remove ALL overlapping formatting (code replaces bold/italic)
+        // - Bold/Italic: remove only overlapping formatting of the SAME type
         formattingRef.current = formattingRef.current.filter(
-          (f) => f.type === fmtType || f.start >= end || f.end <= start,
+          (f) => f.start >= end || f.end <= start || (fmtType !== "code" && f.type !== fmtType),
         );
         // Add formatting for selection
         formattingRef.current = [...formattingRef.current, { start, end, type: fmtType }];
       } else {
         // No selection — nothing to format
-        formattingUndoRef.current = formattingUndoRef.current.slice(0, -1);
         return;
       }
 
@@ -1099,7 +1212,7 @@ export function StepField({
       applyFormattingHighlights(instance.preview, formattingRef.current, textareaNode?.value);
       applyLinkHighlights(instance.preview, linksRef.current);
     },
-    [textareaNode],
+    [textareaNode, pushUndoSnapshot],
   );
 
   const updateActiveFormats = useCallback(() => {
@@ -1181,6 +1294,10 @@ export function StepField({
         return;
       }
       const currentValue = instance.getValue();
+
+      // Push undo snapshot before link edit
+      pushUndoSnapshot(currentValue, formattingRef.current, linksRef.current, sel.start, sel.end);
+
       const linkText = text || sel.text || url;
 
       // Replace selected text with link display text (no markdown syntax in textarea)
@@ -1212,14 +1329,21 @@ export function StepField({
       setCursorLink(null);
       requestAnimationFrame(() => textareaNode?.focus());
     },
-    [textareaNode],
+    [textareaNode, pushUndoSnapshot],
   );
 
   const handleRemoveLink = useCallback(() => {
+    const instance = editorInstanceRef.current;
+
+    // Push undo snapshot before link removal
+    if (instance) {
+      const currentText = instance.getValue();
+      const cursorPos = instance.textarea?.selectionStart ?? 0;
+      pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, cursorPos, cursorPos);
+    }
+
     linksRef.current = linksRef.current.filter((l) => l !== cursorLink);
     setCursorLink(null);
-
-    const instance = editorInstanceRef.current;
     if (instance) {
       const markdown = buildFullMarkdown(instance.getValue(), linksRef.current, formattingRef.current);
       onChangeRef.current?.(markdown);
@@ -1227,7 +1351,7 @@ export function StepField({
       applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
       applyLinkHighlights(instance.preview, linksRef.current);
     }
-  }, [cursorLink]);
+  }, [cursorLink, pushUndoSnapshot]);
 
   const suggestionPool = useMemo(() => {
     if (!suggestionFilter) {
@@ -1296,6 +1420,12 @@ export function StepField({
 
   const handleRemoveImage = useCallback(
     (image: ExtractedImage) => {
+      // Push undo snapshot before image removal
+      if (editorInstanceRef.current) {
+        const currentText = editorInstanceRef.current.getValue();
+        pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, image.start, image.end);
+      }
+
       const before = value.slice(0, image.start);
       const after = value.slice(image.end);
       const nextValue = `${before}${after}`.replace(/\n{3,}/g, "\n\n");
@@ -1306,7 +1436,7 @@ export function StepField({
       setPlainTextValue(markdownToPlainText(nextValue));
       setPreviewImageUrl((prev) => (prev === image.url ? null : prev));
     },
-    [value],
+    [value, pushUndoSnapshot],
   );
 
   const handleImageClick = useCallback((url: string) => {
@@ -1344,6 +1474,10 @@ export function StepField({
       const escaped = escapeMarkdownText(suggestion.title);
       const instance = editorInstanceRef.current;
       if (instance) {
+        // Push undo snapshot before applying suggestion
+        const currentText = instance.getValue();
+        const cursorPos = textareaNode?.selectionStart ?? 0;
+        pushUndoSnapshot(currentText, formattingRef.current, linksRef.current, cursorPos, cursorPos);
         instance.setValue(escaped);
       }
       setPlainTextValue(suggestion.title);
@@ -1359,7 +1493,7 @@ export function StepField({
         }
       });
     },
-    [onSuggestionSelect, textareaNode],
+    [onSuggestionSelect, textareaNode, pushUndoSnapshot],
   );
 
   const keydownHandlerRef = useRef<((event: KeyboardEvent) => void) | null>(null);
@@ -1395,54 +1529,106 @@ export function StepField({
           handleToolbarAction("toggleCode");
           return;
         }
+        if (event.key === "a" || event.key === "A") {
+          event.stopPropagation();
+          return;
+        }
         if (event.key === "z" || event.key === "Z") {
-          const undoStack = formattingUndoRef.current;
-          if (undoStack.length > 0) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            formattingRedoRef.current = [
-              ...formattingRedoRef.current,
-              { formatting: [...formattingRef.current], links: [...linksRef.current] },
-            ];
-            const prev = undoStack[undoStack.length - 1];
-            formattingUndoRef.current = undoStack.slice(0, -1);
-            formattingRef.current = prev.formatting;
-            linksRef.current = prev.links;
-            const instance = editorInstanceRef.current;
-            if (instance) {
-              const markdown = buildFullMarkdown(instance.getValue(), linksRef.current, formattingRef.current);
-              onChangeRef.current?.(markdown);
-              setPlainTextValue(markdownToPlainText(markdown));
-              applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
-              applyLinkHighlights(instance.preview, linksRef.current);
-            }
-            return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+
+          const stack = undoStackRef.current;
+          if (stack.length === 0) return;
+
+          const instance = editorInstanceRef.current;
+          if (!instance) return;
+
+          // Push current state to redo stack
+          const currentText = instance.getValue();
+          redoStackRef.current = [
+            ...redoStackRef.current,
+            {
+              text: currentText,
+              formatting: [...formattingRef.current],
+              links: [...linksRef.current],
+              cursorStart: textareaNode?.selectionStart ?? 0,
+              cursorEnd: textareaNode?.selectionEnd ?? 0,
+            },
+          ];
+
+          // Pop from undo stack
+          const prev = stack[stack.length - 1];
+          undoStackRef.current = stack.slice(0, -1);
+
+          // Restore state
+          formattingRef.current = prev.formatting;
+          linksRef.current = prev.links;
+          prevTextRef.current = prev.text;
+
+          isSyncingRef.current = true;
+          instance.setValue(prev.text);
+          isSyncingRef.current = false;
+
+          if (textareaNode) {
+            textareaNode.selectionStart = prev.cursorStart;
+            textareaNode.selectionEnd = prev.cursorEnd;
           }
+
+          const markdown = buildFullMarkdown(prev.text, prev.links, prev.formatting);
+          onChangeRef.current?.(markdown);
+          setPlainTextValue(markdownToPlainText(markdown));
+          applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
+          applyLinkHighlights(instance.preview, linksRef.current);
+          return;
         }
       }
       if (modKey && event.shiftKey && (event.key === "z" || event.key === "Z")) {
-        const redoStack = formattingRedoRef.current;
-        if (redoStack.length > 0) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          formattingUndoRef.current = [
-            ...formattingUndoRef.current,
-            { formatting: [...formattingRef.current], links: [...linksRef.current] },
-          ];
-          const next = redoStack[redoStack.length - 1];
-          formattingRedoRef.current = redoStack.slice(0, -1);
-          formattingRef.current = next.formatting;
-          linksRef.current = next.links;
-          const instance = editorInstanceRef.current;
-          if (instance) {
-            const markdown = buildFullMarkdown(instance.getValue(), linksRef.current, formattingRef.current);
-            onChangeRef.current?.(markdown);
-            setPlainTextValue(markdownToPlainText(markdown));
-            applyFormattingHighlights(instance.preview, formattingRef.current, instance.textarea?.value);
-            applyLinkHighlights(instance.preview, linksRef.current);
-          }
-          return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        const stack = redoStackRef.current;
+        if (stack.length === 0) return;
+
+        const instance = editorInstanceRef.current;
+        if (!instance) return;
+
+        // Push current state to undo stack
+        const currentText = instance.getValue();
+        undoStackRef.current = [
+          ...undoStackRef.current,
+          {
+            text: currentText,
+            formatting: [...formattingRef.current],
+            links: [...linksRef.current],
+            cursorStart: textareaNode?.selectionStart ?? 0,
+            cursorEnd: textareaNode?.selectionEnd ?? 0,
+          },
+        ];
+
+        // Pop from redo stack
+        const next = stack[stack.length - 1];
+        redoStackRef.current = stack.slice(0, -1);
+
+        // Restore state
+        formattingRef.current = next.formatting;
+        linksRef.current = next.links;
+        prevTextRef.current = next.text;
+
+        isSyncingRef.current = true;
+        instance.setValue(next.text);
+        isSyncingRef.current = false;
+
+        if (textareaNode) {
+          textareaNode.selectionStart = next.cursorStart;
+          textareaNode.selectionEnd = next.cursorEnd;
         }
+
+        const markdown = buildFullMarkdown(next.text, next.links, next.formatting);
+        onChangeRef.current?.(markdown);
+        setPlainTextValue(markdownToPlainText(markdown));
+        applyFormattingHighlights(instance.preview, next.formatting, instance.textarea?.value);
+        applyLinkHighlights(instance.preview, next.links);
+        return;
       }
 
       if (enableAutocomplete && shouldShowAutocomplete) {

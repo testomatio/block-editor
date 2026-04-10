@@ -1079,7 +1079,8 @@ html.dark .bn-step-image-preview__content {
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview strong.step-preview-bold {
-  font-weight: 600 !important;
+  -webkit-text-stroke: 0.5px currentColor;
+  font-weight: inherit !important;
   color: inherit !important;
 }
 
@@ -1090,8 +1091,8 @@ html.dark .bn-step-image-preview__content {
 
 .bn-step-editor .overtype-wrapper .overtype-preview code.step-preview-code {
   background-color: transparent !important;
-  border-radius: 3px !important;
-  font-family: "Fira Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
   color: rgb(146, 64, 14) !important;
 }
 
@@ -1355,4 +1356,12 @@ html.dark .bn-step-image-preview__content {
 
 .bn-testcase--draft {
   --status-color: var(--status-default);
+}
+
+/* Prevent unnecessary horizontal scrollbar on BlockNote tables.
+   ProseMirror sets overflow-x: auto on .tableWrapper, but the
+   table-widgets-container extends slightly past the wrapper edge,
+   triggering a scrollbar even when table content fits. */
+.bn-editor [data-content-type="table"] .tableWrapper {
+  overflow-x: hidden;
 }
