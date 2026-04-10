@@ -1079,7 +1079,8 @@ html.dark .bn-step-image-preview__content {
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview strong.step-preview-bold {
-  font-weight: 600 !important;
+  -webkit-text-stroke: 0.5px currentColor;
+  font-weight: inherit !important;
   color: inherit !important;
 }
 

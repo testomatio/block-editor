@@ -79,8 +79,8 @@ type ExtractedImage = {
   markdown: string;
 };
 
-type LinkMeta = { start: number; end: number; url: string };
-type FormattingMeta = { start: number; end: number; type: "bold" | "italic" | "code" };
+export type LinkMeta = { start: number; end: number; url: string };
+export type FormattingMeta = { start: number; end: number; type: "bold" | "italic" | "code" };
 type FormatType = "bold" | "italic" | "code";
 
 type EditorSnapshot = {
@@ -268,7 +268,7 @@ function stripInlineMarkdown(markdown: string): {
   return { plainText, links, formatting };
 }
 
-function buildFullMarkdown(plainText: string, links: LinkMeta[], formatting: FormattingMeta[]): string {
+export function buildFullMarkdown(plainText: string, links: LinkMeta[], formatting: FormattingMeta[]): string {
   if (links.length === 0 && formatting.length === 0) return plainText;
 
   // Collect all marker insertions at each position in plainText space.
@@ -784,21 +784,12 @@ export function StepField({
       onChange: handleEditorChange,
     });
 
-    // Sync textarea font-weight with formatting so native selection highlight
-    // aligns with the bold preview text (textarea text is invisible/transparent).
-    const syncTextareaWeight = () => {
-      if (!instance.textarea) return;
-      const hasBold = formattingRef.current.some((f) => f.type === "bold");
-      instance.textarea.style.setProperty("font-weight", hasBold ? "600" : "", "important");
-    };
-
     // Monkey-patch updatePreview to add link highlights
     const originalUpdatePreview = instance.updatePreview.bind(instance);
     instance.updatePreview = function () {
       originalUpdatePreview();
       applyFormattingHighlights(this.preview, formattingRef.current, this.textarea?.value);
       applyLinkHighlights(this.preview, linksRef.current);
-      syncTextareaWeight();
     };
     // Force a full update through the monkey-patched pipeline
     instance.updatePreview();
@@ -954,12 +945,6 @@ export function StepField({
       // Even if text didn't change, formatting/links might have — re-apply highlights
       applyFormattingHighlights(instance.preview, formatting, instance.textarea?.value);
       applyLinkHighlights(instance.preview, links);
-    }
-
-    // Sync textarea font-weight so native selection aligns with bold preview text
-    if (instance.textarea) {
-      const hasBold = formatting.some((f) => f.type === "bold");
-      instance.textarea.style.setProperty("font-weight", hasBold ? "600" : "", "important");
     }
 
     setPlainTextValue((prev) => {
@@ -1204,9 +1189,11 @@ export function StepField({
         // Remove formatting
         formattingRef.current = formattingRef.current.filter((_, i) => i !== existingIdx);
       } else if (start !== end) {
-        // Remove all overlapping formatting before applying new format
+        // Remove overlapping formatting:
+        // - Code: remove ALL overlapping formatting (code replaces bold/italic)
+        // - Bold/Italic: remove only overlapping formatting of the SAME type
         formattingRef.current = formattingRef.current.filter(
-          (f) => f.start >= end || f.end <= start,
+          (f) => f.start >= end || f.end <= start || (fmtType !== "code" && f.type !== fmtType),
         );
         // Add formatting for selection
         formattingRef.current = [...formattingRef.current, { start, end, type: fmtType }];
@@ -1541,6 +1528,10 @@ export function StepField({
           event.preventDefault();
           event.stopImmediatePropagation();
           handleToolbarAction("toggleCode");
+          return;
+        }
+        if (event.key === "a" || event.key === "A") {
+          event.stopPropagation();
           return;
         }
         if (event.key === "z" || event.key === "Z") {
