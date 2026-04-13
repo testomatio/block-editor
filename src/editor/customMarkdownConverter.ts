@@ -152,7 +152,7 @@ function applyTextStyles(text: string, styles: EditorStyles | undefined): string
   }
 
   if (styles.italic) {
-    wrappers.push({ prefix: "*", suffix: "*" });
+    wrappers.push({ prefix: "_", suffix: "_" });
   }
 
   if (styles.strike) {
@@ -620,10 +620,7 @@ function serializeBlocks(blocks: CustomEditorBlock[], ctx: MarkdownContext): str
 
 export function blocksToMarkdown(blocks: CustomEditorBlock[]): string {
   const lines = serializeBlocks(blocks, { listDepth: 0, insideQuote: false });
-  const cleaned = lines
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trimEnd();
+  const cleaned = lines.join("\n").trimEnd();
 
   return cleaned;
 }
@@ -709,8 +706,9 @@ function parseInlineMarkdown(text: string): EditorInline[] {
       }
     }
 
-    if (cleaned.startsWith("*", i)) {
-      const end = cleaned.indexOf("*", i + 1);
+    if (cleaned[i] === "*" || cleaned[i] === "_") {
+      const marker = cleaned[i];
+      const end = cleaned.indexOf(marker, i + 1);
       if (end !== -1) {
         pushPlain();
         const inner = cleaned.slice(i + 1, end);

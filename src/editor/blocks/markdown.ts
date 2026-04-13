@@ -140,7 +140,7 @@ function fallbackHtmlToMarkdown(html: string): string {
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/?(div|p)>/gi, "\n")
     .replace(/<strong>(.*?)<\/strong>/gis, (_m, content) => `**${content}**`)
-    .replace(/<(em|i)>(.*?)<\/(em|i)>/gis, (_m, _tag, content) => `*${content}*`)
+    .replace(/<(em|i)>(.*?)<\/(em|i)>/gis, (_m, _tag, content) => `_${content}_`)
     .replace(/<span[^>]*>/gi, "")
     .replace(/<\/span>/gi, "")
     .replace(/<u>(.*?)<\/u>/gis, (_m, content) => `<u>${content}</u>`);

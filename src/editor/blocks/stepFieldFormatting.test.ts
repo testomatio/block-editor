@@ -9,7 +9,7 @@ describe("buildFullMarkdown formatting combinations", () => {
       { start: 0, end: 5, type: "bold" },
       { start: 0, end: 5, type: "italic" },
     ];
-    expect(buildFullMarkdown("hello", noLinks, formatting)).toBe("***hello***");
+    expect(buildFullMarkdown("hello", noLinks, formatting)).toBe("_**hello**_");
   });
 
   it("preserves word-level bold when sentence-level bold is applied", () => {
@@ -31,7 +31,7 @@ describe("buildFullMarkdown formatting combinations", () => {
       { start: 0, end: 5, type: "bold" },
       { start: 0, end: 11, type: "italic" },
     ];
-    expect(buildFullMarkdown(text, noLinks, formatting)).toBe("***hello** world*");
+    expect(buildFullMarkdown(text, noLinks, formatting)).toBe("_**hello** world_");
   });
 
   it("code formatting removes bold and italic", () => {

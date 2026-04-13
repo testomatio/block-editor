@@ -43,7 +43,7 @@ describe("blocksToMarkdown", () => {
       },
     ];
 
-    expect(blocksToMarkdown(blocks)).toBe("Hello **world***!*");
+    expect(blocksToMarkdown(blocks)).toBe("Hello **world**_!_");
   });
 
   it("places bold markers outside leading/trailing spaces", () => {
@@ -76,7 +76,7 @@ describe("blocksToMarkdown", () => {
         children: [],
       },
     ];
-    expect(blocksToMarkdown(blocks)).toBe("*word* next");
+    expect(blocksToMarkdown(blocks)).toBe("_word_ next");
   });
 
   it("places code backticks outside leading/trailing spaces", () => {
@@ -301,7 +301,7 @@ describe("blocksToMarkdown", () => {
     ];
 
     const markdown = blocksToMarkdown(blocks);
-    expect(markdown).toBe("***text***");
+    expect(markdown).toBe("_**text**_");
   });
 
    it("keeps inline formatting inside step fields", () => {
