@@ -620,10 +620,7 @@ function serializeBlocks(blocks: CustomEditorBlock[], ctx: MarkdownContext): str
 
 export function blocksToMarkdown(blocks: CustomEditorBlock[]): string {
   const lines = serializeBlocks(blocks, { listDepth: 0, insideQuote: false });
-  const cleaned = lines
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trimEnd();
+  const cleaned = lines.join("\n").trimEnd();
 
   return cleaned;
 }
