@@ -286,7 +286,7 @@ export function buildFullMarkdown(plainText: string, links: LinkMeta[], formatti
       openMarker = isMultiline ? "```\n" : "`";
       closeMarker = isMultiline ? "\n```" : "`";
     } else {
-      openMarker = fmt.type === "bold" ? "**" : "*";
+      openMarker = fmt.type === "bold" ? "**" : "_";
       closeMarker = openMarker;
     }
     // Opening: outer markers (bold) before inner (italic) → bold order=0, italic order=1

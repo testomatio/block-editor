@@ -152,7 +152,7 @@ function applyTextStyles(text: string, styles: EditorStyles | undefined): string
   }
 
   if (styles.italic) {
-    wrappers.push({ prefix: "*", suffix: "*" });
+    wrappers.push({ prefix: "_", suffix: "_" });
   }
 
   if (styles.strike) {
