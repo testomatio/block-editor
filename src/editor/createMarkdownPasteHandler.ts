@@ -10,6 +10,18 @@ type PasteHandlerContext = {
   }) => boolean | undefined;
 };
 
+const BLOCK_MARKDOWN_PREFIX = /^(\s*)(#{1,6}\s|[-*+]\s|\d+[.)]\s|>\s|```|~~~|\||!\[)/;
+
+function isInlineOnlyPaste(plainText: string, parsedBlocks: CustomPartialBlock[]): boolean {
+  if (parsedBlocks.length !== 1) return false;
+  const [block] = parsedBlocks;
+  if (block.type !== "paragraph") return false;
+  if (block.children && block.children.length > 0) return false;
+  if (/\r?\n/.test(plainText)) return false;
+  if (BLOCK_MARKDOWN_PREFIX.test(plainText)) return false;
+  return true;
+}
+
 export function createMarkdownPasteHandler(
   converter: (markdown: string) => CustomPartialBlock[],
 ) {
@@ -33,6 +45,10 @@ export function createMarkdownPasteHandler(
     try {
       const parsedBlocks = converter(plainText);
       if (parsedBlocks.length === 0) return defaultPasteHandler();
+
+      if (isInlineOnlyPaste(plainText, parsedBlocks)) {
+        return defaultPasteHandler({ plainTextAsMarkdown: false });
+      }
 
       const selection = editor.getSelection();
       const selectedIds = selection?.blocks
