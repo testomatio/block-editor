@@ -706,8 +706,9 @@ function parseInlineMarkdown(text: string): EditorInline[] {
       }
     }
 
-    if (cleaned.startsWith("*", i)) {
-      const end = cleaned.indexOf("*", i + 1);
+    if (cleaned[i] === "*" || cleaned[i] === "_") {
+      const marker = cleaned[i];
+      const end = cleaned.indexOf(marker, i + 1);
       if (end !== -1) {
         pushPlain();
         const inner = cleaned.slice(i + 1, end);
