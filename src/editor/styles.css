@@ -947,6 +947,10 @@ html.dark .bn-step-image-preview__content {
   color: var(--step-input-border-focus);
 }
 
+.bn-container {
+  overflow-x: clip;
+}
+
 [data-tooltip] {
   position: relative;
 }
