@@ -11,6 +11,7 @@ import {
   filterSuggestionItems,
   insertOrUpdateBlock,
 } from "@blocknote/core";
+import { autoPlacement, offset, shift, size } from "@floating-ui/react";
 import {
   blocksToMarkdown,
   markdownToBlocks,
@@ -354,7 +355,28 @@ function CustomSlashMenu() {
     return filterSuggestionItems(items, query);
   };
 
-  return <SuggestionMenuController triggerCharacter="/" getItems={getItems} />;
+  return (
+    <SuggestionMenuController
+      triggerCharacter="/"
+      getItems={getItems}
+      floatingOptions={{
+        middleware: [
+          offset(10),
+          autoPlacement({
+            allowedPlacements: ["bottom-start", "top-start"],
+          }),
+          shift(),
+          size({
+            apply({ availableHeight, elements }) {
+              Object.assign(elements.floating.style, {
+                maxHeight: `${Math.max(availableHeight - 10, 0)}px`,
+              });
+            },
+          }),
+        ],
+      }}
+    />
+  );
 }
 
 function App() {
