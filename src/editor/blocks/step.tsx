@@ -463,6 +463,7 @@ export const stepBlock = createReactBlockSpec(
           aria-label={forceVertical ? "Not enough space for horizontal view" : "Switch step view"}
           onClick={forceVertical ? undefined : handleToggleView}
           aria-disabled={forceVertical}
+          tabIndex={-1}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <mask id="mask-toggle" style={{maskType: "alpha"}} maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
