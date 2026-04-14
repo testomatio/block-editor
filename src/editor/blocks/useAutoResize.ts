@@ -26,8 +26,11 @@ export function useAutoResize({ textarea, multiline = false, minRows = 2, maxRow
       textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
     };
 
-    const observer = new MutationObserver(resize);
-    observer.observe(textarea, { childList: true, characterData: true, subtree: true });
+    const mutationObserver = new MutationObserver(resize);
+    mutationObserver.observe(textarea, { childList: true, characterData: true, subtree: true });
+
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(textarea);
 
     const handleInput = () => {
       cancelAnimationFrame(frameRef.current ?? 0);
@@ -35,11 +38,26 @@ export function useAutoResize({ textarea, multiline = false, minRows = 2, maxRow
     };
 
     textarea.addEventListener("input", handleInput);
-    resize();
+
+    let cancelled = false;
+    const initialFrame = requestAnimationFrame(() => {
+      frameRef.current = requestAnimationFrame(() => {
+        if (!cancelled) resize();
+      });
+    });
+
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        if (!cancelled) resize();
+      }).catch(() => {});
+    }
 
     return () => {
-      observer.disconnect();
+      cancelled = true;
+      mutationObserver.disconnect();
+      resizeObserver.disconnect();
       textarea.removeEventListener("input", handleInput);
+      cancelAnimationFrame(initialFrame);
       cancelAnimationFrame(frameRef.current ?? 0);
     };
   }, [textarea, multiline, minRows, maxRows]);
