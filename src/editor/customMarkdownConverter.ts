@@ -792,7 +792,27 @@ function parseList(
     const trimmed = rawLine.trim();
 
     if (!trimmed) {
-      index += 1;
+      // Peek at the next non-blank line. If it's another item of this list
+      // (same indent level and list type), treat the blank lines as loose-list
+      // separators and consume them. Otherwise leave the blank line for the
+      // outer loop so it can become an empty paragraph block.
+      let lookahead = index + 1;
+      while (lookahead < lines.length && !lines[lookahead].trim()) {
+        lookahead += 1;
+      }
+      if (lookahead >= lines.length) {
+        break;
+      }
+      const nextLine = lines[lookahead];
+      const nextIndent = countIndent(nextLine);
+      if (nextIndent < indentLevel * 2) {
+        break;
+      }
+      const nextType = detectListType(nextLine.trim());
+      if (nextType !== listType) {
+        break;
+      }
+      index = lookahead;
       continue;
     }
 

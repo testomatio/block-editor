@@ -2667,6 +2667,27 @@ describe("blank line <-> empty paragraph mapping", () => {
     expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
   });
 
+  it("preserves a blank line between a bullet list and the next heading", () => {
+    const markdown = [
+      "### Requirements",
+      "* first requirement",
+      "* second requirement",
+      "",
+      "### Steps",
+      "",
+      "* do the thing",
+      "  *Expected*: it works",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown) as CustomEditorBlock[];
+    const types = blocks.map((b) => b.type);
+    // Blank line between the last bullet and the next heading must survive
+    // parseList and become an empty paragraph.
+    const lastBulletIdx = types.lastIndexOf("bulletListItem");
+    expect(blocks[lastBulletIdx + 1].type).toBe("paragraph");
+    expect((blocks[lastBulletIdx + 1].content as any[]).length).toBe(0);
+    expect(blocksToMarkdown(blocks)).toBe(markdown);
+  });
+
   it("preserves blank lines across the user-reported screenshot example", () => {
     const markdown = [
       "### Requirements",
