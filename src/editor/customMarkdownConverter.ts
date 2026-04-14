@@ -61,6 +61,7 @@ const headingPrefixes: Record<number, string> = {
 };
 
 const SPECIAL_CHAR_REGEX = /([*_`~\[\]()<\\])/g;
+const HTML_COMMENT_REGEX = /<!--[\s\S]*?-->/g;
 const HTML_SPAN_REGEX = /<\/?span[^>]*>/g;
 const HTML_UNDERLINE_REGEX = /<\/?u>/g;
 const EXPECTED_LABEL_REGEX = /^(?:[*_`]*\s*)?(expected(?:\s+result)?)\s*(?:[*_`]*\s*)?\s*[:\-–—]\s*/i;
@@ -70,7 +71,17 @@ const STEP_DATA_LINE_REGEX =
 const NUMBERED_STEP_REGEX = /^\d+[.)]\s+/;
 
 function escapeMarkdown(text: string): string {
-  return text.replace(SPECIAL_CHAR_REGEX, "\\$1");
+  let result = "";
+  let lastIndex = 0;
+  HTML_COMMENT_REGEX.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = HTML_COMMENT_REGEX.exec(text)) !== null) {
+    result += text.slice(lastIndex, match.index).replace(SPECIAL_CHAR_REGEX, "\\$1");
+    result += match[0];
+    lastIndex = match.index + match[0].length;
+  }
+  result += text.slice(lastIndex).replace(SPECIAL_CHAR_REGEX, "\\$1");
+  return result;
 }
 
 function stripHtmlWrappers(text: string): string {

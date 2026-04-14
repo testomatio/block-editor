@@ -46,6 +46,38 @@ describe("blocksToMarkdown", () => {
     expect(blocksToMarkdown(blocks)).toBe("Hello **world**_!_");
   });
 
+  it("preserves HTML comments without escaping", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "c1",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "<!-- ai/agent generated description -->", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe("<!-- ai/agent generated description -->");
+  });
+
+  it("preserves HTML comments inline among text and still escapes stray angle brackets", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "c2",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "before <!-- note --> after <div>", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe("before <!-- note --> after \\<div>");
+  });
+
   it("places bold markers outside leading/trailing spaces", () => {
     const blocks: CustomEditorBlock[] = [
       {
