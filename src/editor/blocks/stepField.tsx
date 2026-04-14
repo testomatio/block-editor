@@ -83,6 +83,31 @@ export type LinkMeta = { start: number; end: number; url: string };
 export type FormattingMeta = { start: number; end: number; type: "bold" | "italic" | "code" };
 type FormatType = "bold" | "italic" | "code";
 
+/**
+ * Remove formatting and link entries that conflict with applying `fmtType`
+ * over the half-open range [start, end). Exclusion rules:
+ * - code: exclusive with everything — drops any overlapping formatting and links
+ * - bold/italic: coexist with each other, but exclusive with code and links
+ *   — drops overlapping same-type, overlapping code, and overlapping links
+ */
+export function applyInlineExclusion(
+  formatting: FormattingMeta[],
+  links: LinkMeta[],
+  start: number,
+  end: number,
+  fmtType: FormatType,
+): { formatting: FormattingMeta[]; links: LinkMeta[] } {
+  const overlaps = (a: { start: number; end: number }) => !(a.start >= end || a.end <= start);
+  const nextFormatting = formatting.filter((f) => {
+    if (!overlaps(f)) return true;
+    if (fmtType === "code") return false;
+    if (f.type === "code") return false;
+    return f.type !== fmtType;
+  });
+  const nextLinks = links.filter((l) => !overlaps(l));
+  return { formatting: nextFormatting, links: nextLinks };
+}
+
 type EditorSnapshot = {
   text: string;
   formatting: FormattingMeta[];
@@ -1188,14 +1213,15 @@ export function StepField({
         // Remove formatting
         formattingRef.current = formattingRef.current.filter((_, i) => i !== existingIdx);
       } else if (start !== end) {
-        // Remove overlapping formatting:
-        // - Code: remove ALL overlapping formatting (code replaces bold/italic)
-        // - Bold/Italic: remove only overlapping formatting of the SAME type
-        formattingRef.current = formattingRef.current.filter(
-          (f) => f.start >= end || f.end <= start || (fmtType !== "code" && f.type !== fmtType),
+        const cleaned = applyInlineExclusion(
+          formattingRef.current,
+          linksRef.current,
+          start,
+          end,
+          fmtType,
         );
-        // Add formatting for selection
-        formattingRef.current = [...formattingRef.current, { start, end, type: fmtType }];
+        formattingRef.current = [...cleaned.formatting, { start, end, type: fmtType }];
+        linksRef.current = cleaned.links;
       } else {
         // No selection — nothing to format
         return;
@@ -1314,7 +1340,12 @@ export function StepField({
       );
       const newLink: LinkMeta = { start: sel.start, end: sel.start + linkText.length, url };
       linksRef.current = [...adjustedLinks, newLink];
-      formattingRef.current = adjustFormattingForEdit(formattingRef.current, sel.start, delta);
+      // Links are exclusive with bold/italic/code: strip any formatting that
+      // overlaps the original selection before shifting positions.
+      const keptFormatting = formattingRef.current.filter(
+        (f) => f.start >= sel.end || f.end <= sel.start,
+      );
+      formattingRef.current = adjustFormattingForEdit(keptFormatting, sel.start, delta);
       prevTextRef.current = nextValue;
 
       isSyncingRef.current = true;

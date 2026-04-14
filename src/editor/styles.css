@@ -1100,6 +1100,12 @@ html.dark .bn-step-image-preview__content {
   color: rgb(146, 64, 14) !important;
 }
 
+.bn-step-editor .overtype-wrapper .overtype-preview li.bullet-list .syntax-marker,
+.bn-step-editor .overtype-wrapper .overtype-preview li.ordered-list .syntax-marker {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
 .bn-step-custom-caret {
   display: none;
   position: absolute;

@@ -26,8 +26,11 @@ export function useAutoResize({ textarea, multiline = false, minRows = 2, maxRow
       textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
     };
 
-    const observer = new MutationObserver(resize);
-    observer.observe(textarea, { childList: true, characterData: true, subtree: true });
+    const mutationObserver = new MutationObserver(resize);
+    mutationObserver.observe(textarea, { childList: true, characterData: true, subtree: true });
+
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(textarea);
 
     const handleInput = () => {
       cancelAnimationFrame(frameRef.current ?? 0);
@@ -35,11 +38,41 @@ export function useAutoResize({ textarea, multiline = false, minRows = 2, maxRow
     };
 
     textarea.addEventListener("input", handleInput);
-    resize();
+
+    let cancelled = false;
+    const initialFrame = requestAnimationFrame(() => {
+      frameRef.current = requestAnimationFrame(() => {
+        if (!cancelled) resize();
+      });
+    });
+
+    // Re-run resize once the textarea is actually laid out. During drag-drop
+    // remounts the element can be briefly detached, so the initial RAF resize
+    // sees scrollHeight === 0 and clamps to minRows.
+    const intersectionObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && !cancelled) {
+          resize();
+          intersectionObserver.disconnect();
+          break;
+        }
+      }
+    });
+    intersectionObserver.observe(textarea);
+
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        if (!cancelled) resize();
+      }).catch(() => {});
+    }
 
     return () => {
-      observer.disconnect();
+      cancelled = true;
+      mutationObserver.disconnect();
+      resizeObserver.disconnect();
+      intersectionObserver.disconnect();
       textarea.removeEventListener("input", handleInput);
+      cancelAnimationFrame(initialFrame);
       cancelAnimationFrame(frameRef.current ?? 0);
     };
   }, [textarea, multiline, minRows, maxRows]);
