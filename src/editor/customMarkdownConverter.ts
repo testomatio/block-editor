@@ -446,7 +446,7 @@ function serializeBlock(
       const normalizedExpected = stripExpectedPrefix(expectedResult).trim();
       if (normalizedExpected.length > 0) {
         const expectedLines = normalizedExpected.split(/\r?\n/);
-        const label = "*Expected*";
+        const label = "*Expected result*";
         expectedLines.forEach((expectedLine: string, index: number) => {
           const trimmedLine = expectedLine.trim();
           if (trimmedLine.length === 0) {

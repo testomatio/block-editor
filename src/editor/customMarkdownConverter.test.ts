@@ -197,9 +197,9 @@ describe("blocksToMarkdown", () => {
     expect(blocksToMarkdown(blocks)).toBe(
       [
         "* Open the Login page.",
-        "  *Expected*: The Login page loads successfully.",
+        "  *Expected result*: The Login page loads successfully.",
         "* Enter a valid username.",
-        "  *Expected*: The username is accepted.",
+        "  *Expected result*: The username is accepted.",
       ].join("\n"),
     );
   });
@@ -242,7 +242,7 @@ describe("blocksToMarkdown", () => {
     ];
 
     expect(blocksToMarkdown(blocks)).toBe(
-      ["* ", "  *Expected*: Login form visible"].join("\n"),
+      ["* ", "  *Expected result*: Login form visible"].join("\n"),
     );
   });
 
@@ -355,7 +355,7 @@ describe("blocksToMarkdown", () => {
      expect(blocksToMarkdown(blocks)).toBe(
        [
          "* **Click** the _Login_ button",
-        "  *Expected*: **Success** is shown",
+        "  *Expected result*: **Success** is shown",
          "  Second line with <u>underline</u>",
        ].join("\n"),
      );
@@ -382,7 +382,7 @@ describe("blocksToMarkdown", () => {
       "* Navigate to login",
       "  Open browser",
       "  Go to login page",
-      "  *Expected*: Login form visible",
+      "  *Expected result*: Login form visible",
     ].join("\n"),
   );
  });
@@ -429,7 +429,7 @@ describe("blocksToMarkdown", () => {
         "  asdsadas",
         "  ```",
         "  ![](/attachments/HMhkVtlDrO.png)",
-        "  *Expected*: The user receives a real-time notification for the order update.",
+        "  *Expected result*: The user receives a real-time notification for the order update.",
       ].join("\n"),
     );
   });
@@ -1073,7 +1073,7 @@ describe("markdownToBlocks", () => {
         "  asdsadas",
         "  ```",
         "  ![](/attachments/HMhkVtlDrO.png)",
-        "  *Expected*: The user receives a real-time notification for the order update.",
+        "  *Expected result*: The user receives a real-time notification for the order update.",
       ].join("\n"),
     );
   });
@@ -1307,7 +1307,7 @@ describe("markdownToBlocks", () => {
     expect(markdownRoundTrip).toBe(
       [
         "* Display the generated report.",
-        "  *Expected*: ![](/attachments/report.png)",
+        "  *Expected result*: ![](/attachments/report.png)",
       ].join("\n"),
     );
   });
@@ -1354,7 +1354,7 @@ describe("markdownToBlocks", () => {
     expect(roundTrip).toBe(
       [
         "* Should open login screen",
-        "  *Expected*: Login should look like this",
+        "  *Expected result*: Login should look like this",
         "  ![](/login.png)",
       ].join("\n"),
     );
@@ -1493,9 +1493,9 @@ describe("markdownToBlocks", () => {
     expect(roundTrip).toBe(
       [
         "* Existing email + invalid password",
-        "  *Expected*: 'Oops, wrong email or password' is displayed",
+        "  *Expected result*: 'Oops, wrong email or password' is displayed",
         "* Not existing email + valid password",
-        "  *Expected*: 'Oops, wrong email or password' is displayed",
+        "  *Expected result*: 'Oops, wrong email or password' is displayed",
       ].join("\n"),
     );
   });
@@ -2676,7 +2676,7 @@ describe("blank line <-> empty paragraph mapping", () => {
       "### Steps",
       "",
       "* do the thing",
-      "  *Expected*: it works",
+      "  *Expected result*: it works",
     ].join("\n");
     const blocks = markdownToBlocks(markdown) as CustomEditorBlock[];
     const types = blocks.map((b) => b.type);
