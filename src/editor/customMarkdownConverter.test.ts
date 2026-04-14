@@ -1115,6 +1115,11 @@ describe("markdownToBlocks", () => {
         children: [],
       },
       {
+        type: "paragraph",
+        content: [],
+        children: [],
+      },
+      {
         type: "bulletListItem",
         props: baseProps,
         content: [{ type: "text", text: "The user is logged into the application.", styles: {} }],
@@ -2555,5 +2560,123 @@ describe("steps require Steps heading", () => {
     const stepBlocks = blocks.filter((b) => b.type === "testStep");
     expect(stepBlocks).toHaveLength(1);
     expect((stepBlocks[0].props as any).stepTitle).toBe("next 22");
+  });
+});
+
+describe("blank line <-> empty paragraph mapping", () => {
+  const isEmptyParagraph = (block: CustomPartialBlock | CustomEditorBlock) =>
+    block.type === "paragraph" &&
+    (!block.content || (block.content as any[]).length === 0);
+
+  it("parses a single blank line between headings as one empty paragraph", () => {
+    const blocks = markdownToBlocks("### A\n\n### B");
+    expect(blocks).toHaveLength(3);
+    expect(blocks[0].type).toBe("heading");
+    expect(isEmptyParagraph(blocks[1])).toBe(true);
+    expect(blocks[2].type).toBe("heading");
+  });
+
+  it("parses two blank lines between headings as two empty paragraphs", () => {
+    const blocks = markdownToBlocks("### A\n\n\n### B");
+    expect(blocks).toHaveLength(4);
+    expect(blocks[0].type).toBe("heading");
+    expect(isEmptyParagraph(blocks[1])).toBe(true);
+    expect(isEmptyParagraph(blocks[2])).toBe(true);
+    expect(blocks[3].type).toBe("heading");
+  });
+
+  it("drops leading and trailing blank lines", () => {
+    const blocks = markdownToBlocks("\n\n### A\n\n");
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe("heading");
+  });
+
+  it("serializes an empty paragraph between two blocks as one blank line", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "h1",
+        type: "heading",
+        props: { ...baseProps, level: 3 } as any,
+        content: [{ type: "text", text: "A", styles: {} }],
+        children: [],
+      },
+      {
+        id: "p1",
+        type: "paragraph",
+        props: baseProps,
+        content: [],
+        children: [],
+      },
+      {
+        id: "h2",
+        type: "heading",
+        props: { ...baseProps, level: 3 } as any,
+        content: [{ type: "text", text: "B", styles: {} }],
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("### A\n\n### B");
+  });
+
+  it("round-trips a single blank line between headings", () => {
+    const markdown = "### A\n\n### B";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
+  it("round-trips two blank lines between headings", () => {
+    const markdown = "### A\n\n\n### B";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
+  it("round-trips headings adjacent with no blank line", () => {
+    const markdown = "### A\n### B";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks.some(isEmptyParagraph)).toBe(false);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
+  it("deleting an empty paragraph removes the blank line from the output", () => {
+    const blocks = markdownToBlocks("### A\n\n### B") as CustomEditorBlock[];
+    const withoutEmpty = blocks.filter((block) => !isEmptyParagraph(block));
+    expect(withoutEmpty).toHaveLength(2);
+    expect(blocksToMarkdown(withoutEmpty)).toBe("### A\n### B");
+  });
+
+  it("inserting an empty paragraph adds a blank line to the output", () => {
+    const blocks = markdownToBlocks("### A\n### B") as CustomEditorBlock[];
+    const withEmpty: CustomEditorBlock[] = [
+      blocks[0],
+      {
+        id: "inserted",
+        type: "paragraph",
+        props: baseProps,
+        content: [],
+        children: [],
+      },
+      blocks[1],
+    ];
+    expect(blocksToMarkdown(withEmpty)).toBe("### A\n\n### B");
+  });
+
+  it("preserves blank lines between a heading and a bullet list", () => {
+    const markdown = "### Steps\n\n* first\n* second";
+    const blocks = markdownToBlocks(markdown);
+    expect(isEmptyParagraph(blocks[1])).toBe(true);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
+  it("preserves blank lines across the user-reported screenshot example", () => {
+    const markdown = [
+      "### Requirements",
+      "",
+      "### Steps",
+      "",
+      "* *open* **webiste**",
+      "  step data with `image`",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
   });
 });

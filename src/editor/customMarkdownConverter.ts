@@ -284,13 +284,6 @@ function serializeChildren(block: CustomEditorBlock, ctx: MarkdownContext): stri
   return serializeBlocks(block.children, childCtx);
 }
 
-function flattenWithBlankLine(lines: string[], appendBlank = false): string[] {
-  if (appendBlank && (lines.length === 0 || lines.at(-1) !== "")) {
-    return [...lines, ""];
-  }
-  return lines;
-}
-
 function serializeBlock(
   block: CustomEditorBlock,
   ctx: MarkdownContext,
@@ -303,17 +296,21 @@ function serializeBlock(
   switch (block.type) {
     case "paragraph": {
       const text = inlineToMarkdown(block.content);
-      if (text.length > 0) {
-        lines.push(ctx.insideQuote ? `> ${text}` : text);
+      if (text.length === 0) {
+        // Empty paragraph = one blank line in the output. Under the 1:1
+        // block model, this is the only mechanism that produces blank lines
+        // between top-level blocks.
+        return [""];
       }
-      return flattenWithBlankLine(lines, !ctx.insideQuote);
+      lines.push(ctx.insideQuote ? `> ${text}` : text);
+      return lines;
     }
     case "heading": {
       const level = (block.props as any).level ?? 1;
       const prefix = headingPrefixes[level] ?? headingPrefixes[3];
       const text = inlineToMarkdown(block.content);
       lines.push(`${prefix} ${text}`.trimEnd());
-      return flattenWithBlankLine(lines, true);
+      return lines;
     }
     case "quote": {
       const quoteContent = serializeBlocks(block.children ?? [], {
@@ -328,7 +325,7 @@ function serializeBlock(
         lines.push(...quoteText);
       }
       lines.push(...quoteContent.map((line) => (line ? `> ${line}` : ">")));
-      return flattenWithBlankLine(lines, true);
+      return lines;
     }
     case "codeBlock": {
       const language = (block.props as any).language || "";
@@ -339,7 +336,7 @@ function serializeBlock(
         lines.push(body);
       }
       lines.push("```");
-      return flattenWithBlankLine(lines, true);
+      return lines;
     }
     case "bulletListItem": {
       const text = inlineToMarkdown(block.content);
@@ -372,7 +369,7 @@ function serializeBlock(
         const size = width ? ` =${width}x*` : "";
         lines.push(`![${caption}](${url}${size})`);
       }
-      return flattenWithBlankLine(lines, true);
+      return lines;
     }
     case "file":
     case "video":
@@ -384,7 +381,7 @@ function serializeBlock(
         const displayUrl = caption || resolveFileDisplayUrl(url);
         lines.push(`[![${name}](${displayUrl})](${url})`);
       }
-      return flattenWithBlankLine(lines, true);
+      return lines;
     }
     case "testStep":
     case "snippet": {
@@ -416,7 +413,7 @@ function serializeBlock(
           lines.push(`<!-- end snippet #${snippetId} -->`);
         }
 
-        return flattenWithBlankLine(lines, true);
+        return lines;
       }
 
       const normalizedTitle = stepTitle
@@ -464,16 +461,12 @@ function serializeBlock(
         });
       }
 
-      if (lines.length === 0) {
-        return lines;
-      }
-
-      return flattenWithBlankLine(lines, false);
+      return lines;
     }
     case "table": {
       const tableContent = block.content as any;
       if (!tableContent || tableContent.type !== "tableContent") {
-        return flattenWithBlankLine(lines, true);
+        return lines;
       }
 
       const rows: any[] = Array.isArray(tableContent.rows)
@@ -481,7 +474,7 @@ function serializeBlock(
         : [];
 
       if (rows.length === 0) {
-        return flattenWithBlankLine(lines, true);
+        return lines;
       }
 
       const columnCount = rows.reduce((max, row) => {
@@ -490,7 +483,7 @@ function serializeBlock(
       }, 0);
 
       if (columnCount === 0) {
-        return flattenWithBlankLine(lines, true);
+        return lines;
       }
 
       const headerRowCount = rows.length
@@ -581,7 +574,7 @@ function serializeBlock(
         lines.push(`| ${row.map((cell) => formatCell(cell)).join(" | ")} |`);
       });
 
-      return flattenWithBlankLine(lines, true);
+      return lines;
     }
   }
 
@@ -593,7 +586,7 @@ function serializeBlock(
     }
   }
   lines.push(...serializeChildren(fallbackBlock, ctx));
-  return flattenWithBlankLine(lines, false);
+  return lines;
 }
 
 function serializeBlocks(blocks: CustomEditorBlock[], ctx: MarkdownContext): string[] {
@@ -1405,12 +1398,16 @@ export function fixMalformedImageBlocks(blocks: CustomPartialBlock[]): CustomPar
   return result;
 }
 
+// The `preserveBlankLines` option is retained for backwards compatibility
+// but is now a no-op: blank lines in the source markdown always produce
+// empty paragraph blocks (except for leading/trailing blanks, which are
+// dropped). This gives a 1:1 mapping between blank lines and blocks so the
+// Rich editor can render and delete each blank line individually.
 export interface MarkdownToBlocksOptions {
-  /** When true, every blank line produces an empty paragraph block. */
   preserveBlankLines?: boolean;
 }
 
-export function markdownToBlocks(markdown: string, options?: MarkdownToBlocksOptions): CustomPartialBlock[] {
+export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOptions): CustomPartialBlock[] {
   const normalized = markdown.replace(/\r\n/g, "\n");
   const lines = normalized.split("\n");
   const blocks: CustomPartialBlock[] = [];
@@ -1420,22 +1417,12 @@ export function markdownToBlocks(markdown: string, options?: MarkdownToBlocksOpt
   while (index < lines.length) {
     const line = lines[index];
     if (!line.trim()) {
-      if (options?.preserveBlankLines) {
+      // Drop blank lines until we've emitted at least one block, so leading
+      // blanks don't produce a ghost empty paragraph at the top of the doc.
+      if (blocks.length > 0) {
         blocks.push({ type: "paragraph", content: [], children: [] } as CustomPartialBlock);
-        index += 1;
-        continue;
       }
       index += 1;
-      // Count consecutive blank lines
-      let blankCount = 1;
-      while (index < lines.length && !lines[index].trim()) {
-        blankCount++;
-        index++;
-      }
-      // Create empty paragraph for each extra blank line beyond the first
-      for (let i = 1; i < blankCount; i++) {
-        blocks.push({ type: "paragraph", content: [], children: [] } as CustomPartialBlock);
-      }
       continue;
     }
 
@@ -1551,16 +1538,18 @@ export function markdownToBlocks(markdown: string, options?: MarkdownToBlocksOpt
     index = paragraph.nextIndex;
   }
 
-  // Insert empty paragraphs between consecutive headings so users can type between them
-  const result: CustomPartialBlock[] = [];
-  for (let i = 0; i < blocks.length; i++) {
-    result.push(blocks[i]);
-    if (blocks[i].type === "heading" && blocks[i + 1]?.type === "heading") {
-      result.push({ type: "paragraph", content: [], children: [] } as CustomPartialBlock);
-    }
+  // Drop trailing empty paragraphs so a trailing blank line in the source
+  // doesn't leave a ghost empty block at the end of the document.
+  while (
+    blocks.length > 0 &&
+    blocks[blocks.length - 1].type === "paragraph" &&
+    (!blocks[blocks.length - 1].content ||
+      (blocks[blocks.length - 1].content as any[]).length === 0)
+  ) {
+    blocks.pop();
   }
 
-  return fixMalformedImageBlocks(result);
+  return fixMalformedImageBlocks(blocks);
 }
 
 function splitTableRow(line: string): string[] {
