@@ -1,58 +1,68 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 type Options = {
   textarea: HTMLTextAreaElement | null;
-  multiline?: boolean;
-  minRows?: number;
-  maxRows?: number;
+  enabled?: boolean;
+  onResize: () => void;
 };
 
-export function useAutoResize({ textarea, multiline = false, minRows = 2, maxRows = 12 }: Options) {
+// Shared across all hook instances: one fonts.ready promise per document,
+// fanned out to every registered callback so N fields cost 1 .then().
+const fontsReadyCallbacks = new Set<() => void>();
+let fontsReadyAttached = false;
+
+function registerFontsReady(cb: () => void): () => void {
+  if (typeof document === "undefined" || !document.fonts?.ready) {
+    return () => {};
+  }
+  fontsReadyCallbacks.add(cb);
+  if (!fontsReadyAttached) {
+    fontsReadyAttached = true;
+    document.fonts.ready
+      .then(() => {
+        for (const fn of fontsReadyCallbacks) fn();
+      })
+      .catch(() => {});
+  }
+  return () => {
+    fontsReadyCallbacks.delete(cb);
+  };
+}
+
+export function useAutoResize({ textarea, enabled = true, onResize }: Options) {
   const frameRef = useRef<number>(0);
+  const onResizeRef = useRef(onResize);
 
   useEffect(() => {
-    if (!textarea || !multiline) {
-      return;
-    }
+    onResizeRef.current = onResize;
+  }, [onResize]);
 
-    const resize = () => {
-      textarea.style.height = "auto";
-      const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight || "16");
-      const minHeight = lineHeight * minRows;
-      const maxHeight = lineHeight * maxRows;
-
-      const clampedHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
-      textarea.style.height = `${clampedHeight}px`;
-      textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
-    };
-
-    const mutationObserver = new MutationObserver(resize);
-    mutationObserver.observe(textarea, { childList: true, characterData: true, subtree: true });
-
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(textarea);
-
-    const handleInput = () => {
-      cancelAnimationFrame(frameRef.current ?? 0);
-      frameRef.current = requestAnimationFrame(resize);
-    };
-
-    textarea.addEventListener("input", handleInput);
+  useEffect(() => {
+    if (!textarea || !enabled) return;
 
     let cancelled = false;
-    const initialFrame = requestAnimationFrame(() => {
-      frameRef.current = requestAnimationFrame(() => {
-        if (!cancelled) resize();
-      });
-    });
 
-    // Re-run resize once the textarea is actually laid out. During drag-drop
-    // remounts the element can be briefly detached, so the initial RAF resize
-    // sees scrollHeight === 0 and clamps to minRows.
+    // All callers go through this coalescing scheduler: repeated pings in a
+    // single frame collapse to one reflow.
+    const schedule = () => {
+      if (cancelled) return;
+      if (frameRef.current) return;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = 0;
+        if (!cancelled) onResizeRef.current();
+      });
+    };
+
+    // Initial pass after layout.
+    schedule();
+
+    // One-shot: re-run once the textarea actually enters the layout tree.
+    // This is the piece that fixes the drag-drop remount and
+    // snippet-insert-while-hidden cases OverType itself cannot recover from.
     const intersectionObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting && !cancelled) {
-          resize();
+        if (entry.isIntersecting) {
+          schedule();
           intersectionObserver.disconnect();
           break;
         }
@@ -60,20 +70,20 @@ export function useAutoResize({ textarea, multiline = false, minRows = 2, maxRow
     });
     intersectionObserver.observe(textarea);
 
-    if (typeof document !== "undefined" && document.fonts?.ready) {
-      document.fonts.ready.then(() => {
-        if (!cancelled) resize();
-      }).catch(() => {});
-    }
+    const unregisterFonts = registerFontsReady(schedule);
 
     return () => {
       cancelled = true;
-      mutationObserver.disconnect();
-      resizeObserver.disconnect();
       intersectionObserver.disconnect();
-      textarea.removeEventListener("input", handleInput);
-      cancelAnimationFrame(initialFrame);
-      cancelAnimationFrame(frameRef.current ?? 0);
+      unregisterFonts();
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = 0;
+      }
     };
-  }, [textarea, multiline, minRows, maxRows]);
+  }, [textarea, enabled]);
+
+  return useCallback(() => {
+    onResizeRef.current();
+  }, []);
 }

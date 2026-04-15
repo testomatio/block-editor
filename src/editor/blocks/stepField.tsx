@@ -945,6 +945,15 @@ export function StepField({
     textareaNode.focus();
   }, [focusSignal, textareaNode]);
 
+  useAutoResize({
+    textarea: textareaNode,
+    enabled: multiline,
+    onResize: useCallback(() => {
+      const instance = editorInstanceRef.current as (OverTypeInstance & { _updateAutoHeight?: () => void }) | null;
+      instance?._updateAutoHeight?.();
+    }, []),
+  });
+
   useEffect(() => {
     const instance = editorInstanceRef.current;
     if (!instance) {
@@ -1011,13 +1020,6 @@ export function StepField({
 
     textareaNode.readOnly = readOnly;
   }, [readOnly, textareaNode]);
-
-  useAutoResize({
-    textarea: textareaNode,
-    multiline,
-    minRows: 3,
-    maxRows: 16,
-  });
 
   useEffect(() => {
     if (!textareaNode) {

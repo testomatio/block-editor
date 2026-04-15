@@ -130,4 +130,43 @@ describe("markdownToBlocks", () => {
       children: [],
     });
   });
+
+  it("parses combined bold+italic using nested delimiters", () => {
+    const blocks = markdownToBlocks(
+      "The _**Username**_ and **_Password_** fields and ***both*** and ___both___.",
+    );
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toEqual({
+      type: "paragraph",
+      props: baseProps,
+      content: [
+        { type: "text", text: "The ", styles: {} },
+        { type: "text", text: "Username", styles: { italic: true, bold: true } },
+        { type: "text", text: " and ", styles: {} },
+        { type: "text", text: "Password", styles: { bold: true, italic: true } },
+        { type: "text", text: " fields and ", styles: {} },
+        { type: "text", text: "both", styles: { bold: true, italic: true } },
+        { type: "text", text: " and ", styles: {} },
+        { type: "text", text: "both", styles: { bold: true, italic: true } },
+        { type: "text", text: ".", styles: {} },
+      ],
+      children: [],
+    });
+  });
+
+  it("parses bold with nested italic keeping both styles", () => {
+    const blocks = markdownToBlocks("**foo _bar_ baz**");
+
+    expect(blocks[0]).toEqual({
+      type: "paragraph",
+      props: baseProps,
+      content: [
+        { type: "text", text: "foo ", styles: { bold: true } },
+        { type: "text", text: "bar", styles: { bold: true, italic: true } },
+        { type: "text", text: " baz", styles: { bold: true } },
+      ],
+      children: [],
+    });
+  });
 });
