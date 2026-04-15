@@ -25,6 +25,7 @@ type StepFieldProps = {
   autoFocus?: boolean;
   focusSignal?: number;
   multiline?: boolean;
+  disableNewlines?: boolean;
   enableAutocomplete?: boolean;
   fieldName?: string;
   suggestionFilter?: (suggestion: Suggestion) => boolean;
@@ -671,6 +672,7 @@ export function StepField({
   autoFocus,
   focusSignal,
   multiline = false,
+  disableNewlines = false,
   enableAutocomplete = false,
   fieldName,
   suggestionFilter,
@@ -1699,6 +1701,12 @@ export function StepField({
         return;
       }
 
+      if (disableNewlines && (event.key === "Enter" || event.code === "Enter")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+
       if (event.key === "Tab") {
         const moved = focusAdjacentField(event.shiftKey ? -1 : 1);
         if (moved) {
@@ -1707,7 +1715,7 @@ export function StepField({
         }
       }
     };
-  }, [activeSuggestionIndex, applySuggestion, enableAutocomplete, filteredSuggestions, focusAdjacentField, handleToolbarAction, readOnly, shouldShowAutocomplete]);
+  }, [activeSuggestionIndex, applySuggestion, disableNewlines, enableAutocomplete, filteredSuggestions, focusAdjacentField, handleToolbarAction, readOnly, shouldShowAutocomplete]);
 
   useEffect(() => {
     if (!textareaNode) {

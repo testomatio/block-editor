@@ -512,6 +512,7 @@ export const stepBlock = createReactBlockSpec(
               onChange={handleStepTitleChange}
               autoFocus={stepTitle.length === 0}
               multiline
+              disableNewlines
               enableAutocomplete
               fieldName="title"
               suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}
