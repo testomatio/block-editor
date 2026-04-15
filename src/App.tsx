@@ -384,7 +384,13 @@ function App() {
     schema: customSchema,
     pasteHandler: createMarkdownPasteHandler(markdownToBlocks),
     uploadFile: async (file: File) => {
-      return `https://placehold.co/600x400?text=${encodeURIComponent(file.name)}`;
+      const url = `https://placehold.co/600x400?text=${encodeURIComponent(file.name)}`;
+      return {
+        props: {
+          url,
+          name: file.name,
+        },
+      };
     },
   });
   const [markdown, setMarkdown] = useState("");
@@ -474,8 +480,14 @@ function App() {
           if (typeof result === "string") {
             return { url: result };
           }
-          if (result && typeof result === "object" && "url" in result && typeof (result as any).url === "string") {
-            return { url: (result as any).url as string };
+          if (result && typeof result === "object") {
+            if ("url" in result && typeof (result as any).url === "string") {
+              return { url: (result as any).url as string };
+            }
+            const propsUrl = (result as any).props?.url;
+            if (typeof propsUrl === "string") {
+              return { url: propsUrl };
+            }
           }
           throw new Error("uploadFile did not return a URL");
         }
