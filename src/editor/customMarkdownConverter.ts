@@ -630,7 +630,41 @@ export function blocksToMarkdown(blocks: CustomEditorBlock[]): string {
 }
 
 function parseInlineMarkdown(text: string): EditorInline[] {
-  const cleaned = stripHtmlWrappers(text);
+  return parseInlineSegments(stripHtmlWrappers(text), {});
+}
+
+function findItalicClose(
+  text: string,
+  start: number,
+  marker: "*" | "_",
+): number {
+  let j = start;
+  while (j < text.length) {
+    const ch = text[j];
+    if (ch === "\\") {
+      j += 2;
+      continue;
+    }
+    if ((ch === "*" || ch === "_") && text[j + 1] === ch) {
+      const close = text.indexOf(ch + ch, j + 2);
+      if (close === -1) {
+        return -1;
+      }
+      j = close + 2;
+      continue;
+    }
+    if (ch === marker) {
+      return j;
+    }
+    j += 1;
+  }
+  return -1;
+}
+
+function parseInlineSegments(
+  cleaned: string,
+  outerStyles: Record<string, boolean>,
+): EditorInline[] {
   const result: EditorInline[] = [];
   let buffer = "";
 
@@ -638,22 +672,53 @@ function parseInlineMarkdown(text: string): EditorInline[] {
     if (buffer.length === 0) {
       return;
     }
-    result.push({ type: "text", text: unescapeMarkdown(buffer), styles: {} });
+    result.push({
+      type: "text",
+      text: unescapeMarkdown(buffer),
+      styles: { ...outerStyles } as EditorStyles,
+    });
     buffer = "";
+  };
+
+  const wrap = (inner: string, add: Record<string, boolean>) => {
+    pushPlain();
+    const nested = parseInlineSegments(inner, { ...outerStyles, ...add });
+    result.push(...nested);
   };
 
   let i = 0;
   while (i < cleaned.length) {
+    if (cleaned.startsWith("***", i)) {
+      const end = cleaned.indexOf("***", i + 3);
+      if (end !== -1) {
+        wrap(cleaned.slice(i + 3, end), { bold: true, italic: true });
+        i = end + 3;
+        continue;
+      }
+    }
+
+    if (cleaned.startsWith("___", i)) {
+      const end = cleaned.indexOf("___", i + 3);
+      if (end !== -1) {
+        wrap(cleaned.slice(i + 3, end), { bold: true, italic: true });
+        i = end + 3;
+        continue;
+      }
+    }
+
     if (cleaned.startsWith("**", i)) {
       const end = cleaned.indexOf("**", i + 2);
       if (end !== -1) {
-        pushPlain();
-        const inner = cleaned.slice(i + 2, end);
-        result.push({
-          type: "text",
-          text: unescapeMarkdown(inner),
-          styles: { bold: true },
-        });
+        wrap(cleaned.slice(i + 2, end), { bold: true });
+        i = end + 2;
+        continue;
+      }
+    }
+
+    if (cleaned.startsWith("__", i)) {
+      const end = cleaned.indexOf("__", i + 2);
+      if (end !== -1) {
+        wrap(cleaned.slice(i + 2, end), { bold: true });
         i = end + 2;
         continue;
       }
@@ -662,13 +727,7 @@ function parseInlineMarkdown(text: string): EditorInline[] {
     if (cleaned.startsWith("~~", i)) {
       const end = cleaned.indexOf("~~", i + 2);
       if (end !== -1) {
-        pushPlain();
-        const inner = cleaned.slice(i + 2, end);
-        result.push({
-          type: "text",
-          text: unescapeMarkdown(inner),
-          styles: { strike: true },
-        });
+        wrap(cleaned.slice(i + 2, end), { strike: true });
         i = end + 2;
         continue;
       }
@@ -682,7 +741,7 @@ function parseInlineMarkdown(text: string): EditorInline[] {
         result.push({
           type: "text",
           text: unescapeMarkdown(inner),
-          styles: { code: true },
+          styles: { ...outerStyles, code: true } as EditorStyles,
         });
         i = end + 1;
         continue;
@@ -697,7 +756,7 @@ function parseInlineMarkdown(text: string): EditorInline[] {
         pushPlain();
         const label = cleaned.slice(i + 1, endLabel);
         const href = cleaned.slice(startLink + 1, endLink);
-        const parsedLabel = parseInlineMarkdown(label);
+        const parsedLabel = parseInlineSegments(label, {});
         // Ensure link content is never undefined - if empty, add empty text
         const linkContent = parsedLabel.length > 0 ? parsedLabel : [{ type: "text", text: "", styles: {} }];
         result.push({
@@ -711,16 +770,10 @@ function parseInlineMarkdown(text: string): EditorInline[] {
     }
 
     if (cleaned[i] === "*" || cleaned[i] === "_") {
-      const marker = cleaned[i];
-      const end = cleaned.indexOf(marker, i + 1);
+      const marker = cleaned[i] as "*" | "_";
+      const end = findItalicClose(cleaned, i + 1, marker);
       if (end !== -1) {
-        pushPlain();
-        const inner = cleaned.slice(i + 1, end);
-        result.push({
-          type: "text",
-          text: unescapeMarkdown(inner),
-          styles: { italic: true },
-        });
+        wrap(cleaned.slice(i + 1, end), { italic: true });
         i = end + 1;
         continue;
       }

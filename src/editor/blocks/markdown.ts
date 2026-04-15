@@ -1,7 +1,5 @@
 const IMAGE_MARKDOWN_REGEX = /!\[([^\]]*)\]\(([^)]+?)(?:\s+=\d+x(?:\d+|\*))?\)/g;
 const MARKDOWN_ESCAPE_REGEX = /([*_\\])/g;
-const INLINE_SEGMENT_REGEX =
-  /(\*\*\*[^*]+\*\*\*|___[^_]+___|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|<u>[^<]+<\/u>)/;
 
 export function escapeHtml(text: string): string {
   return text
@@ -25,53 +23,125 @@ function restoreEscapes(text: string): string {
   return text.replace(/\uE000/g, "\\");
 }
 
+function findItalicClose(
+  text: string,
+  start: number,
+  marker: "*" | "_",
+): number {
+  let j = start;
+  while (j < text.length) {
+    const ch = text[j];
+    if (ch === "\uE000") {
+      j += 2;
+      continue;
+    }
+    if ((ch === "*" || ch === "_") && text[j + 1] === ch) {
+      const close = text.indexOf(ch + ch, j + 2);
+      if (close === -1) {
+        return -1;
+      }
+      j = close + 2;
+      continue;
+    }
+    if (ch === marker) {
+      return j;
+    }
+    j += 1;
+  }
+  return -1;
+}
+
+function parseInlineSegments(
+  normalized: string,
+  outer: { bold: boolean; italic: boolean; underline: boolean },
+): InlineSegment[] {
+  const result: InlineSegment[] = [];
+  let buffer = "";
+
+  const pushPlain = () => {
+    if (!buffer) return;
+    result.push({ text: restoreEscapes(buffer), styles: { ...outer } });
+    buffer = "";
+  };
+
+  const wrap = (
+    inner: string,
+    add: Partial<{ bold: boolean; italic: boolean; underline: boolean }>,
+  ) => {
+    pushPlain();
+    result.push(...parseInlineSegments(inner, { ...outer, ...add }));
+  };
+
+  let i = 0;
+  while (i < normalized.length) {
+    if (normalized.startsWith("***", i)) {
+      const end = normalized.indexOf("***", i + 3);
+      if (end !== -1) {
+        wrap(normalized.slice(i + 3, end), { bold: true, italic: true });
+        i = end + 3;
+        continue;
+      }
+    }
+    if (normalized.startsWith("___", i)) {
+      const end = normalized.indexOf("___", i + 3);
+      if (end !== -1) {
+        wrap(normalized.slice(i + 3, end), { bold: true, italic: true });
+        i = end + 3;
+        continue;
+      }
+    }
+    if (normalized.startsWith("**", i)) {
+      const end = normalized.indexOf("**", i + 2);
+      if (end !== -1) {
+        wrap(normalized.slice(i + 2, end), { bold: true });
+        i = end + 2;
+        continue;
+      }
+    }
+    if (normalized.startsWith("__", i)) {
+      const end = normalized.indexOf("__", i + 2);
+      if (end !== -1) {
+        wrap(normalized.slice(i + 2, end), { bold: true });
+        i = end + 2;
+        continue;
+      }
+    }
+    if (normalized.startsWith("<u>", i)) {
+      const end = normalized.indexOf("</u>", i + 3);
+      if (end !== -1) {
+        wrap(normalized.slice(i + 3, end), { underline: true });
+        i = end + 4;
+        continue;
+      }
+    }
+    if (normalized[i] === "*" || normalized[i] === "_") {
+      const marker = normalized[i] as "*" | "_";
+      const end = findItalicClose(normalized, i + 1, marker);
+      if (end !== -1) {
+        wrap(normalized.slice(i + 1, end), { italic: true });
+        i = end + 1;
+        continue;
+      }
+    }
+
+    buffer += normalized[i];
+    i += 1;
+  }
+
+  pushPlain();
+  return result;
+}
+
 function parseInlineMarkdown(text: string): InlineSegment[] {
   if (!text) {
     return [];
   }
 
   const normalized = text.replace(/\\([*_`~])/g, "\uE000$1");
-  const rawSegments = normalized.split(INLINE_SEGMENT_REGEX).filter(Boolean);
-
-  return rawSegments.map((segment) => {
-    const baseStyles = { bold: false, italic: false, underline: false };
-
-    if (/^\*\*\*(.+)\*\*\*$/.test(segment) || /^___(.+)___$/.test(segment)) {
-      const content = segment.slice(3, -3);
-      return {
-        text: restoreEscapes(content),
-        styles: { bold: true, italic: true, underline: false },
-      };
-    }
-
-    if (/^\*\*(.+)\*\*$/.test(segment) || /^__(.+)__$/.test(segment)) {
-      const content = segment.slice(2, -2);
-      return {
-        text: restoreEscapes(content),
-        styles: { ...baseStyles, bold: true },
-      };
-    }
-
-    if (/^\*(.+)\*$/.test(segment) || /^_(.+)_$/.test(segment)) {
-      const content = segment.slice(1, -1);
-      return {
-        text: restoreEscapes(content),
-        styles: { ...baseStyles, italic: true },
-      };
-    }
-
-    if (/^<u>(.+)<\/u>$/.test(segment)) {
-      const content = segment.slice(3, -4);
-      return {
-        text: restoreEscapes(content),
-        styles: { ...baseStyles, underline: true },
-      };
-    }
-
-    return {
-      text: restoreEscapes(segment),
-      styles: { ...baseStyles },
-    };
+  return parseInlineSegments(normalized, {
+    bold: false,
+    italic: false,
+    underline: false,
   });
 }
 
