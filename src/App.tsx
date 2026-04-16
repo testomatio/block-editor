@@ -364,20 +364,36 @@ function CustomSlashMenu() {
           offset(10),
           size({
             apply({ elements }) {
-              Object.assign(elements.floating.style, { maxHeight: "" });
+              Object.assign(elements.floating.style, { maxHeight: "", overflowY: "" });
             },
           }),
           flip({
+            padding: 10,
             fallbackPlacements: ["top-start"],
           }),
-          shift(),
-          size({
-            apply({ availableHeight, elements }) {
+          shift({ padding: 10 }),
+          {
+            name: "fitToViewport",
+            fn({ y, rects, elements }) {
+              const padding = 10;
+              if (y < padding) {
+                const bottomEdge = rects.reference.y - 10;
+                const maxHeight = Math.max(bottomEdge - padding, 100);
+                Object.assign(elements.floating.style, {
+                  maxHeight: `${maxHeight}px`,
+                  overflowY: "auto",
+                });
+                return { y: padding };
+              }
+              const viewportHeight = window.innerHeight;
+              const available = viewportHeight - y - padding;
               Object.assign(elements.floating.style, {
-                maxHeight: `${Math.max(availableHeight - 10, 0)}px`,
+                maxHeight: `${Math.max(available, 100)}px`,
+                overflowY: "auto",
               });
+              return {};
             },
-          }),
+          },
         ],
       }}
     />
