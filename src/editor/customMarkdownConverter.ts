@@ -60,7 +60,7 @@ const headingPrefixes: Record<number, string> = {
   6: "######",
 };
 
-const SPECIAL_CHAR_REGEX = /([*_`~\[\]()<\\])/g;
+const SPECIAL_CHAR_REGEX = /([*_`~()<\\])/g;
 const HTML_COMMENT_REGEX = /<!--[\s\S]*?-->/g;
 const HTML_SPAN_REGEX = /<\/?span[^>]*>/g;
 const HTML_UNDERLINE_REGEX = /<\/?u>/g;
@@ -84,6 +84,10 @@ function escapeMarkdown(text: string): string {
   return result;
 }
 
+function escapeStepContent(text: string): string {
+  return text.replace(/\./g, "\\.");
+}
+
 function stripHtmlWrappers(text: string): string {
   return text
     .replace(HTML_SPAN_REGEX, "")
@@ -100,7 +104,7 @@ function stripExpectedPrefix(text: string): string {
 
   const cleanupLeading = (value: string) => {
     let result = value.trimStart();
-    result = result.replace(/^\\+(?=[*_`~:[\]])/, "");
+    result = result.replace(/^\\+(?=[*_`~:])/, "");
     result = result.replace(/^(?:[*_`~]+)(?=\s|$)/, "");
     return result.trimStart();
   };
@@ -136,7 +140,7 @@ function stripLeadingFormatting(text: string): string {
 }
 
 function unescapeMarkdown(text: string): string {
-  return stripHtmlWrappers(text).replace(/\\([*_`~\[\]()<>\\])/g, "$1").replace(/\\>/g, ">");
+  return stripHtmlWrappers(text).replace(/\\([*_`~\[\]()<>.\\])/g, "$1").replace(/\\>/g, ">");
 }
 
 function applyTextStyles(text: string, styles: EditorStyles | undefined): string {
@@ -428,7 +432,7 @@ function serializeBlock(
       if (normalizedTitle.length > 0 || hasContent) {
         const listStyle = (block.props as any).listStyle ?? "bullet";
         const prefix = listStyle === "ordered" ? `${(stepIndex ?? 0) + 1}.` : "*";
-        lines.push(normalizedTitle.length > 0 ? `${prefix} ${normalizedTitle}` : `${prefix} `);
+        lines.push(normalizedTitle.length > 0 ? `${prefix} ${escapeStepContent(normalizedTitle)}` : `${prefix} `);
       }
 
       if (stepData.length > 0) {
@@ -436,7 +440,7 @@ function serializeBlock(
         dataLines.forEach((dataLine: string) => {
           const trimmedLine = dataLine.trim();
           if (trimmedLine.length > 0) {
-            lines.push(`  ${trimmedLine}`);
+            lines.push(`  ${escapeStepContent(trimmedLine)}`);
           } else {
             lines.push("  ");
           }
@@ -454,9 +458,9 @@ function serializeBlock(
           }
 
           if (index === 0) {
-            lines.push(`  ${label}: ${trimmedLine}`);
+            lines.push(`  ${label}: ${escapeStepContent(trimmedLine)}`);
           } else {
-            lines.push(`  ${trimmedLine}`);
+            lines.push(`  ${escapeStepContent(trimmedLine)}`);
           }
         });
       }
@@ -1017,6 +1021,7 @@ function parseTestStep(
   let next = index + 1;
   let inExpectedResult = false;
   let blankLineSeenOutsideCodeBlock = false;
+  let blankLineSeenInExpectedResult = false;
   const stepIndent = current.length - current.trimStart().length;
 
   while (next < lines.length) {
@@ -1026,13 +1031,14 @@ function parseTestStep(
     const rawTrimmed = line.trim();
 
     if (!rawTrimmed) {
-      if (stepDataLines.length > 0 || inExpectedResult) {
-        if (inExpectedResult) {
-          expectedResult += "\n";
-        } else {
+      if (inExpectedResult) {
+        expectedResult += "\n";
+        blankLineSeenInExpectedResult = true;
+      } else {
+        if (stepDataLines.length > 0) {
           stepDataLines.push("");
-          blankLineSeenOutsideCodeBlock = true;
         }
+        blankLineSeenOutsideCodeBlock = true;
       }
       next += 1;
       continue;
@@ -1130,7 +1136,13 @@ function parseTestStep(
     }
 
     if (inExpectedResult) {
-      // After finding the first expected result, indented lines are part of it
+      // After a blank line inside the expected result, a non-indented line
+      // belongs to the outer document (e.g. a trailing file block after the
+      // step list), so stop here and let the root parser handle it.
+      if (blankLineSeenInExpectedResult && !hasIndent) {
+        break;
+      }
+      // Otherwise, indented lines are part of the expected result
       if (hasIndent) {
         const expectedContent = unescapeMarkdown(rawTrimmed);
         if (expectedResult.length > 0) {

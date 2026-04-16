@@ -11,7 +11,7 @@ import {
   filterSuggestionItems,
   insertOrUpdateBlock,
 } from "@blocknote/core";
-import { autoPlacement, offset, shift, size } from "@floating-ui/react";
+import { flip, offset, shift, size } from "@floating-ui/react";
 import {
   blocksToMarkdown,
   markdownToBlocks,
@@ -362,8 +362,13 @@ function CustomSlashMenu() {
       floatingOptions={{
         middleware: [
           offset(10),
-          autoPlacement({
-            allowedPlacements: ["bottom-start", "top-start"],
+          size({
+            apply({ elements }) {
+              Object.assign(elements.floating.style, { maxHeight: "" });
+            },
+          }),
+          flip({
+            fallbackPlacements: ["top-start"],
           }),
           shift(),
           size({
