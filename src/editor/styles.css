@@ -951,6 +951,11 @@ html.dark .bn-step-image-preview__content {
   overflow-x: clip;
 }
 
+.bn-container .bn-suggestion-menu {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
 [data-tooltip] {
   position: relative;
 }
