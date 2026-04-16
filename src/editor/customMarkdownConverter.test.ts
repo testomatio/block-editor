@@ -196,10 +196,10 @@ describe("blocksToMarkdown", () => {
 
     expect(blocksToMarkdown(blocks)).toBe(
       [
-        "* Open the Login page.",
-        "  *Expected result*: The Login page loads successfully.",
-        "* Enter a valid username.",
-        "  *Expected result*: The username is accepted.",
+        "* Open the Login page\\.",
+        "  *Expected result*: The Login page loads successfully\\.",
+        "* Enter a valid username\\.",
+        "  *Expected result*: The username is accepted\\.",
       ].join("\n"),
     );
   });
@@ -417,7 +417,7 @@ describe("blocksToMarkdown", () => {
 
     expect(blocksToMarkdown(blocks)).toBe(
       [
-        "* Update an order status.",
+        "* Update an order status\\.",
         "  ```",
         "  SQL CREATE bnbmnbm mnbmb mm",
         "  mn,nm nm, m,nm,n,nn,m,",
@@ -428,8 +428,8 @@ describe("blocksToMarkdown", () => {
         "  ",
         "  asdsadas",
         "  ```",
-        "  ![](/attachments/HMhkVtlDrO.png)",
-        "  *Expected result*: The user receives a real-time notification for the order update.",
+        "  ![](/attachments/HMhkVtlDrO\\.png)",
+        "  *Expected result*: The user receives a real-time notification for the order update\\.",
       ].join("\n"),
     );
   });
@@ -1061,7 +1061,7 @@ describe("markdownToBlocks", () => {
 
     expect(markdownRoundTrip).toBe(
       [
-        "* Step 2: Update an order status.",
+        "* Step 2: Update an order status\\.",
         "  ```",
         "  SQL CREATE bnbmnbm mnbmb mm",
         "  mn,nm nm, m,nm,n,nn,m,",
@@ -1072,8 +1072,8 @@ describe("markdownToBlocks", () => {
         "  ",
         "  asdsadas",
         "  ```",
-        "  ![](/attachments/HMhkVtlDrO.png)",
-        "  *Expected result*: The user receives a real-time notification for the order update.",
+        "  ![](/attachments/HMhkVtlDrO\\.png)",
+        "  *Expected result*: The user receives a real-time notification for the order update\\.",
       ].join("\n"),
     );
   });
@@ -1385,8 +1385,8 @@ describe("markdownToBlocks", () => {
 
     expect(markdownRoundTrip).toBe(
       [
-        "* Display the generated report.",
-        "  *Expected result*: ![](/attachments/report.png)",
+        "* Display the generated report\\.",
+        "  *Expected result*: ![](/attachments/report\\.png)",
       ].join("\n"),
     );
   });
@@ -1434,7 +1434,7 @@ describe("markdownToBlocks", () => {
       [
         "* Should open login screen",
         "  *Expected result*: Login should look like this",
-        "  ![](/login.png)",
+        "  ![](/login\\.png)",
       ].join("\n"),
     );
   });
@@ -2136,10 +2136,10 @@ describe("markdownToBlocks", () => {
 
     // Test round-trip conversion — numbered steps preserve their ordered style
     const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
-    expect(roundTripMarkdown).toContain("1. Navigate to the product listing page.");
-    expect(roundTripMarkdown).toContain("2. Select a product and click the \"Add to Cart\" button.");
-    expect(roundTripMarkdown).toContain("3. Open the shopping cart page.");
-    expect(roundTripMarkdown).toContain("4. Verify that the added item is displayed with the correct name, price, and quantity.");
+    expect(roundTripMarkdown).toContain("1. Navigate to the product listing page\\.");
+    expect(roundTripMarkdown).toContain("2. Select a product and click the \"Add to Cart\" button\\.");
+    expect(roundTripMarkdown).toContain("3. Open the shopping cart page\\.");
+    expect(roundTripMarkdown).toContain("4. Verify that the added item is displayed with the correct name, price, and quantity\\.");
     // Check that step data is preserved
     expect(roundTripMarkdown).toContain("  Expected open");
     expect(roundTripMarkdown).toContain("  Expected result close");
