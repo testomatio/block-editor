@@ -1098,6 +1098,85 @@ describe("markdownToBlocks", () => {
     });
   });
 
+  it("does not include a file block after a blank line in step with expected result", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Open the Login page.",
+      "  *Expected*: The Login page loads successfully.",
+      "",
+      "[![report.pdf](/images/file-type-icons/pdf.svg)](https://example.com/file.pdf)",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    const fileBlocks = blocks.filter((b) => b.type === "file");
+
+    expect(stepBlocks).toHaveLength(1);
+    expect(stepBlocks[0].props).toMatchObject({
+      stepTitle: "Open the Login page.",
+      stepData: "",
+    });
+    expect(((stepBlocks[0].props as any).expectedResult ?? "").trim()).toBe(
+      "The Login page loads successfully.",
+    );
+
+    expect(fileBlocks).toHaveLength(1);
+    expect((fileBlocks[0].props as any).url).toBe("https://example.com/file.pdf");
+    expect((fileBlocks[0].props as any).name).toBe("report.pdf");
+  });
+
+  it("does not include a file block after a blank line in step with step data", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Open the Login page.",
+      "  Enter credentials",
+      "",
+      "[![report.pdf](/images/file-type-icons/pdf.svg)](https://example.com/file.pdf)",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    const fileBlocks = blocks.filter((b) => b.type === "file");
+
+    expect(stepBlocks).toHaveLength(1);
+    expect(stepBlocks[0].props).toMatchObject({
+      stepTitle: "Open the Login page.",
+      stepData: "Enter credentials",
+      expectedResult: "",
+    });
+
+    expect(fileBlocks).toHaveLength(1);
+    expect((fileBlocks[0].props as any).url).toBe("https://example.com/file.pdf");
+    expect((fileBlocks[0].props as any).name).toBe("report.pdf");
+  });
+
+  it("does not include a file block after a blank line in step with title only", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Open the Login page.",
+      "",
+      "[![report.pdf](/images/file-type-icons/pdf.svg)](https://example.com/file.pdf)",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    const fileBlocks = blocks.filter((b) => b.type === "file");
+
+    expect(stepBlocks).toHaveLength(1);
+    expect(stepBlocks[0].props).toMatchObject({
+      stepTitle: "Open the Login page.",
+      stepData: "",
+      expectedResult: "",
+    });
+
+    expect(fileBlocks).toHaveLength(1);
+    expect((fileBlocks[0].props as any).url).toBe("https://example.com/file.pdf");
+    expect((fileBlocks[0].props as any).name).toBe("report.pdf");
+  });
+
   it("parses bullet lists written with asterisk markers", () => {
     const markdown = [
       "### Preconditions",

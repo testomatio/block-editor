@@ -1017,6 +1017,7 @@ function parseTestStep(
   let next = index + 1;
   let inExpectedResult = false;
   let blankLineSeenOutsideCodeBlock = false;
+  let blankLineSeenInExpectedResult = false;
   const stepIndent = current.length - current.trimStart().length;
 
   while (next < lines.length) {
@@ -1026,13 +1027,14 @@ function parseTestStep(
     const rawTrimmed = line.trim();
 
     if (!rawTrimmed) {
-      if (stepDataLines.length > 0 || inExpectedResult) {
-        if (inExpectedResult) {
-          expectedResult += "\n";
-        } else {
+      if (inExpectedResult) {
+        expectedResult += "\n";
+        blankLineSeenInExpectedResult = true;
+      } else {
+        if (stepDataLines.length > 0) {
           stepDataLines.push("");
-          blankLineSeenOutsideCodeBlock = true;
         }
+        blankLineSeenOutsideCodeBlock = true;
       }
       next += 1;
       continue;
@@ -1130,7 +1132,13 @@ function parseTestStep(
     }
 
     if (inExpectedResult) {
-      // After finding the first expected result, indented lines are part of it
+      // After a blank line inside the expected result, a non-indented line
+      // belongs to the outer document (e.g. a trailing file block after the
+      // step list), so stop here and let the root parser handle it.
+      if (blankLineSeenInExpectedResult && !hasIndent) {
+        break;
+      }
+      // Otherwise, indented lines are part of the expected result
       if (hasIndent) {
         const expectedContent = unescapeMarkdown(rawTrimmed);
         if (expectedResult.length > 0) {
