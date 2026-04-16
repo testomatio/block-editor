@@ -1309,63 +1309,15 @@ function parseQuote(lines: string[], index: number): { block: CustomPartialBlock
 }
 
 function parseParagraph(lines: string[], index: number): { block: CustomPartialBlock; nextIndex: number } {
-  const buffer: string[] = [];
-  let next = index;
-
-  const isTermination = (line: string) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      return true;
-    }
-    if (trimmed.startsWith(":::test-case")) {
-      return true;
-    }
-    if (trimmed.startsWith("* ")) {
-      return true;
-    }
-    if (trimmed.startsWith("#")) {
-      return true;
-    }
-    if (trimmed.startsWith(">")) {
-      return true;
-    }
-    if (trimmed.startsWith("```") ) {
-      return true;
-    }
-    if (detectListType(trimmed)) {
-      return true;
-    }
-    return false;
-  };
-
-  while (next < lines.length) {
-    const line = lines[next];
-    if (
-      isTableRowLine(line) &&
-      next + 1 < lines.length &&
-      isSeparatorRow(lines[next + 1])
-    ) {
-      break;
-    }
-    if (isTermination(line) && buffer.length > 0) {
-      break;
-    }
-    if (!line.trim()) {
-      next += 1;
-      break;
-    }
-    buffer.push(line.trim());
-    next += 1;
-  }
-
+  const line = lines[index];
   return {
     block: {
       type: "paragraph",
       props: cloneBaseProps(),
-      content: createTextContent(unescapeMarkdown(buffer.join(" "))),
+      content: createTextContent(unescapeMarkdown(line.trim())),
       children: [],
     },
-    nextIndex: next,
+    nextIndex: index + 1,
   };
 }
 

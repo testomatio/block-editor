@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { markdownToBlocks } from "./customMarkdownConverter";
+import { markdownToBlocks, blocksToMarkdown } from "./customMarkdownConverter";
 
 const baseProps = {
   textAlignment: "left" as const,
@@ -129,6 +129,37 @@ describe("markdownToBlocks", () => {
       content: [{ type: "text", text: "Simple paragraph text", styles: {} }],
       children: [],
     });
+  });
+
+  it("treats each consecutive text line as a separate paragraph block", () => {
+    const markdown = "One line\nAnother line\nThird line";
+    const blocks = markdownToBlocks(markdown);
+
+    expect(blocks).toHaveLength(3);
+    expect(blocks[0]).toEqual({
+      type: "paragraph",
+      props: baseProps,
+      content: [{ type: "text", text: "One line", styles: {} }],
+      children: [],
+    });
+    expect(blocks[1]).toEqual({
+      type: "paragraph",
+      props: baseProps,
+      content: [{ type: "text", text: "Another line", styles: {} }],
+      children: [],
+    });
+    expect(blocks[2]).toEqual({
+      type: "paragraph",
+      props: baseProps,
+      content: [{ type: "text", text: "Third line", styles: {} }],
+      children: [],
+    });
+  });
+
+  it("round-trips consecutive text lines through blocksToMarkdown", () => {
+    const markdown = "One line\nAnother line\nThird line";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as any)).toBe("One line\nAnother line\nThird line");
   });
 
   it("parses combined bold+italic using nested delimiters", () => {
