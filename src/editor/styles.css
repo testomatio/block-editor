@@ -260,6 +260,26 @@ html.dark .bn-step-image-preview__content {
   background: #262626;
 }
 
+html.dark [data-file-block] .bn-add-file-button {
+  background-color: #262626;
+  color: #a3a3a3;
+}
+
+html.dark .bn-editor[contenteditable="true"] [data-file-block] .bn-add-file-button:hover,
+html.dark [data-file-block] .bn-file-name-with-icon:hover,
+html.dark .ProseMirror-selectednode .bn-file-name-with-icon {
+  background-color: #333333;
+}
+
+html.dark .bn-step-editor .overtype-wrapper .overtype-preview code.step-preview-code {
+  color: rgba(251, 191, 36, 1) !important;
+}
+
+html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-link,
+html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-link::selection {
+  color: rgba(129, 140, 248, 1) !important;
+}
+
 .testomatio-editor {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
