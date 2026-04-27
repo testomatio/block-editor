@@ -62,7 +62,7 @@ describe("blocksToMarkdown", () => {
     expect(blocksToMarkdown(blocks)).toBe("<!-- ai/agent generated description -->");
   });
 
-  it("preserves HTML comments inline among text and still escapes stray angle brackets", () => {
+  it("preserves HTML comments inline among text without escaping stray angle brackets", () => {
     const blocks: CustomEditorBlock[] = [
       {
         id: "c2",
@@ -75,7 +75,98 @@ describe("blocksToMarkdown", () => {
       },
     ];
 
-    expect(blocksToMarkdown(blocks)).toBe("before <!-- note --> after \\<div>");
+    expect(blocksToMarkdown(blocks)).toBe("before <!-- note --> after <div>");
+  });
+
+  it("does not escape `<` in plain text (e.g. comparison operators)", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "p_lt",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "< 768px is mobile", styles: {} },
+        ],
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe("< 768px is mobile");
+  });
+
+  it("does not escape `<` in table cells (viewport breakpoints case)", () => {
+    const markdown = [
+      "| Viewport Width | Layout Expected | Nav Behavior |",
+      "| --- | --- | --- |",
+      "| < 768px | Single column | Hamburger menu |",
+      "| 768px – 1024px | Two column | Collapsed sidebar |",
+      "| > 1024px | Full desktop layout | Full nav visible |",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const out = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(out).toBe(markdown);
+    expect(out).not.toContain("\\<");
+  });
+
+  it("does not escape markdown chars inside inline code", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "p_code",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "**bold**", styles: { code: true } },
+        ],
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe("`**bold**`");
+  });
+
+  it("does not escape markdown chars inside inline code in a table (syntax/rendered case)", () => {
+    const markdown = [
+      "| Syntax | Rendered As |",
+      "| --- | --- |",
+      "| `**bold**` | **bold** |",
+      "| `*italic*` | _italic_ |",
+      "| `~~strike~~` | ~~strike~~ |",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const out = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(out).toBe(markdown);
+    expect(out).not.toMatch(/\\[*_~]/);
+  });
+
+  it("does not escape markdown chars inside fenced code blocks", () => {
+    const markdown = [
+      "```",
+      "**bold** _italic_ ~~strike~~ <div>",
+      "```",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const out = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(out).toBe(markdown);
+    expect(out).not.toMatch(/\\[*_~<]/);
+  });
+
+  it("still escapes literal backticks inside inline code", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "p_tick",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "a`b", styles: { code: true } },
+        ],
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe("`a\\`b`");
   });
 
   it("places bold markers outside leading/trailing spaces", () => {

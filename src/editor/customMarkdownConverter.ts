@@ -60,7 +60,7 @@ const headingPrefixes: Record<number, string> = {
   6: "######",
 };
 
-const SPECIAL_CHAR_REGEX = /([*_`~()<\\])/g;
+const SPECIAL_CHAR_REGEX = /([*_`~()\\])/g;
 const HTML_COMMENT_REGEX = /<!--[\s\S]*?-->/g;
 const HTML_SPAN_REGEX = /<\/?span[^>]*>/g;
 const HTML_UNDERLINE_REGEX = /<\/?u>/g;
@@ -234,7 +234,9 @@ function inlineToMarkdown(content: CustomEditorBlock["content"]): string {
         i += 2;
         continue;
       }
-      result.push(applyTextStyles(escapeMarkdown(item.text), item.styles));
+      const isCode = (item.styles as any)?.code === true;
+      const rendered = isCode ? item.text : escapeMarkdown(item.text);
+      result.push(applyTextStyles(rendered, item.styles));
       i += 1;
       continue;
     }
@@ -334,7 +336,7 @@ function serializeBlock(
     case "codeBlock": {
       const language = (block.props as any).language || "";
       const fence = "```" + language;
-      const body = inlineToMarkdown(block.content);
+      const body = inlineContentToPlainText(block.content);
       lines.push(fence);
       if (body.length > 0) {
         lines.push(body);
