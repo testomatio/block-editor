@@ -109,6 +109,66 @@ describe("blocksToMarkdown", () => {
     expect(out).not.toContain("\\<");
   });
 
+  it("does not escape markdown chars inside inline code", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "p_code",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "**bold**", styles: { code: true } },
+        ],
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe("`**bold**`");
+  });
+
+  it("does not escape markdown chars inside inline code in a table (syntax/rendered case)", () => {
+    const markdown = [
+      "| Syntax | Rendered As |",
+      "| --- | --- |",
+      "| `**bold**` | **bold** |",
+      "| `*italic*` | _italic_ |",
+      "| `~~strike~~` | ~~strike~~ |",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const out = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(out).toBe(markdown);
+    expect(out).not.toMatch(/\\[*_~]/);
+  });
+
+  it("does not escape markdown chars inside fenced code blocks", () => {
+    const markdown = [
+      "```",
+      "**bold** _italic_ ~~strike~~ <div>",
+      "```",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const out = blocksToMarkdown(blocks as CustomEditorBlock[]);
+    expect(out).toBe(markdown);
+    expect(out).not.toMatch(/\\[*_~<]/);
+  });
+
+  it("still escapes literal backticks inside inline code", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "p_tick",
+        type: "paragraph",
+        props: baseProps,
+        content: [
+          { type: "text", text: "a`b", styles: { code: true } },
+        ],
+        children: [],
+      },
+    ];
+
+    expect(blocksToMarkdown(blocks)).toBe("`a\\`b`");
+  });
+
   it("places bold markers outside leading/trailing spaces", () => {
     const blocks: CustomEditorBlock[] = [
       {
