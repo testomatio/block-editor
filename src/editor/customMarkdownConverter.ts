@@ -60,7 +60,7 @@ const headingPrefixes: Record<number, string> = {
   6: "######",
 };
 
-const SPECIAL_CHAR_REGEX = /([*_`~()<\\])/g;
+const SPECIAL_CHAR_REGEX = /([*_`~()\\])/g;
 const HTML_COMMENT_REGEX = /<!--[\s\S]*?-->/g;
 const HTML_SPAN_REGEX = /<\/?span[^>]*>/g;
 const HTML_UNDERLINE_REGEX = /<\/?u>/g;
