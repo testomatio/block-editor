@@ -845,6 +845,11 @@ function parseList(
 ): ListParseResult {
   const items: CustomPartialBlock[] = [];
   let index = startIndex;
+  // The minimum leading-space count for items at this list level. Initialized to
+  // the parent's expected indent, but updated to the first item's actual indent
+  // so a uniformly indented list stays flat instead of nesting under itself.
+  let baseIndent = indentLevel * 2;
+  let firstItemSeen = false;
 
   while (index < lines.length) {
     const rawLine = lines[index];
@@ -864,7 +869,7 @@ function parseList(
       }
       const nextLine = lines[lookahead];
       const nextIndent = countIndent(nextLine);
-      if (nextIndent < indentLevel * 2) {
+      if (nextIndent < baseIndent) {
         break;
       }
       const nextType = detectListType(nextLine.trim());
@@ -877,14 +882,17 @@ function parseList(
 
     let indent = countIndent(rawLine);
 
-    if (indent < indentLevel * 2) {
+    if (indent < baseIndent) {
       break;
     }
 
-    // Check if this line should be parsed as nested content
-    // Only go deeper if indent is at least 2 more than the next level's expected indent
-    const nextLevelExpectedIndent = (indentLevel + 1) * 2;
-    if (indent >= nextLevelExpectedIndent && items.length > 0) {
+    if (!firstItemSeen) {
+      baseIndent = indent;
+      firstItemSeen = true;
+    }
+
+    // Only go deeper if indent is at least 2 more than this list's base indent
+    if (indent >= baseIndent + 2 && items.length > 0) {
       const lastItem = items.at(-1);
       if (!lastItem) {
         break;

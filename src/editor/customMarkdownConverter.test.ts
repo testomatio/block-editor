@@ -1412,6 +1412,25 @@ describe("markdownToBlocks", () => {
     expect(nestedChildren.some((child) => child.type === "bulletListItem")).toBe(true);
   });
 
+  it("parses a uniformly indented list as a flat top-level list", () => {
+    const markdown = [
+      "# Requirements",
+      "",
+      "    * User has an active account on the platform.",
+      "    * User has sufficient funds in the source account.",
+      "    * QR code contains valid transfer details and is scannable.",
+      "    * The device has camera access and QR scanning capability.",
+      "    * The user is authenticated and authorized to perform transfers.",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const bulletItems = blocks.filter((b) => b.type === "bulletListItem");
+    expect(bulletItems).toHaveLength(5);
+    for (const item of bulletItems) {
+      expect(item.children ?? []).toEqual([]);
+    }
+  });
+
   it("does not freeze on indented list items without a parent", () => {
     const markdown = [
       "### Requirements",
