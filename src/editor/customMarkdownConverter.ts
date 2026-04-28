@@ -1258,7 +1258,24 @@ function parseCodeBlock(lines: string[], index: number): { block: CustomPartialB
     return null;
   }
 
-  const language = trimmed.slice(3).trim();
+  const afterOpening = trimmed.slice(3);
+  const closeMatch = afterOpening.match(/```\s*$/);
+  if (closeMatch) {
+    const content = afterOpening.slice(0, afterOpening.length - closeMatch[0].length);
+    return {
+      block: {
+        type: "codeBlock",
+        props: { language: "" },
+        content: content.length
+          ? [{ type: "text", text: content, styles: {} }]
+          : undefined,
+        children: [],
+      },
+      nextIndex: index + 1,
+    };
+  }
+
+  const language = afterOpening.trim();
   const body: string[] = [];
   let next = index + 1;
   while (next < lines.length && !lines[next].startsWith("```") ) {

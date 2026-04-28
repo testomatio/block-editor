@@ -2503,6 +2503,59 @@ describe("markdownToBlocks", () => {
     // Most importantly: should not have a standalone "!" at the end
     expect(roundTripMarkdown).not.toMatch(/\n!\s*$/);
   });
+
+  it("parses a single-line fenced code block", () => {
+    const markdown = "```{{baseURL}}/endpoint?query_param_one=value_one&query_param_two=value_two```";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toEqual([
+      {
+        type: "codeBlock",
+        props: { language: "" },
+        content: [
+          {
+            type: "text",
+            text: "{{baseURL}}/endpoint?query_param_one=value_one&query_param_two=value_two",
+            styles: {},
+          },
+        ],
+        children: [],
+      },
+    ]);
+  });
+
+  it("parses an empty single-line fence without swallowing following lines", () => {
+    const markdown = ["``````", "next line"].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toEqual({
+      type: "codeBlock",
+      props: { language: "" },
+      content: undefined,
+      children: [],
+    });
+    expect(blocks[1].type).toBe("paragraph");
+  });
+
+  it("normalizes a single-line fenced code block to multi-line on round-trip", () => {
+    const markdown = "```hello world```";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(
+      ["```", "hello world", "```"].join("\n"),
+    );
+  });
+
+  it("still treats an opening fence with a language identifier as multi-line", () => {
+    const markdown = ["```js", "const x = 1;", "```"].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toEqual([
+      {
+        type: "codeBlock",
+        props: { language: "js" },
+        content: [{ type: "text", text: "const x = 1;", styles: {} }],
+        children: [],
+      },
+    ]);
+  });
 });
 
 describe("file block serialization", () => {
