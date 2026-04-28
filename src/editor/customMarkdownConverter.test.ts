@@ -921,7 +921,7 @@ describe("markdownToBlocks", () => {
     ].join("\n");
 
     const firstPass = markdownToBlocks(markdown);
-    const serialized = blocksToMarkdown(firstPass);
+    const serialized = blocksToMarkdown(firstPass as CustomEditorBlock[]);
     const secondPass = markdownToBlocks(serialized);
 
     const firstSteps = firstPass.filter((b) => b.type === "testStep");
