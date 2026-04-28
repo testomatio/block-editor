@@ -845,6 +845,11 @@ function parseList(
 ): ListParseResult {
   const items: CustomPartialBlock[] = [];
   let index = startIndex;
+  // The minimum leading-space count for items at this list level. Initialized to
+  // the parent's expected indent, but updated to the first item's actual indent
+  // so a uniformly indented list stays flat instead of nesting under itself.
+  let baseIndent = indentLevel * 2;
+  let firstItemSeen = false;
 
   while (index < lines.length) {
     const rawLine = lines[index];
@@ -864,7 +869,7 @@ function parseList(
       }
       const nextLine = lines[lookahead];
       const nextIndent = countIndent(nextLine);
-      if (nextIndent < indentLevel * 2) {
+      if (nextIndent < baseIndent) {
         break;
       }
       const nextType = detectListType(nextLine.trim());
@@ -877,14 +882,17 @@ function parseList(
 
     let indent = countIndent(rawLine);
 
-    if (indent < indentLevel * 2) {
+    if (indent < baseIndent) {
       break;
     }
 
-    // Check if this line should be parsed as nested content
-    // Only go deeper if indent is at least 2 more than the next level's expected indent
-    const nextLevelExpectedIndent = (indentLevel + 1) * 2;
-    if (indent >= nextLevelExpectedIndent && items.length > 0) {
+    if (!firstItemSeen) {
+      baseIndent = indent;
+      firstItemSeen = true;
+    }
+
+    // Only go deeper if indent is at least 2 more than this list's base indent
+    if (indent >= baseIndent + 2 && items.length > 0) {
       const lastItem = items.at(-1);
       if (!lastItem) {
         break;
@@ -1063,11 +1071,18 @@ function parseTestStep(
       break;
     }
 
-    // Check for expected result labels with different formatting
-    const expectedMatch = rawTrimmed.match(EXPECTED_LABEL_REGEX);
-    const expectedStarMatch = rawTrimmed.match(/^\*expected\s*\*:\s*(.*)$/i) ||
-                               rawTrimmed.match(/^\*expected\*:\s*(.*)$/i) ||
-                               rawTrimmed.match(/^\*{1,2}expected\s*:\*{1,2}\s*(.*)$/i);
+    // Check for expected result labels with different formatting.
+    // Strip an optional leading bullet marker so patterns like
+    // "* *Expected*: ..." (a sub-bullet with an italic Expected label) are
+    // recognized via the same matchers as the bare label forms.
+    const bulletPrefixMatch = rawTrimmed.match(/^[*-]\s+/);
+    const lineForExpectedCheck = bulletPrefixMatch
+      ? rawTrimmed.slice(bulletPrefixMatch[0].length)
+      : rawTrimmed;
+    const expectedMatch = lineForExpectedCheck.match(EXPECTED_LABEL_REGEX);
+    const expectedStarMatch = lineForExpectedCheck.match(/^\*expected\s*\*:\s*(.*)$/i) ||
+                               lineForExpectedCheck.match(/^\*expected\*:\s*(.*)$/i) ||
+                               lineForExpectedCheck.match(/^\*{1,2}expected\s*:\*{1,2}\s*(.*)$/i);
 
     if (expectedMatch || expectedStarMatch) {
       inExpectedResult = true;
@@ -1076,7 +1091,7 @@ function parseTestStep(
       if (expectedStarMatch) {
         content = (expectedStarMatch[1] || '').trim();
       } else {
-        content = rawTrimmed.slice(expectedMatch![0].length).trim();
+        content = lineForExpectedCheck.slice(expectedMatch![0].length).trim();
       }
 
       // Add the content (if any) from this line
@@ -1258,7 +1273,24 @@ function parseCodeBlock(lines: string[], index: number): { block: CustomPartialB
     return null;
   }
 
-  const language = trimmed.slice(3).trim();
+  const afterOpening = trimmed.slice(3);
+  const closeMatch = afterOpening.match(/```\s*$/);
+  if (closeMatch) {
+    const content = afterOpening.slice(0, afterOpening.length - closeMatch[0].length);
+    return {
+      block: {
+        type: "codeBlock",
+        props: { language: "" },
+        content: content.length
+          ? [{ type: "text", text: content, styles: {} }]
+          : undefined,
+        children: [],
+      },
+      nextIndex: index + 1,
+    };
+  }
+
+  const language = afterOpening.trim();
   const body: string[] = [];
   let next = index + 1;
   while (next < lines.length && !lines[next].startsWith("```") ) {

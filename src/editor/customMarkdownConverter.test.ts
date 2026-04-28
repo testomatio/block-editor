@@ -849,6 +849,86 @@ describe("markdownToBlocks", () => {
     ]);
   });
 
+  it("parses sub-bulleted *Expected*: lines as the step's expected result", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Navigate to the “Transfer Funds” page.",
+      "  * *Expected*: The Transfer Funds page loads, showing fields for source account, destination account, and amount.",
+      "",
+      "* Select the user’s own source account from the dropdown list.",
+      "  * *Expected*: The selected account is displayed and its current balance is shown.",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Navigate to the “Transfer Funds” page.",
+          stepData: "",
+          expectedResult:
+            "The Transfer Funds page loads, showing fields for source account, destination account, and amount.\n",
+          listStyle: "bullet",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Select the user’s own source account from the dropdown list.",
+          stepData: "",
+          expectedResult:
+            "The selected account is displayed and its current balance is shown.",
+          listStyle: "bullet",
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("parses sub-bulleted **Expected**: (bold) lines as the step's expected result", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Open the Login page.",
+      "  * **Expected**: The Login page loads successfully.",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Open the Login page.",
+          stepData: "",
+          expectedResult: "The Login page loads successfully.",
+          listStyle: "bullet",
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("round-trips sub-bulleted *Expected*: lines through the canonical serialized form", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Navigate to the “Transfer Funds” page.",
+      "  * *Expected*: The Transfer Funds page loads.",
+    ].join("\n");
+
+    const firstPass = markdownToBlocks(markdown);
+    const serialized = blocksToMarkdown(firstPass as CustomEditorBlock[]);
+    const secondPass = markdownToBlocks(serialized);
+
+    const firstSteps = firstPass.filter((b) => b.type === "testStep");
+    const secondSteps = secondPass.filter((b) => b.type === "testStep");
+    expect(secondSteps).toEqual(firstSteps);
+  });
+
   it("parses a step with empty title but with step data", () => {
     const markdown = ["### Steps", "", "* ", "  Navigate to the page"].join("\n");
 
@@ -1330,6 +1410,25 @@ describe("markdownToBlocks", () => {
     expect(numbered).not.toHaveLength(0);
     const nestedChildren = numbered.flatMap((block) => block.children ?? []);
     expect(nestedChildren.some((child) => child.type === "bulletListItem")).toBe(true);
+  });
+
+  it("parses a uniformly indented list as a flat top-level list", () => {
+    const markdown = [
+      "# Requirements",
+      "",
+      "    * User has an active account on the platform.",
+      "    * User has sufficient funds in the source account.",
+      "    * QR code contains valid transfer details and is scannable.",
+      "    * The device has camera access and QR scanning capability.",
+      "    * The user is authenticated and authorized to perform transfers.",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const bulletItems = blocks.filter((b) => b.type === "bulletListItem");
+    expect(bulletItems).toHaveLength(5);
+    for (const item of bulletItems) {
+      expect(item.children ?? []).toEqual([]);
+    }
   });
 
   it("does not freeze on indented list items without a parent", () => {
@@ -2502,6 +2601,59 @@ describe("markdownToBlocks", () => {
 
     // Most importantly: should not have a standalone "!" at the end
     expect(roundTripMarkdown).not.toMatch(/\n!\s*$/);
+  });
+
+  it("parses a single-line fenced code block", () => {
+    const markdown = "```{{baseURL}}/endpoint?query_param_one=value_one&query_param_two=value_two```";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toEqual([
+      {
+        type: "codeBlock",
+        props: { language: "" },
+        content: [
+          {
+            type: "text",
+            text: "{{baseURL}}/endpoint?query_param_one=value_one&query_param_two=value_two",
+            styles: {},
+          },
+        ],
+        children: [],
+      },
+    ]);
+  });
+
+  it("parses an empty single-line fence without swallowing following lines", () => {
+    const markdown = ["``````", "next line"].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toEqual({
+      type: "codeBlock",
+      props: { language: "" },
+      content: undefined,
+      children: [],
+    });
+    expect(blocks[1].type).toBe("paragraph");
+  });
+
+  it("normalizes a single-line fenced code block to multi-line on round-trip", () => {
+    const markdown = "```hello world```";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(
+      ["```", "hello world", "```"].join("\n"),
+    );
+  });
+
+  it("still treats an opening fence with a language identifier as multi-line", () => {
+    const markdown = ["```js", "const x = 1;", "```"].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toEqual([
+      {
+        type: "codeBlock",
+        props: { language: "js" },
+        content: [{ type: "text", text: "const x = 1;", styles: {} }],
+        children: [],
+      },
+    ]);
   });
 });
 
