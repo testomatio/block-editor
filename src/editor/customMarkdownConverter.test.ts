@@ -849,6 +849,86 @@ describe("markdownToBlocks", () => {
     ]);
   });
 
+  it("parses sub-bulleted *Expected*: lines as the step's expected result", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Navigate to the “Transfer Funds” page.",
+      "  * *Expected*: The Transfer Funds page loads, showing fields for source account, destination account, and amount.",
+      "",
+      "* Select the user’s own source account from the dropdown list.",
+      "  * *Expected*: The selected account is displayed and its current balance is shown.",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Navigate to the “Transfer Funds” page.",
+          stepData: "",
+          expectedResult:
+            "The Transfer Funds page loads, showing fields for source account, destination account, and amount.\n",
+          listStyle: "bullet",
+        },
+        children: [],
+      },
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Select the user’s own source account from the dropdown list.",
+          stepData: "",
+          expectedResult:
+            "The selected account is displayed and its current balance is shown.",
+          listStyle: "bullet",
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("parses sub-bulleted **Expected**: (bold) lines as the step's expected result", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Open the Login page.",
+      "  * **Expected**: The Login page loads successfully.",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown);
+    const stepBlocks = blocks.filter((b) => b.type === "testStep");
+    expect(stepBlocks).toEqual([
+      {
+        type: "testStep",
+        props: {
+          stepTitle: "Open the Login page.",
+          stepData: "",
+          expectedResult: "The Login page loads successfully.",
+          listStyle: "bullet",
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("round-trips sub-bulleted *Expected*: lines through the canonical serialized form", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Navigate to the “Transfer Funds” page.",
+      "  * *Expected*: The Transfer Funds page loads.",
+    ].join("\n");
+
+    const firstPass = markdownToBlocks(markdown);
+    const serialized = blocksToMarkdown(firstPass);
+    const secondPass = markdownToBlocks(serialized);
+
+    const firstSteps = firstPass.filter((b) => b.type === "testStep");
+    const secondSteps = secondPass.filter((b) => b.type === "testStep");
+    expect(secondSteps).toEqual(firstSteps);
+  });
+
   it("parses a step with empty title but with step data", () => {
     const markdown = ["### Steps", "", "* ", "  Navigate to the page"].join("\n");
 

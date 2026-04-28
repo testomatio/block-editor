@@ -1063,11 +1063,18 @@ function parseTestStep(
       break;
     }
 
-    // Check for expected result labels with different formatting
-    const expectedMatch = rawTrimmed.match(EXPECTED_LABEL_REGEX);
-    const expectedStarMatch = rawTrimmed.match(/^\*expected\s*\*:\s*(.*)$/i) ||
-                               rawTrimmed.match(/^\*expected\*:\s*(.*)$/i) ||
-                               rawTrimmed.match(/^\*{1,2}expected\s*:\*{1,2}\s*(.*)$/i);
+    // Check for expected result labels with different formatting.
+    // Strip an optional leading bullet marker so patterns like
+    // "* *Expected*: ..." (a sub-bullet with an italic Expected label) are
+    // recognized via the same matchers as the bare label forms.
+    const bulletPrefixMatch = rawTrimmed.match(/^[*-]\s+/);
+    const lineForExpectedCheck = bulletPrefixMatch
+      ? rawTrimmed.slice(bulletPrefixMatch[0].length)
+      : rawTrimmed;
+    const expectedMatch = lineForExpectedCheck.match(EXPECTED_LABEL_REGEX);
+    const expectedStarMatch = lineForExpectedCheck.match(/^\*expected\s*\*:\s*(.*)$/i) ||
+                               lineForExpectedCheck.match(/^\*expected\*:\s*(.*)$/i) ||
+                               lineForExpectedCheck.match(/^\*{1,2}expected\s*:\*{1,2}\s*(.*)$/i);
 
     if (expectedMatch || expectedStarMatch) {
       inExpectedResult = true;
@@ -1076,7 +1083,7 @@ function parseTestStep(
       if (expectedStarMatch) {
         content = (expectedStarMatch[1] || '').trim();
       } else {
-        content = rawTrimmed.slice(expectedMatch![0].length).trim();
+        content = lineForExpectedCheck.slice(expectedMatch![0].length).trim();
       }
 
       // Add the content (if any) from this line
