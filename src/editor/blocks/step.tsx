@@ -108,11 +108,6 @@ export function addStepsBlock(editor: {
   insertBlocks: (blocks: any[], referenceId: string, placement: "before" | "after") => any[];
 }): string | null {
   const allBlocks = editor.document;
-  const emptyStep = {
-    type: "testStep" as const,
-    props: { stepTitle: "", stepData: "", expectedResult: "" },
-    children: [],
-  };
 
   let stepsHeadingIndex = -1;
   for (let i = 0; i < allBlocks.length; i++) {
@@ -142,7 +137,17 @@ export function addStepsBlock(editor: {
       if (isEmptyParagraph(b)) continue;
       break;
     }
-    const inserted = editor.insertBlocks([emptyStep], allBlocks[lastIndex].id, "after");
+    const previousStep = allBlocks[lastIndex];
+    const inheritedListStyle =
+      previousStep?.type === "testStep"
+        ? ((previousStep.props as any)?.listStyle ?? "bullet")
+        : "bullet";
+    const emptyStep = {
+      type: "testStep" as const,
+      props: { stepTitle: "", stepData: "", expectedResult: "", listStyle: inheritedListStyle },
+      children: [],
+    };
+    const inserted = editor.insertBlocks([emptyStep], previousStep.id, "after");
     return inserted?.[0]?.id ?? null;
   }
 
@@ -151,6 +156,11 @@ export function addStepsBlock(editor: {
     type: "heading" as const,
     props: { level: 3 },
     content: [{ type: "text" as const, text: "Steps" }],
+    children: [],
+  };
+  const emptyStep = {
+    type: "testStep" as const,
+    props: { stepTitle: "", stepData: "", expectedResult: "" },
     children: [],
   };
   const inserted = editor.insertBlocks([stepsHeading, emptyStep], lastBlock.id, "after");
@@ -399,6 +409,7 @@ export const stepBlock = createReactBlockSpec(
         if (next && isEmptyParagraph(next)) {
           editor.removeBlocks([next.id]);
         }
+        const currentListStyle = (block.props as any).listStyle ?? "bullet";
         editor.insertBlocks(
           [
             {
@@ -407,6 +418,7 @@ export const stepBlock = createReactBlockSpec(
                 stepTitle: "",
                 stepData: "",
                 expectedResult: "",
+                listStyle: currentListStyle,
               },
               children: [],
             },
@@ -414,7 +426,7 @@ export const stepBlock = createReactBlockSpec(
           block.id,
           "after",
         );
-      }, [editor, block.id]);
+      }, [editor, block.id, block.props]);
 
       const handleFieldFocus = useCallback(() => {
         const selection = editor.getSelection();

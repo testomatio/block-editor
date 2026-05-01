@@ -1696,6 +1696,36 @@ describe("markdownToBlocks", () => {
     expect(stepBlocks[1].props).toMatchObject({ stepTitle: "Second step", listStyle: "ordered" });
   });
 
+  it("serializes a new ordered step appended to a numbered list as N.", () => {
+    const orderedSteps: CustomEditorBlock[] = [
+      {
+        id: "s1",
+        type: "testStep",
+        props: { stepTitle: "First step", stepData: "", expectedResult: "", listStyle: "ordered" },
+        content: undefined as any,
+        children: [],
+      } as any,
+      {
+        id: "s2",
+        type: "testStep",
+        props: { stepTitle: "Second step", stepData: "", expectedResult: "", listStyle: "ordered" },
+        content: undefined as any,
+        children: [],
+      } as any,
+      {
+        id: "s3",
+        type: "testStep",
+        props: { stepTitle: "Newly added step", stepData: "", expectedResult: "", listStyle: "ordered" },
+        content: undefined as any,
+        children: [],
+      } as any,
+    ];
+
+    expect(blocksToMarkdown(orderedSteps)).toBe(
+      ["1. First step", "2. Second step", "3. Newly added step"].join("\n"),
+    );
+  });
+
   it("parses steps under an h4 'step' heading (lowercase)", () => {
     const markdown = ["#### step", "", "* Do something"].join("\n");
     const blocks = markdownToBlocks(markdown);
