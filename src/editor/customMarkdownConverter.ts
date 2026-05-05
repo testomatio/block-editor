@@ -334,7 +334,8 @@ function serializeBlock(
       return lines;
     }
     case "codeBlock": {
-      const language = (block.props as any).language || "";
+      const rawLanguage = (block.props as any).language || "";
+      const language = /[\s`]/.test(rawLanguage) ? "" : rawLanguage;
       const fence = "```" + language;
       const body = inlineContentToPlainText(block.content);
       lines.push(fence);
@@ -1290,8 +1291,16 @@ function parseCodeBlock(lines: string[], index: number): { block: CustomPartialB
     };
   }
 
-  const language = afterOpening.trim();
+  const info = afterOpening.trim();
+  let language = "";
   const body: string[] = [];
+  if (info.length > 0) {
+    if (/[\s`]/.test(info)) {
+      body.push(afterOpening);
+    } else {
+      language = info;
+    }
+  }
   let next = index + 1;
   while (next < lines.length && !lines[next].startsWith("```") ) {
     body.push(lines[next]);
