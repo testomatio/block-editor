@@ -347,11 +347,30 @@ function CustomSlashMenu() {
       },
     };
 
+    const addTestItem = {
+      key: "add_test" as any,
+      title: "Add Test",
+      subtext: "Insert test metadata (id, priority, tags…)",
+      group: "Test documentation",
+      icon: <span className="bn-suggestion-icon">@T</span>,
+      aliases: ["test", "metadata", "meta", "test id"],
+      onItemClick: () => {
+        insertOrUpdateBlock(editor, {
+          type: "testMeta",
+          props: {
+            metaKind: "test",
+            metaFields: "[]",
+            metaInline: false,
+          },
+        });
+      },
+    };
+
     const currentBlock = editor.getTextCursorPosition().block;
     const canInsert = canInsertStepOrSnippet(editor, currentBlock.id);
     const items = canInsert
-      ? [...defaultItems, stepItem, snippetItem]
-      : defaultItems;
+      ? [...defaultItems, stepItem, snippetItem, addTestItem]
+      : [...defaultItems, addTestItem];
     return filterSuggestionItems(items, query);
   };
 
