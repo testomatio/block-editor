@@ -389,6 +389,36 @@ function serializeBlock(
       }
       return lines;
     }
+    case "testMeta": {
+      const kind = (block.props as any).metaKind === "suite" ? "suite" : "test";
+      const inline = Boolean((block.props as any).metaInline);
+      let fields: { key: string; value: string }[] = [];
+      try {
+        const parsed = JSON.parse(((block.props as any).metaFields ?? "[]") as string);
+        if (Array.isArray(parsed)) {
+          fields = parsed
+            .filter((f) => f && typeof f === "object" && typeof f.key === "string")
+            .map((f) => ({ key: f.key.trim(), value: typeof f.value === "string" ? f.value.trim() : "" }))
+            // Skip incomplete fields: both a key and a value are required.
+            .filter((f) => f.key.length > 0 && f.value.length > 0);
+        }
+      } catch {
+        fields = [];
+      }
+
+      // Preserve the one-liner form only when it still fits on a single line
+      // (a one-liner holds at most one `key: value` pair).
+      if (inline && fields.length <= 1) {
+        const field = fields[0];
+        lines.push(field ? `<!-- ${kind} ${field.key}: ${field.value} -->` : `<!-- ${kind} -->`);
+        return lines;
+      }
+
+      lines.push(`<!-- ${kind}`);
+      fields.forEach((field) => lines.push(`${field.key}: ${field.value}`));
+      lines.push("-->");
+      return lines;
+    }
     case "testStep":
     case "snippet": {
       const isSnippet = block.type === "snippet";
@@ -1355,6 +1385,92 @@ function parseParagraph(lines: string[], index: number): { block: CustomPartialB
   };
 }
 
+const META_COMMENT_OPEN_REGEX = /^<!--\s*(test|suite)(?=\s|-->|$)/i;
+
+function metaFieldsFromBody(bodyLines: string[]): { key: string; value: string }[] {
+  const fields: { key: string; value: string }[] = [];
+  for (const raw of bodyLines) {
+    const line = raw.trim();
+    if (!line) continue;
+    const colon = line.indexOf(":");
+    // "Each line is `key: value`; lines without `:` are ignored."
+    if (colon === -1) continue;
+    const key = line.slice(0, colon).trim();
+    const value = line.slice(colon + 1).trim();
+    if (!key) continue;
+    fields.push({ key, value });
+  }
+  return fields;
+}
+
+function parseMetaComment(
+  lines: string[],
+  index: number,
+): { block: CustomPartialBlock; nextIndex: number } | null {
+  const first = lines[index];
+  const openMatch = first.match(META_COMMENT_OPEN_REGEX);
+  if (!openMatch) {
+    return null;
+  }
+  const kind = openMatch[1].toLowerCase();
+
+  let bodyLines: string[] = [];
+  let inline = false;
+  let nextIndex: number;
+
+  // One-liner: opening and closing markers on the same line.
+  const oneLine = first.match(/^<!--\s*(?:test|suite)\b\s*([\s\S]*?)\s*-->\s*$/i);
+  if (oneLine) {
+    inline = true;
+    if (oneLine[1].trim()) {
+      bodyLines = [oneLine[1].trim()];
+    }
+    nextIndex = index + 1;
+  } else {
+    // Block form: keyword line, fields on their own lines, closing `-->`.
+    const afterKeyword = first.replace(/^<!--\s*(?:test|suite)\b/i, "").trim();
+    if (afterKeyword) {
+      bodyLines.push(afterKeyword);
+    }
+    let next = index + 1;
+    let closed = false;
+    while (next < lines.length) {
+      const current = lines[next];
+      if (/-->\s*$/.test(current)) {
+        const beforeClose = current.replace(/-->\s*$/, "").trim();
+        if (beforeClose) {
+          bodyLines.push(beforeClose);
+        }
+        next += 1;
+        closed = true;
+        break;
+      }
+      bodyLines.push(current);
+      next += 1;
+    }
+    if (!closed) {
+      // Unterminated comment — let normal parsing handle these lines.
+      return null;
+    }
+    nextIndex = next;
+  }
+
+  const fields = metaFieldsFromBody(bodyLines);
+
+  return {
+    block: {
+      type: "testMeta",
+      props: {
+        metaKind: kind,
+        metaFields: JSON.stringify(fields),
+        metaInline: inline,
+      },
+      children: [],
+    } as CustomPartialBlock,
+    nextIndex,
+  };
+}
+
 function parseSnippetWrapper(
   lines: string[],
   index: number,
@@ -1494,6 +1610,15 @@ export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOp
         blocks.push({ type: "paragraph", content: [], children: [] } as CustomPartialBlock);
       }
       index += 1;
+      continue;
+    }
+
+    // Test/suite metadata comments can appear anywhere (typically at the top of
+    // a document or right after a heading), so this runs ungated.
+    const metaComment = parseMetaComment(lines, index);
+    if (metaComment) {
+      blocks.push(metaComment.block);
+      index = metaComment.nextIndex;
       continue;
     }
 
