@@ -1240,6 +1240,20 @@ html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-lin
   min-height: 4rem;
 }
 
+/* Static stand-in shown before a step's interactive editor is lazily mounted.
+   Mirrors the OverType inner padding/typography so document height stays stable. */
+.bn-step-editor--preview {
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #262626;
+  cursor: text;
+}
+
+html.dark .bn-step-editor--preview {
+  color: #e5e5e5;
+}
+
 .bn-step-editor.bn-step-editor--focused {
   outline: none;
   box-shadow: none;

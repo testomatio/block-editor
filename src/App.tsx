@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BlockNoteView } from "@blocknote/mantine";
 import {
   useCreateBlockNote,
@@ -430,21 +430,41 @@ function App() {
     document.documentElement.classList.toggle("dark", darkMode);
   }, [darkMode]);
 
+  // Re-serializing the whole document (Markdown + pretty JSON) on every change
+  // is wasteful during bursts like a large paste, where the document mutates
+  // many times in quick succession (chunked streaming). Debounce so the preview
+  // panels update once the document settles instead of on every intermediate
+  // edit, keeping the editor responsive.
+  const serializeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEditorChange((editorInstance) => {
-    try {
-      const documentBlocks = editorInstance.document as CustomEditorBlock[];
-      const md = blocksToMarkdown(documentBlocks);
-      setMarkdown(md);
-      setBlocksJson(JSON.stringify(documentBlocks, null, 2));
-      setConversionError(null);
-      setCopyStatus("idle");
-      setCopyBlocksStatus("idle");
-    } catch (error) {
-      setConversionError(error instanceof Error ? error.message : String(error));
-      setCopyStatus("idle");
-      setCopyBlocksStatus("idle");
+    if (serializeTimerRef.current !== null) {
+      clearTimeout(serializeTimerRef.current);
     }
+    serializeTimerRef.current = setTimeout(() => {
+      serializeTimerRef.current = null;
+      try {
+        const documentBlocks = editorInstance.document as CustomEditorBlock[];
+        const md = blocksToMarkdown(documentBlocks);
+        setMarkdown(md);
+        setBlocksJson(JSON.stringify(documentBlocks, null, 2));
+        setConversionError(null);
+        setCopyStatus("idle");
+        setCopyBlocksStatus("idle");
+      } catch (error) {
+        setConversionError(error instanceof Error ? error.message : String(error));
+        setCopyStatus("idle");
+        setCopyBlocksStatus("idle");
+      }
+    }, 120);
   }, editor);
+
+  useEffect(() => {
+    return () => {
+      if (serializeTimerRef.current !== null) {
+        clearTimeout(serializeTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!editor) {

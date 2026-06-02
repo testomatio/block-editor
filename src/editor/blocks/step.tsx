@@ -2,6 +2,7 @@ import { createReactBlockSpec, useEditorChange } from "@blocknote/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StepField } from "./stepField";
 import { StepHorizontalView } from "./stepHorizontalView";
+import { useDeferredMount } from "./useDeferredMount";
 import { useStepImageUpload } from "../stepImageUpload";
 import type { StepSuggestion } from "../stepAutocomplete";
 
@@ -227,27 +228,176 @@ export function addSnippetBlock(editor: {
   return inserted?.[1]?.id ?? null;
 }
 
-export const stepBlock = createReactBlockSpec(
-  {
-    type: "testStep",
-    content: "none",
-    propSchema: {
-      stepTitle: {
-        default: "",
-      },
-      stepData: {
-        default: "",
-      },
-      expectedResult: {
-        default: "",
-      },
-      listStyle: {
-        default: "bullet",
-      },
-    },
-  },
-  {
-    render: ({ block, editor }) => {
+/**
+ * A test step's 1-based position within its group: count back over preceding
+ * steps (blank lines don't break the run) until a non-step block.
+ */
+export function computeStepNumber(allBlocks: any[], blockId: string): number {
+  const blockIndex = allBlocks.findIndex((b) => b.id === blockId);
+  if (blockIndex < 0) return 1;
+
+  let count = 1;
+  for (let i = blockIndex - 1; i >= 0; i--) {
+    const b = allBlocks[i];
+    if (b.type === "testStep") {
+      count++;
+    } else if (isEmptyParagraph(b)) {
+      continue;
+    } else {
+      break;
+    }
+  }
+  return count;
+}
+
+/** Strip the most common inline markdown markers for a readable static preview. */
+function stripMarkdownForPreview(text: string): string {
+  return text
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__|\*|_|~~|`)/g, "")
+    .replace(/<\/?[^>]+>/g, "")
+    .trim();
+}
+
+/**
+ * Cheap static stand-in shown before a step's interactive editor is mounted.
+ * Mirrors the real step's structure/typography so the document height stays
+ * stable and so it reads correctly during the brief window before upgrade.
+ */
+function TestStepPreview({
+  blockId,
+  stepNumber,
+  stepTitle,
+  stepData,
+  expectedResult,
+}: {
+  blockId: string;
+  stepNumber: number;
+  stepTitle: string;
+  stepData: string;
+  expectedResult: string;
+}) {
+  const titleText = stripMarkdownForPreview(stepTitle);
+  const dataText = stripMarkdownForPreview(stepData);
+  const expectedText = stripMarkdownForPreview(expectedResult);
+
+  return (
+    <div className="bn-teststep" data-block-id={blockId}>
+      <div className="bn-teststep__timeline">
+        <span className="bn-teststep__number">{stepNumber}</span>
+        <div className="bn-teststep__line" />
+      </div>
+      <div className="bn-teststep__content">
+        <div className="bn-teststep__header">
+          <span className="bn-teststep__title">Step</span>
+        </div>
+        <div className="bn-step-field">
+          <div className="bn-step-editor bn-step-editor--multiline bn-step-editor--preview">
+            {titleText || " "}
+          </div>
+        </div>
+        {dataText ? (
+          <div className="bn-step-field">
+            <div className="bn-step-editor bn-step-editor--multiline bn-step-editor--preview">
+              {dataText}
+            </div>
+          </div>
+        ) : null}
+        {expectedText ? (
+          <div className="bn-step-field">
+            <div className="bn-step-editor bn-step-editor--multiline bn-step-editor--preview">
+              {expectedText}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Wrapper that defers mounting the (expensive) interactive step editor until
+ * the block scrolls into view. Off-screen steps render {@link TestStepPreview}
+ * instead, which is what keeps pasting/loading a large test document fast.
+ *
+ * The step number is tracked here and pushed down as a prop. We subscribe to
+ * editor changes but bail out of re-rendering when the number is unchanged, so
+ * ordinary text edits don't re-render every step in the document.
+ */
+function TestStepBlock({ block, editor }: { block: any; editor: any }) {
+  // An empty step is almost always a freshly-inserted one that needs to focus
+  // its title immediately, so mount its real editor eagerly. Steps with content
+  // (e.g. from a large paste) can safely start as a cheap preview.
+  const isEmptyStep =
+    !((block.props.stepTitle as string) || "") &&
+    !((block.props.stepData as string) || "") &&
+    !((block.props.expectedResult as string) || "");
+  const { ref, active, activate, shouldFocusOnActivate } = useDeferredMount<HTMLDivElement>({
+    initiallyActive: isEmptyStep,
+  });
+  const [stepNumber, setStepNumber] = useState(() =>
+    computeStepNumber(editor.document, block.id),
+  );
+
+  useEditorChange(() => {
+    // Recompute on change, but bail out of the state update (and therefore the
+    // re-render) when the number is unchanged. This is the key win: ordinary
+    // text edits leave every step's number untouched, so they don't re-render
+    // the whole step list.
+    const next = computeStepNumber(editor.document, block.id);
+    setStepNumber((prev) => (prev === next ? prev : next));
+  }, editor);
+
+  if (active) {
+    // Empty steps mounted eagerly (freshly inserted) auto-focus their title.
+    // A preview upgraded by a click focuses its field too, so a single click
+    // starts editing. Steps upgraded passively (scroll-into-view, hover
+    // pre-warm) must never steal focus.
+    return (
+      <TestStepContent
+        block={block}
+        editor={editor}
+        stepNumber={stepNumber}
+        autoFocusEnabled={isEmptyStep}
+        focusOnMount={shouldFocusOnActivate}
+      />
+    );
+  }
+
+  return (
+    <div
+      ref={ref}
+      onMouseDownCapture={() => activate(true)}
+      onFocusCapture={() => activate(true)}
+    >
+      <TestStepPreview
+        blockId={block.id}
+        stepNumber={stepNumber}
+        stepTitle={(block.props.stepTitle as string) || ""}
+        stepData={(block.props.stepData as string) || ""}
+        expectedResult={(block.props.expectedResult as string) || ""}
+      />
+    </div>
+  );
+}
+
+function TestStepContent({
+  block,
+  editor,
+  stepNumber,
+  autoFocusEnabled = false,
+  focusOnMount = false,
+}: {
+  block: any;
+  editor: any;
+  stepNumber: number;
+  autoFocusEnabled?: boolean;
+  focusOnMount?: boolean;
+}) {
+      // When a preview is upgraded by a click, focus its primary field once on
+      // mount so a single click starts editing (caret at end).
+      const mountFocusSignal = focusOnMount ? 1 : 0;
       const stepTitle = (block.props.stepTitle as string) || "";
       const stepData = (block.props.stepData as string) || "";
       const expectedResult = (block.props.expectedResult as string) || "";
@@ -259,7 +409,6 @@ export const stepBlock = createReactBlockSpec(
       );
       const [isDataVisible, setIsDataVisible] = useState(dataHasContent);
       const [shouldFocusDataField, setShouldFocusDataField] = useState(false);
-      const [documentVersion, setDocumentVersion] = useState(0);
       const uploadImage = useStepImageUpload();
       const [viewMode, setViewMode] = useState<StepViewMode>(() => readStepViewMode());
       const containerRef = useRef<HTMLDivElement>(null);
@@ -278,30 +427,6 @@ export const stepBlock = createReactBlockSpec(
       }, []);
 
       const effectiveVertical = forceVertical || viewMode === "vertical";
-
-      // Calculate step number based on position in document
-      const stepNumber = useMemo(() => {
-        const allBlocks = editor.document;
-        const blockIndex = allBlocks.findIndex((b) => b.id === block.id);
-        if (blockIndex < 0) return 1;
-
-        let count = 1;
-        for (let i = blockIndex - 1; i >= 0; i--) {
-          const b = allBlocks[i];
-          if (b.type === "testStep") {
-            count++;
-          } else if (isEmptyParagraph(b)) {
-            continue;
-          } else {
-            break;
-          }
-        }
-        return count;
-      }, [block.id, documentVersion, editor.document]);
-
-      useEditorChange(() => {
-        setDocumentVersion((version) => version + 1);
-      }, editor);
 
       useEffect(() => {
         if (typeof window === "undefined") {
@@ -501,6 +626,7 @@ export const stepBlock = createReactBlockSpec(
             onInsertNextStep={handleInsertNextStep}
             onFieldFocus={handleFieldFocus}
             viewToggle={viewToggleButton}
+            focusSignal={mountFocusSignal}
           />
         );
       }
@@ -522,7 +648,8 @@ export const stepBlock = createReactBlockSpec(
               value={stepTitle}
               placeholder={STEP_TITLE_PLACEHOLDER}
               onChange={handleStepTitleChange}
-              autoFocus={stepTitle.length === 0}
+              autoFocus={autoFocusEnabled && stepTitle.length === 0}
+              focusSignal={mountFocusSignal}
               multiline
               disableNewlines
               enableAutocomplete
@@ -634,6 +761,30 @@ export const stepBlock = createReactBlockSpec(
           </div>
         </div>
       );
+}
+
+export const stepBlock = createReactBlockSpec(
+  {
+    type: "testStep",
+    content: "none",
+    propSchema: {
+      stepTitle: {
+        default: "",
+      },
+      stepData: {
+        default: "",
+      },
+      expectedResult: {
+        default: "",
+      },
+      listStyle: {
+        default: "bullet",
+      },
     },
+  },
+  {
+    render: ({ block, editor }) => (
+      <TestStepBlock block={block} editor={editor} />
+    ),
   },
 );
