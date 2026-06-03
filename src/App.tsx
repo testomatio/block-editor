@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { BlockNoteView } from "@blocknote/mantine";
 import {
   useCreateBlockNote,
@@ -382,6 +382,42 @@ function CustomSlashMenu() {
   );
 }
 
+const MAX_EDITOR_RETRIES = 3;
+
+// Recovers from BlockNote's transient render throws (e.g. getBlockFromPos
+// resolving an undefined ProseMirror position while a node view mounts during a
+// flushSync). The condition clears on the next frame, so we drop the subtree and
+// remount it (capped) instead of crashing the whole app.
+class EditorErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; nonce: number }
+> {
+  private retries = 0;
+  private frame: number | null = null;
+  state = { hasError: false, nonce: 0 };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch() {
+    if (this.retries >= MAX_EDITOR_RETRIES) return;
+    this.retries += 1;
+    this.frame = requestAnimationFrame(() =>
+      this.setState((s) => ({ hasError: false, nonce: s.nonce + 1 }))
+    );
+  }
+
+  componentWillUnmount() {
+    if (this.frame) cancelAnimationFrame(this.frame);
+  }
+
+  render() {
+    if (this.state.hasError) return null;
+    return <Fragment key={this.state.nonce}>{this.props.children}</Fragment>;
+  }
+}
+
 function App() {
   const editor = useCreateBlockNote({
     schema: customSchema,
@@ -621,14 +657,16 @@ function App() {
 
       <section className="app__workspace">
         <div className="app__editor">
-          <BlockNoteView
-            editor={editor}
-            theme={darkMode ? "dark" : "light"}
-            slashMenu={false}
-            className="markdown testomatio-editor"
-          >
-            <CustomSlashMenu />
-          </BlockNoteView>
+          <EditorErrorBoundary>
+            <BlockNoteView
+              editor={editor}
+              theme={darkMode ? "dark" : "light"}
+              slashMenu={false}
+              className="markdown testomatio-editor"
+            >
+              <CustomSlashMenu />
+            </BlockNoteView>
+          </EditorErrorBoundary>
         </div>
         <aside className="app__preview">
           <div className="app__panel">
