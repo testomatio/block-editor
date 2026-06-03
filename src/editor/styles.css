@@ -659,8 +659,69 @@ html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-lin
   margin-left: 8px;
 }
 
-.bn-testmeta__header .bn-testmeta__add-wrap {
+/* Add button + expand/collapse toggle live in a right-pinned action group. */
+.bn-testmeta__header .bn-testmeta__actions {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* Compact one-liner: the metadata rendered as truncated read text, click to
+   expand. Takes the remaining header width and ellipsizes when it overflows. */
+.bn-testmeta__summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.bn-testmeta__summary:hover {
+  color: var(--text-primary);
+}
+
+.bn-testmeta__summary--empty {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.bn-testmeta__toggle {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background-color 120ms ease;
+}
+
+.bn-testmeta__toggle:hover {
+  background: var(--step-bg-button-hover);
+  color: var(--text-primary);
+}
+
+.bn-testmeta__toggle svg {
+  transition: transform 150ms ease;
+}
+
+.bn-testmeta__toggle--expanded svg {
+  transform: rotate(180deg);
 }
 
 .bn-testmeta__label {
