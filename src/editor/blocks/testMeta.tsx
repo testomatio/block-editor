@@ -187,9 +187,19 @@ export const testMetaBlock = createReactBlockSpec(
         .map((field, index) => ({ field, index }))
         .filter(({ field }) => !ID_KEYS.has(field.key.trim().toLowerCase()));
 
+      // Compact (reading) view: collapse the rows into a single truncated line,
+      // with an expand/collapse toggle pinned to the far right that reveals the
+      // full editable rows. A block with nothing to read starts expanded so it
+      // is immediately editable. `expanded` is UI-only state — never serialized.
+      const [expanded, setExpanded] = useState(() => editableFields.length === 0);
+      const summaryText = editableFields
+        .filter(({ field }) => field.key.trim().length > 0)
+        .map(({ field }) => (field.value.trim() ? `${field.key}: ${field.value}` : field.key))
+        .join("  ·  ");
+
       return (
         <div
-          className="bn-testmeta"
+          className={`bn-testmeta${expanded ? " bn-testmeta--expanded" : " bn-testmeta--collapsed"}`}
           data-block-id={block.id}
           data-kind={kind}
           contentEditable={false}
@@ -199,10 +209,34 @@ export const testMetaBlock = createReactBlockSpec(
           <div className="bn-testmeta__header">
             <span className="bn-testmeta__label">{kind.toUpperCase()}</span>
             {idField?.value && <span className="bn-testmeta__id">{idField.value}</span>}
-            <AddFieldMenu kind={kind} usedKeys={usedKeys} onPick={handleAddField} />
+            {!expanded && (
+              <button
+                type="button"
+                className="bn-testmeta__summary"
+                title={summaryText || "No metadata yet"}
+                onClick={() => setExpanded(true)}
+              >
+                {summaryText || <span className="bn-testmeta__summary--empty">No metadata</span>}
+              </button>
+            )}
+            <div className="bn-testmeta__actions">
+              {expanded && <AddFieldMenu kind={kind} usedKeys={usedKeys} onPick={handleAddField} />}
+              <button
+                type="button"
+                className={`bn-testmeta__toggle${expanded ? " bn-testmeta__toggle--expanded" : ""}`}
+                aria-expanded={expanded}
+                aria-label={expanded ? "Collapse metadata" : "Expand metadata"}
+                title={expanded ? "Collapse" : "Expand"}
+                onClick={() => setExpanded((prev) => !prev)}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
           </div>
 
-          {editableFields.length > 0 && (
+          {expanded && editableFields.length > 0 && (
             <div className="bn-testmeta__rows">
               {editableFields.map(({ field, index }) => (
                 <div className="bn-testmeta__row" key={index}>
