@@ -187,15 +187,19 @@ export const testMetaBlock = createReactBlockSpec(
         .map((field, index) => ({ field, index }))
         .filter(({ field }) => !ID_KEYS.has(field.key.trim().toLowerCase()));
 
-      // Compact (reading) view: collapse the rows into a single truncated line,
-      // with an expand/collapse toggle pinned to the far right that reveals the
-      // full editable rows. A block with nothing to read starts expanded so it
-      // is immediately editable. `expanded` is UI-only state — never serialized.
-      const [expanded, setExpanded] = useState(() => editableFields.length === 0);
+      // Compact (reading) view: collapse the rows into a single truncated line
+      // built only from fields that actually have a value — keys without values
+      // are an editing-only concern and never appear in the compact summary (the
+      // expanded rows still show them so they can be filled in). The
+      // expand/collapse toggle pinned to the far right reveals the full rows.
       const summaryText = editableFields
-        .filter(({ field }) => field.key.trim().length > 0)
-        .map(({ field }) => (field.value.trim() ? `${field.key}: ${field.value}` : field.key))
+        .filter(({ field }) => field.key.trim().length > 0 && field.value.trim().length > 0)
+        .map(({ field }) => `${field.key}: ${field.value}`)
         .join("  ·  ");
+      // Nothing readable to summarise (no fields, or only empty values) -> start
+      // expanded so the block is immediately editable. `expanded` is UI-only
+      // state — never serialized.
+      const [expanded, setExpanded] = useState(() => summaryText.length === 0);
 
       return (
         <div
