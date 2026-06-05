@@ -15,6 +15,7 @@ type StepHorizontalViewProps = {
   onInsertNextStep: () => void;
   onFieldFocus: () => void;
   viewToggle?: ReactNode;
+  focusSignal?: number;
 };
 
 export const StepHorizontalView = forwardRef<HTMLDivElement, StepHorizontalViewProps>(function StepHorizontalView({
@@ -27,6 +28,7 @@ export const StepHorizontalView = forwardRef<HTMLDivElement, StepHorizontalViewP
   onInsertNextStep,
   onFieldFocus,
   viewToggle,
+  focusSignal,
 }, ref) {
   return (
     <div className="bn-teststep bn-teststep--horizontal" data-block-id={blockId} ref={ref}>
@@ -42,6 +44,7 @@ export const StepHorizontalView = forwardRef<HTMLDivElement, StepHorizontalViewP
               value={stepValue}
               onChange={onStepChange}
               placeholder={STEP_PLACEHOLDER}
+              focusSignal={focusSignal}
               enableAutocomplete
               fieldName="title"
               suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}

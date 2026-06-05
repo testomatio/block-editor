@@ -3053,3 +3053,138 @@ describe("blank line <-> empty paragraph mapping", () => {
     expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
   });
 });
+
+describe("test/suite metadata comments", () => {
+  it("parses a one-liner test comment into a testMeta block", () => {
+    const blocks = markdownToBlocks("<!-- test id: @T12345678 -->");
+    expect(blocks).toEqual([
+      {
+        type: "testMeta",
+        props: {
+          metaKind: "test",
+          metaFields: JSON.stringify([{ key: "id", value: "@T12345678" }]),
+          metaInline: true,
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("round-trips a one-liner test comment", () => {
+    const markdown = "<!-- test id: @T12345678 -->";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
+  it("parses a multi-line suite block with ordered fields", () => {
+    const markdown = [
+      "<!-- suite",
+      "id: @S12345678",
+      "emoji: 🔐",
+      "tags: smoke, regression",
+      "assignee: qa@example.com",
+      "-->",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toEqual([
+      {
+        type: "testMeta",
+        props: {
+          metaKind: "suite",
+          metaFields: JSON.stringify([
+            { key: "id", value: "@S12345678" },
+            { key: "emoji", value: "🔐" },
+            { key: "tags", value: "smoke, regression" },
+            { key: "assignee", value: "qa@example.com" },
+          ]),
+          metaInline: false,
+        },
+        children: [],
+      },
+    ]);
+  });
+
+  it("round-trips a multi-line suite block", () => {
+    const markdown = [
+      "<!-- suite",
+      "id: @S12345678",
+      "emoji: 🔐",
+      "tags: smoke, regression",
+      "assignee: qa@example.com",
+      "-->",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
+  it("ignores lines without a colon inside a metadata block", () => {
+    const markdown = [
+      "<!-- test",
+      "id: @T12345678",
+      "this line is ignored",
+      "priority: high",
+      "-->",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect((blocks[0].props as any).metaFields).toBe(
+      JSON.stringify([
+        { key: "id", value: "@T12345678" },
+        { key: "priority", value: "high" },
+      ]),
+    );
+  });
+
+  it("serializes a one-liner that gained extra fields as a block", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "m1",
+        type: "testMeta",
+        props: {
+          metaKind: "test",
+          metaFields: JSON.stringify([
+            { key: "id", value: "@T12345678" },
+            { key: "priority", value: "high" },
+          ]),
+          metaInline: true,
+        } as any,
+        content: undefined as any,
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe(
+      ["<!-- test", "id: @T12345678", "priority: high", "-->"].join("\n"),
+    );
+  });
+
+  it("skips fields with empty values when serializing", () => {
+    const blocks: CustomEditorBlock[] = [
+      {
+        id: "m2",
+        type: "testMeta",
+        props: {
+          metaKind: "test",
+          metaFields: JSON.stringify([
+            { key: "id", value: "@T12345678" },
+            { key: "priority", value: "high" },
+            { key: "tags", value: "" },
+            { key: "", value: "orphan" },
+          ]),
+          metaInline: false,
+        } as any,
+        content: undefined as any,
+        children: [],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe(
+      ["<!-- test", "id: @T12345678", "priority: high", "-->"].join("\n"),
+    );
+  });
+
+  it("leaves a generic HTML comment as paragraph text", () => {
+    const blocks = markdownToBlocks("<!-- ai/agent generated description -->");
+    expect(blocks[0].type).toBe("paragraph");
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(
+      "<!-- ai/agent generated description -->",
+    );
+  });
+});

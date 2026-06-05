@@ -1,4 +1,4 @@
-import { Component, Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BlockNoteView } from "@blocknote/mantine";
 import {
   useCreateBlockNote,
@@ -347,11 +347,30 @@ function CustomSlashMenu() {
       },
     };
 
+    const addTestItem = {
+      key: "add_test" as any,
+      title: "Add Test",
+      subtext: "Insert test metadata (id, priority, tags…)",
+      group: "Test documentation",
+      icon: <span className="bn-suggestion-icon">@T</span>,
+      aliases: ["test", "metadata", "meta", "test id"],
+      onItemClick: () => {
+        insertOrUpdateBlock(editor, {
+          type: "testMeta",
+          props: {
+            metaKind: "test",
+            metaFields: "[]",
+            metaInline: false,
+          },
+        });
+      },
+    };
+
     const currentBlock = editor.getTextCursorPosition().block;
     const canInsert = canInsertStepOrSnippet(editor, currentBlock.id);
     const items = canInsert
-      ? [...defaultItems, stepItem, snippetItem]
-      : defaultItems;
+      ? [...defaultItems, stepItem, snippetItem, addTestItem]
+      : [...defaultItems, addTestItem];
     return filterSuggestionItems(items, query);
   };
 
@@ -380,42 +399,6 @@ function CustomSlashMenu() {
       }}
     />
   );
-}
-
-const MAX_EDITOR_RETRIES = 3;
-
-// Recovers from BlockNote's transient render throws (e.g. getBlockFromPos
-// resolving an undefined ProseMirror position while a node view mounts during a
-// flushSync). The condition clears on the next frame, so we drop the subtree and
-// remount it (capped) instead of crashing the whole app.
-class EditorErrorBoundary extends Component<
-  { children: ReactNode },
-  { hasError: boolean; nonce: number }
-> {
-  private retries = 0;
-  private frame: number | null = null;
-  state = { hasError: false, nonce: 0 };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch() {
-    if (this.retries >= MAX_EDITOR_RETRIES) return;
-    this.retries += 1;
-    this.frame = requestAnimationFrame(() =>
-      this.setState((s) => ({ hasError: false, nonce: s.nonce + 1 }))
-    );
-  }
-
-  componentWillUnmount() {
-    if (this.frame) cancelAnimationFrame(this.frame);
-  }
-
-  render() {
-    if (this.state.hasError) return null;
-    return <Fragment key={this.state.nonce}>{this.props.children}</Fragment>;
-  }
 }
 
 function App() {
@@ -447,21 +430,41 @@ function App() {
     document.documentElement.classList.toggle("dark", darkMode);
   }, [darkMode]);
 
+  // Re-serializing the whole document (Markdown + pretty JSON) on every change
+  // is wasteful during bursts like a large paste, where the document mutates
+  // many times in quick succession (chunked streaming). Debounce so the preview
+  // panels update once the document settles instead of on every intermediate
+  // edit, keeping the editor responsive.
+  const serializeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEditorChange((editorInstance) => {
-    try {
-      const documentBlocks = editorInstance.document as CustomEditorBlock[];
-      const md = blocksToMarkdown(documentBlocks);
-      setMarkdown(md);
-      setBlocksJson(JSON.stringify(documentBlocks, null, 2));
-      setConversionError(null);
-      setCopyStatus("idle");
-      setCopyBlocksStatus("idle");
-    } catch (error) {
-      setConversionError(error instanceof Error ? error.message : String(error));
-      setCopyStatus("idle");
-      setCopyBlocksStatus("idle");
+    if (serializeTimerRef.current !== null) {
+      clearTimeout(serializeTimerRef.current);
     }
+    serializeTimerRef.current = setTimeout(() => {
+      serializeTimerRef.current = null;
+      try {
+        const documentBlocks = editorInstance.document as CustomEditorBlock[];
+        const md = blocksToMarkdown(documentBlocks);
+        setMarkdown(md);
+        setBlocksJson(JSON.stringify(documentBlocks, null, 2));
+        setConversionError(null);
+        setCopyStatus("idle");
+        setCopyBlocksStatus("idle");
+      } catch (error) {
+        setConversionError(error instanceof Error ? error.message : String(error));
+        setCopyStatus("idle");
+        setCopyBlocksStatus("idle");
+      }
+    }, 120);
   }, editor);
+
+  useEffect(() => {
+    return () => {
+      if (serializeTimerRef.current !== null) {
+        clearTimeout(serializeTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!editor) {
@@ -657,16 +660,14 @@ function App() {
 
       <section className="app__workspace">
         <div className="app__editor">
-          <EditorErrorBoundary>
-            <BlockNoteView
-              editor={editor}
-              theme={darkMode ? "dark" : "light"}
-              slashMenu={false}
-              className="markdown testomatio-editor"
-            >
-              <CustomSlashMenu />
-            </BlockNoteView>
-          </EditorErrorBoundary>
+          <BlockNoteView
+            editor={editor}
+            theme={darkMode ? "dark" : "light"}
+            slashMenu={false}
+            className="markdown testomatio-editor"
+          >
+            <CustomSlashMenu />
+          </BlockNoteView>
         </div>
         <aside className="app__preview">
           <div className="app__panel">
