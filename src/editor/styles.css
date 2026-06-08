@@ -546,6 +546,99 @@ html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-lin
   min-height: 28px;
 }
 
+/* Compact (reading-focused) view: tight rows with no chrome until a field is
+   focused, at which point the step expands to the normal editing layout.
+
+   Structural rules below apply to the whole compact mode (both collapsed and
+   expanded) so that expanding a step never shifts the field's position — the
+   view-toggle floats out of flow and the editor keeps its default padding, so
+   focusing only reveals chrome *below* the field instead of pushing it down. */
+.bn-teststep--compact .bn-teststep__header {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-height: 0;
+  z-index: 2;
+}
+
+/* Tighten the gap between the step title and its data/expected fields while
+   reading. Applied to the whole compact mode (not just collapsed) so the
+   spacing is identical when a field expands — no jump on focus. */
+.bn-teststep--compact .bn-teststep__content {
+  gap: 6px;
+}
+
+.bn-teststep--compact .bn-teststep__content > .bn-teststep__header + .bn-step-field {
+  margin-top: 0;
+}
+
+/* Collapsed-only rules below hide the remaining chrome for reading. None of
+   them change the field's top position, so toggling them on focus is jump-free
+   (the border only changes colour, min-height only grows the box downward). */
+.bn-teststep--collapsed .bn-step-field__input {
+  border-color: transparent;
+}
+
+.bn-teststep--collapsed .bn-step-field__input:hover {
+  border-color: var(--step-input-border);
+}
+
+/* Zero the whole min-height chain in compact mode so reading rows hug their
+   content. OverType floors the textarea height at its CSS min-height (which the
+   wrapper inherits as 100% of the editor's old 4rem box), so dropping only the
+   OverType minHeight option isn't enough — the textarea's own min-height must
+   go too. Applied to all of compact (not just collapsed) so the height is
+   identical when a field expands: no jump on focus. Vertical padding is also
+   tightened consistently for the same reason. */
+/* OverType injects its own stylesheet (after ours) that hard-codes
+   `.overtype-container.overtype-auto-resize .overtype-wrapper { min-height: 60px }`
+   with the same specificity we'd normally use, so it wins on source order. The
+   extra `.overtype-container` qualifier below raises our specificity above it. */
+.bn-teststep--compact .bn-step-field__input--multiline,
+.bn-teststep--compact .bn-step-editor,
+.bn-teststep--compact .bn-step-editor--multiline,
+.bn-teststep--compact .bn-step-editor .overtype-container .overtype-wrapper,
+.bn-teststep--compact .bn-step-editor .overtype-container .overtype-wrapper .overtype-input,
+.bn-teststep--compact .bn-step-editor .overtype-container .overtype-wrapper .overtype-preview {
+  min-height: 0 !important;
+}
+
+.bn-teststep--compact .bn-step-editor .overtype-wrapper .overtype-input,
+.bn-teststep--compact .bn-step-editor .overtype-wrapper .overtype-preview {
+  padding: 4px 12px !important;
+}
+
+.bn-teststep--collapsed .bn-step-actions {
+  display: none;
+}
+
+/* Prefix the expected-result text with a small "Expected" label while reading,
+   so the line reads e.g. "Expected  Login form is shown". OverType wraps each
+   line in its own block element, so the badge goes on the first line element to
+   sit inline before the text. It's a pseudo-element (not editable text), so it
+   never enters the serialized value. */
+.bn-teststep--collapsed [data-step-field="expected"] .overtype-wrapper .overtype-preview > :first-child::before {
+  content: "Expected";
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--step-bg-light);
+  color: var(--step-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  vertical-align: 1px;
+}
+
+.bn-teststep__view-toggle--compact svg {
+  color: var(--step-muted);
+}
+
+html.dark .bn-teststep__view-toggle--compact svg {
+  color: var(--step-muted);
+}
+
 
 .bn-snippet .bn-step-field__input {
   border-color: var(--snippet-border-light);

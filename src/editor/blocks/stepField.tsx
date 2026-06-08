@@ -39,6 +39,19 @@ type StepFieldProps = {
   showFormattingButtons?: boolean;
   showImageButton?: boolean;
   onFieldFocus?: () => void;
+  /**
+   * Reading-focused presentation: suppresses the toolbar and tightens the
+   * field so it reads like plain text. The OverType editor stays mounted so
+   * focusing the field (which expands the step) preserves the caret.
+   */
+  compact?: boolean;
+  /**
+   * True whenever the step's view is compact, regardless of whether this field
+   * is currently collapsed or expanded. Used to drop the editor's tall
+   * min-height floor so reading rows hug their content — kept separate from
+   * `compact` so it stays stable across focus and never re-lays-out on expand.
+   */
+  compactMode?: boolean;
 };
 
 const READ_ONLY_ALLOWED_KEYS = new Set([
@@ -686,6 +699,8 @@ export function StepField({
   showFormattingButtons = false,
   showImageButton = false,
   onFieldFocus,
+  compact = false,
+  compactMode = false,
 }: StepFieldProps) {
   const stepSuggestions = useStepAutocomplete();
   const suggestions = suggestionsOverride ?? stepSuggestions;
@@ -955,6 +970,32 @@ export function StepField({
       instance?._updateAutoHeight?.();
     }, []),
   });
+
+  // In compact mode, drop OverType's tall min-height floor so reading rows hug
+  // their content. Mutating options.minHeight + recomputing avoids a re-init,
+  // so caret and value survive. Driven by the stable compactMode flag (not
+  // `compact`) so collapsed and expanded share one height — focusing never
+  // shifts the layout.
+  useEffect(() => {
+    const instance = editorInstanceRef.current as
+      | (OverTypeInstance & {
+          options?: { minHeight?: string };
+          textarea?: HTMLTextAreaElement;
+          _updateAutoHeight?: () => void;
+        })
+      | null;
+    if (!instance?.options) {
+      return;
+    }
+    instance.options.minHeight = compactMode ? "0px" : multiline ? "4rem" : "2.5rem";
+    // A textarea's default rows=2 floors its scrollHeight at two lines, which
+    // autoResize then locks the box into; rows=1 lets compact rows hug a single
+    // line (autoResize still grows it for multi-line content).
+    if (instance.textarea) {
+      instance.textarea.rows = compactMode ? 1 : 2;
+    }
+    instance._updateAutoHeight?.();
+  }, [compactMode, multiline, textareaNode]);
 
   useEffect(() => {
     const instance = editorInstanceRef.current;
@@ -1752,10 +1793,11 @@ export function StepField({
     .join(" ");
 
   const showToolbar =
-    showFormattingButtons || (enableImageUpload && uploadImage && showImageButton) || Boolean(rightAction) || enableAutocomplete;
+    !compact &&
+    (showFormattingButtons || (enableImageUpload && uploadImage && showImageButton) || Boolean(rightAction) || enableAutocomplete);
 
   return (
-    <div className="bn-step-field">
+    <div className={`bn-step-field${compact ? " bn-step-field--compact" : ""}`}>
       {showLabel && (
         <div className="bn-step-field__top">
           <div className="bn-step-field__label-row">

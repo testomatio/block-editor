@@ -1,5 +1,5 @@
 import { createReactBlockSpec, useEditorChange } from "@blocknote/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
 import { StepField } from "./stepField";
 import { StepHorizontalView } from "./stepHorizontalView";
 import { useDeferredMount } from "./useDeferredMount";
@@ -11,7 +11,7 @@ const VIEW_MODE_KEY = "bn-step-view-mode";
 const STEP_TITLE_PLACEHOLDER = "Enter step title...";
 const STEP_DATA_PLACEHOLDER = "Enter step data...";
 const EXPECTED_RESULT_PLACEHOLDER = "Enter expected result...";
-type StepViewMode = "vertical" | "horizontal";
+type StepViewMode = "vertical" | "horizontal" | "compact";
 const FORCE_VERTICAL_WIDTH = 550;
 
 /* readExpectedCollapsedPreference removed — currently unused */
@@ -32,7 +32,8 @@ const readStepViewMode = (): StepViewMode => {
     return "vertical";
   }
   try {
-    return window.localStorage.getItem(VIEW_MODE_KEY) === "horizontal" ? "horizontal" : "vertical";
+    const stored = window.localStorage.getItem(VIEW_MODE_KEY);
+    return stored === "horizontal" || stored === "compact" ? stored : "vertical";
   } catch {
     return "vertical";
   }
@@ -413,6 +414,9 @@ function TestStepContent({
       const [viewMode, setViewMode] = useState<StepViewMode>(() => readStepViewMode());
       const containerRef = useRef<HTMLDivElement>(null);
       const [forceVertical, setForceVertical] = useState(false);
+      // In compact mode each step collapses to a reading-focused row and only
+      // expands to the full editing layout while one of its fields has focus.
+      const [expanded, setExpanded] = useState(false);
 
       useEffect(() => {
         const el = containerRef.current?.parentElement;
@@ -426,7 +430,11 @@ function TestStepContent({
         return () => observer.disconnect();
       }, []);
 
-      const effectiveVertical = forceVertical || viewMode === "vertical";
+      const compactMode = viewMode === "compact";
+      const effectiveHorizontal = viewMode === "horizontal" && !forceVertical;
+      // Compact steps render the vertical layout but collapse their chrome until
+      // a field gains focus, at which point the step expands to "normal" editing.
+      const compactCollapsed = compactMode && !expanded;
 
       useEffect(() => {
         if (typeof window === "undefined") {
@@ -569,13 +577,44 @@ function TestStepContent({
       }, [editor, block.id]);
 
       const handleToggleView = useCallback(() => {
-        const next = viewMode === "horizontal" ? "vertical" : "horizontal";
+        // Cycle vertical → horizontal → compact → vertical. Skip horizontal when
+        // the container is too narrow to fit its two columns.
+        let next: StepViewMode;
+        if (viewMode === "vertical") {
+          next = forceVertical ? "compact" : "horizontal";
+        } else if (viewMode === "horizontal") {
+          next = "compact";
+        } else {
+          next = "vertical";
+        }
         writeStepViewMode(next);
         setViewMode(next);
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("bn-step-view-mode"));
         }
+      }, [viewMode, forceVertical]);
+
+      const handleContentFocusCapture = useCallback(() => {
+        if (viewMode === "compact") {
+          setExpanded(true);
+        }
       }, [viewMode]);
+
+      const handleContentBlurCapture = useCallback(
+        (event: FocusEvent<HTMLDivElement>) => {
+          if (viewMode !== "compact") {
+            return;
+          }
+          // Keep the step expanded while focus stays inside it (e.g. moving to a
+          // toolbar or action button); collapse only when focus leaves entirely.
+          const nextTarget = event.relatedTarget as Node | null;
+          if (nextTarget && event.currentTarget.contains(nextTarget)) {
+            return;
+          }
+          setExpanded(false);
+        },
+        [viewMode],
+      );
 
       const [dataFocusSignal] = useState(0);
       const [expectedFocusSignal, setExpectedFocusSignal] = useState(0);
@@ -592,28 +631,42 @@ function TestStepContent({
         editor.updateBlock(block.id, { props: { expectedResult: "" } });
       }, [editor, block.id]);
 
+      const nextViewLabel =
+        viewMode === "compact"
+          ? "Switch to vertical view"
+          : viewMode === "horizontal"
+            ? "Switch to compact view"
+            : forceVertical
+              ? "Switch to compact view"
+              : "Switch to horizontal view";
+
       const viewToggleButton = (
         <button
           type="button"
-          className={`bn-teststep__view-toggle${!effectiveVertical ? " bn-teststep__view-toggle--horizontal" : ""}${forceVertical ? " bn-teststep__view-toggle--disabled" : ""}`}
-          data-tooltip={forceVertical ? "Not enough space for horizontal view" : "Switch step view"}
-          aria-label={forceVertical ? "Not enough space for horizontal view" : "Switch step view"}
-          onClick={forceVertical ? undefined : handleToggleView}
-          aria-disabled={forceVertical}
+          className={`bn-teststep__view-toggle${effectiveHorizontal ? " bn-teststep__view-toggle--horizontal" : ""}${compactMode ? " bn-teststep__view-toggle--compact" : ""}`}
+          data-tooltip={nextViewLabel}
+          aria-label={nextViewLabel}
+          onClick={handleToggleView}
           tabIndex={-1}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <mask id="mask-toggle" style={{maskType: "alpha"}} maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
-              <rect width="16" height="16" fill="#D9D9D9"/>
-            </mask>
-            <g mask="url(#mask-toggle)">
-              <path d="M12.6667 2C13.0333 2 13.3472 2.13056 13.6083 2.39167C13.8694 2.65278 14 2.96667 14 3.33333L14 12.6667C14 13.0333 13.8694 13.3472 13.6083 13.6083C13.3472 13.8694 13.0333 14 12.6667 14L10 14C9.63333 14 9.31944 13.8694 9.05833 13.6083C8.79722 13.3472 8.66667 13.0333 8.66667 12.6667L8.66667 3.33333C8.66667 2.96667 8.79722 2.65278 9.05833 2.39167C9.31945 2.13055 9.63333 2 10 2L12.6667 2ZM6 2C6.36667 2 6.68056 2.13055 6.94167 2.39167C7.20278 2.65278 7.33333 2.96667 7.33333 3.33333L7.33333 12.6667C7.33333 13.0333 7.20278 13.3472 6.94167 13.6083C6.68055 13.8694 6.36667 14 6 14L3.33333 14C2.96667 14 2.65278 13.8694 2.39167 13.6083C2.13056 13.3472 2 13.0333 2 12.6667L2 3.33333C2 2.96667 2.13056 2.65278 2.39167 2.39167C2.65278 2.13055 2.96667 2 3.33333 2L6 2ZM3.33333 12.6667L6 12.6667L6 3.33333L3.33333 3.33333L3.33333 12.6667Z" fill="currentColor"/>
-            </g>
-          </svg>
+          {compactMode ? (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M2 3.333h12V4.667H2V3.333Zm0 4h12v1.334H2V7.333Zm0 4h12v1.334H2v-1.334Z" fill="currentColor"/>
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <mask id="mask-toggle" style={{maskType: "alpha"}} maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
+                <rect width="16" height="16" fill="#D9D9D9"/>
+              </mask>
+              <g mask="url(#mask-toggle)">
+                <path d="M12.6667 2C13.0333 2 13.3472 2.13056 13.6083 2.39167C13.8694 2.65278 14 2.96667 14 3.33333L14 12.6667C14 13.0333 13.8694 13.3472 13.6083 13.6083C13.3472 13.8694 13.0333 14 12.6667 14L10 14C9.63333 14 9.31944 13.8694 9.05833 13.6083C8.79722 13.3472 8.66667 13.0333 8.66667 12.6667L8.66667 3.33333C8.66667 2.96667 8.79722 2.65278 9.05833 2.39167C9.31945 2.13055 9.63333 2 10 2L12.6667 2ZM6 2C6.36667 2 6.68056 2.13055 6.94167 2.39167C7.20278 2.65278 7.33333 2.96667 7.33333 3.33333L7.33333 12.6667C7.33333 13.0333 7.20278 13.3472 6.94167 13.6083C6.68055 13.8694 6.36667 14 6 14L3.33333 14C2.96667 14 2.65278 13.8694 2.39167 13.6083C2.13056 13.3472 2 13.0333 2 12.6667L2 3.33333C2 2.96667 2.13056 2.65278 2.39167 2.39167C2.65278 2.13055 2.96667 2 3.33333 2L6 2ZM3.33333 12.6667L6 12.6667L6 3.33333L3.33333 3.33333L3.33333 12.6667Z" fill="currentColor"/>
+              </g>
+            </svg>
+          )}
         </button>
       );
 
-      if (!effectiveVertical) {
+      if (effectiveHorizontal) {
         return (
           <StepHorizontalView
             ref={containerRef}
@@ -632,14 +685,22 @@ function TestStepContent({
       }
 
       return (
-        <div className="bn-teststep" data-block-id={block.id} ref={containerRef}>
+        <div
+          className={`bn-teststep${compactMode ? " bn-teststep--compact" : ""}${compactCollapsed ? " bn-teststep--collapsed" : ""}`}
+          data-block-id={block.id}
+          ref={containerRef}
+        >
           <div className="bn-teststep__timeline">
             <span className="bn-teststep__number">{stepNumber}</span>
             <div className="bn-teststep__line" />
           </div>
-          <div className="bn-teststep__content">
+          <div
+            className="bn-teststep__content"
+            onFocus={handleContentFocusCapture}
+            onBlur={handleContentBlurCapture}
+          >
             <div className="bn-teststep__header">
-              <span className="bn-teststep__title">Step</span>
+              {!compactMode && <span className="bn-teststep__title">Step</span>}
               {viewToggleButton}
             </div>
             <StepField
@@ -654,6 +715,8 @@ function TestStepContent({
               disableNewlines
               enableAutocomplete
               fieldName="title"
+              compact={compactCollapsed}
+              compactMode={compactMode}
               suggestionFilter={(suggestion) => (suggestion as StepSuggestion).isSnippet !== true}
               onFieldFocus={handleFieldFocus}
               enableImageUpload={false}
@@ -683,6 +746,9 @@ function TestStepContent({
             {isDataVisible ? (
               <StepField
                 label="Step data"
+                showLabel={!compactCollapsed}
+                compact={compactCollapsed}
+                compactMode={compactMode}
                 placeholder={STEP_DATA_PLACEHOLDER}
                 labelAction={
                   <button
@@ -710,6 +776,10 @@ function TestStepContent({
             {isExpectedVisible ? (
               <StepField
                 label="Expected result"
+                showLabel={!compactCollapsed}
+                compact={compactCollapsed}
+                compactMode={compactMode}
+                fieldName="expected"
                 placeholder={EXPECTED_RESULT_PLACEHOLDER}
                 labelAction={
                   <button
