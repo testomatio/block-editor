@@ -196,10 +196,13 @@ export const testMetaBlock = createReactBlockSpec(
         .filter(({ field }) => field.key.trim().length > 0 && field.value.trim().length > 0)
         .map(({ field }) => `${field.key}: ${field.value}`)
         .join("  ·  ");
-      // Nothing readable to summarise (no fields, or only empty values) -> start
-      // expanded so the block is immediately editable. `expanded` is UI-only
-      // state — never serialized.
-      const [expanded, setExpanded] = useState(() => summaryText.length === 0);
+      // Default to the compact (collapsed) view whenever the block carries any
+      // field — this keeps suite blocks compact too, even when their fields have
+      // no value yet (e.g. a seeded `emoji:` row) and so produce an empty
+      // summary. Only a genuinely empty block (no fields at all) starts expanded
+      // so it's immediately editable. `expanded` is UI-only state — never
+      // serialized.
+      const [expanded, setExpanded] = useState(() => fields.length === 0);
 
       return (
         <div
