@@ -16,6 +16,14 @@ export {
 export { markdownToHtml, htmlToMarkdown } from "./editor/blocks/markdown";
 
 export {
+  tagBadgeExtension,
+  TagBadgeExtension,
+  TAGS_DETECT_REGEXP,
+  detectTags,
+  type TagMatch,
+} from "./editor/tagBadge";
+
+export {
   blocksToMarkdown,
   markdownToBlocks,
   type CustomEditorBlock,

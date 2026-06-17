@@ -724,6 +724,30 @@ html.dark .bn-teststep__view-toggle--compact svg {
 }
 
 /* ============================================
+   TAG BADGES IN HEADINGS
+   `@tag` tokens inside headings are painted as compact badges by a ProseMirror
+   inline decoration (see src/editor/tagBadge.ts). The text stays editable; only
+   the styling is applied.
+   ============================================ */
+.testomatio-editor [data-content-type="heading"] .bn-tag-badge {
+  font-size: 0.78em;
+  font-weight: 500;
+  line-height: 1.2;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 0.05em 0.4em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+html.dark .testomatio-editor [data-content-type="heading"] .bn-tag-badge {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ============================================
    TEST / SUITE METADATA BLOCK
    Dimmed card for `<!-- test ... -->` / `<!-- suite ... -->` comments.
    ============================================ */
