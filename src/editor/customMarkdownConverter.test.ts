@@ -1249,6 +1249,53 @@ describe("markdownToBlocks", () => {
     );
   });
 
+  it("does not escape dots inside fenced code blocks in step data", () => {
+    const stepData = [
+      "```",
+      "curl 'https://stable.testomat.io/api/runs/54?page=1&entry=' \\",
+      "  -H 'accept-language: en-US,en;q=0.9' \\",
+      "  -b 'gclau=1.1.1681594017.1781077572;'",
+      "```",
+    ].join("\n");
+
+    const markdown = blocksToMarkdown([
+      {
+        id: "step1",
+        type: "testStep",
+        props: {
+          stepTitle: "Run the request.",
+          stepData,
+          expectedResult: "",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(markdown).toBe(
+      [
+        // Title outside the fence is still escaped.
+        "* Run the request\\.",
+        // Dots inside the fence stay literal.
+        "  ```",
+        "  curl 'https://stable.testomat.io/api/runs/54?page=1&entry=' \\",
+        "  -H 'accept-language: en-US,en;q=0.9' \\",
+        "  -b 'gclau=1.1.1681594017.1781077572;'",
+        "  ```",
+      ].join("\n"),
+    );
+
+    // Round-trip stays stable.
+    const roundTrip = blocksToMarkdown(
+      markdownToBlocks(["### Steps", "", markdown].join("\n")),
+    );
+    expect(roundTrip).toContain(
+      "  curl 'https://stable.testomat.io/api/runs/54?page=1&entry=' \\",
+    );
+    expect(roundTrip).toContain("  -b 'gclau=1.1.1681594017.1781077572;'");
+  });
+
   it("does not include content after a blank line in step data", () => {
     const markdown = [
       "### Steps",
