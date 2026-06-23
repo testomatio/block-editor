@@ -1,8 +1,7 @@
 import { createReactBlockSpec, useEditorChange } from "@blocknote/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
-import { StepField } from "./stepField";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StepField, StepFieldPreview } from "./stepField";
 import { StepHorizontalView } from "./stepHorizontalView";
-import { useDeferredMount } from "./useDeferredMount";
 import { useStepImageUpload } from "../stepImageUpload";
 import type { StepSuggestion } from "../stepAutocomplete";
 
@@ -49,6 +48,36 @@ const writeStepViewMode = (mode: StepViewMode) => {
     //
   }
 };
+
+/**
+ * Subscribes to the globally-shared step view mode. The mode lives in
+ * localStorage and changes are broadcast via the `bn-step-view-mode` event
+ * (same tab) and the `storage` event (other tabs), so toggling it on any step
+ * re-renders every step — including the read-only previews — into the new mode.
+ */
+function useStepViewMode(): StepViewMode {
+  const [viewMode, setViewMode] = useState<StepViewMode>(() => readStepViewMode());
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === VIEW_MODE_KEY) {
+        setViewMode(readStepViewMode());
+      }
+    };
+    const handleLocal = () => {
+      setViewMode(readStepViewMode());
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("bn-step-view-mode", handleLocal as EventListener);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("bn-step-view-mode", handleLocal as EventListener);
+    };
+  }, []);
+  return viewMode;
+}
 
 /**
  * Returns true when a normalised (lowercased, trailing-punctuation-stripped)
@@ -251,76 +280,64 @@ export function computeStepNumber(allBlocks: any[], blockId: string): number {
   return count;
 }
 
-/** Strip the most common inline markdown markers for a readable static preview. */
-function stripMarkdownForPreview(text: string): string {
-  return text
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/(\*\*|__|\*|_|~~|`)/g, "")
-    .replace(/<\/?[^>]+>/g, "")
-    .trim();
-}
-
 /**
- * Cheap static stand-in shown before a step's interactive editor is mounted.
- * Mirrors the real step's structure/typography so the document height stays
- * stable and so it reads correctly during the brief window before upgrade.
+ * Read-only stand-in rendered for every step that isn't currently being edited.
+ * It mirrors the live step's structure for the active view mode and renders each
+ * field via {@link StepFieldPreview} — a faithful, formatted reading view with
+ * no OverType editor. Only the focused step ever mounts an editor, so scrolling
+ * never mounts/tears down editors and the list stays flicker-free.
+ *
+ * Field visibility is gated on the raw trimmed props (matching the live step's
+ * `isDataVisible`/`isExpectedVisible`) so the same fields appear in both states.
  */
 function TestStepPreview({
   blockId,
   stepNumber,
+  viewMode,
   stepTitle,
   stepData,
   expectedResult,
 }: {
   blockId: string;
   stepNumber: number;
+  viewMode: StepViewMode;
   stepTitle: string;
   stepData: string;
   expectedResult: string;
 }) {
-  const titleText = stripMarkdownForPreview(stepTitle);
-  const dataText = stripMarkdownForPreview(stepData);
-  const expectedText = stripMarkdownForPreview(expectedResult);
+  const compactMode = viewMode === "compact";
+  const hasData = stepData.trim().length > 0;
+  const hasExpected = expectedResult.trim().length > 0;
 
   return (
-    <div className="bn-teststep" data-block-id={blockId}>
+    <div
+      className={`bn-teststep${compactMode ? " bn-teststep--compact bn-teststep--collapsed" : ""}`}
+      data-block-id={blockId}
+    >
       <div className="bn-teststep__timeline">
         <span className="bn-teststep__number">{stepNumber}</span>
         <div className="bn-teststep__line" />
       </div>
       <div className="bn-teststep__content">
-        <div className="bn-teststep__header">
-          <span className="bn-teststep__title">Step</span>
-        </div>
-        <div className="bn-step-field">
-          <div className="bn-step-editor bn-step-editor--multiline bn-step-editor--preview">
-            {titleText || " "}
+        {!compactMode && (
+          <div className="bn-teststep__header">
+            <span className="bn-teststep__title">Step</span>
           </div>
-        </div>
-        {dataText ? (
-          <div className="bn-step-field">
-            <div className="bn-step-editor bn-step-editor--multiline bn-step-editor--preview">
-              {dataText}
-            </div>
-          </div>
-        ) : null}
-        {expectedText ? (
-          <div className="bn-step-field">
-            <div className="bn-step-editor bn-step-editor--multiline bn-step-editor--preview">
-              {expectedText}
-            </div>
-          </div>
-        ) : null}
+        )}
+        <StepFieldPreview value={stepTitle} fieldName="title" />
+        {hasData ? <StepFieldPreview value={stepData} fieldName="data" /> : null}
+        {hasExpected ? <StepFieldPreview value={expectedResult} fieldName="expected" /> : null}
       </div>
     </div>
   );
 }
 
 /**
- * Wrapper that defers mounting the (expensive) interactive step editor until
- * the block scrolls into view. Off-screen steps render {@link TestStepPreview}
- * instead, which is what keeps pasting/loading a large test document fast.
+ * Wrapper that mounts the (expensive) interactive step editor only while the
+ * step is being edited. Every other step renders the read-only
+ * {@link TestStepPreview}, so a document of any size keeps at most one OverType
+ * editor alive — scrolling never mounts or tears down editors, which is what
+ * keeps the list flicker-free (and pasting/loading a large document fast).
  *
  * The step number is tracked here and pushed down as a prop. We subscribe to
  * editor changes but bail out of re-rendering when the number is unchanged, so
@@ -329,14 +346,17 @@ function TestStepPreview({
 function TestStepBlock({ block, editor }: { block: any; editor: any }) {
   // An empty step is almost always a freshly-inserted one that needs to focus
   // its title immediately, so mount its real editor eagerly. Steps with content
-  // (e.g. from a large paste) can safely start as a cheap preview.
+  // start as a cheap read-only preview and upgrade on click/focus.
   const isEmptyStep =
     !((block.props.stepTitle as string) || "") &&
     !((block.props.stepData as string) || "") &&
     !((block.props.expectedResult as string) || "");
-  const { ref, active, activate, shouldFocusOnActivate } = useDeferredMount<HTMLDivElement>({
-    initiallyActive: isEmptyStep,
-  });
+  const viewMode = useStepViewMode();
+  const [editing, setEditing] = useState(isEmptyStep);
+  // Set when editing begins from a click/focus on the preview, so the freshly
+  // mounted editor takes focus (a single click starts editing). Cleared after
+  // the editor consumes it.
+  const focusOnMountRef = useRef(false);
   const [stepNumber, setStepNumber] = useState(() =>
     computeStepNumber(editor.document, block.id),
   );
@@ -350,31 +370,42 @@ function TestStepBlock({ block, editor }: { block: any; editor: any }) {
     setStepNumber((prev) => (prev === next ? prev : next));
   }, editor);
 
-  if (active) {
+  const beginEditing = useCallback(() => {
+    focusOnMountRef.current = true;
+    setEditing(true);
+  }, []);
+
+  const endEditing = useCallback(() => setEditing(false), []);
+
+  if (editing) {
     // Empty steps mounted eagerly (freshly inserted) auto-focus their title.
     // A preview upgraded by a click focuses its field too, so a single click
-    // starts editing. Steps upgraded passively (scroll-into-view, hover
-    // pre-warm) must never steal focus.
+    // starts editing. The editor tears back down to a preview when focus
+    // leaves the step (see TestStepContent's blur handling).
     return (
       <TestStepContent
         block={block}
         editor={editor}
         stepNumber={stepNumber}
+        viewMode={viewMode}
         autoFocusEnabled={isEmptyStep}
-        focusOnMount={shouldFocusOnActivate}
+        focusOnMount={focusOnMountRef.current}
+        onEditEnd={endEditing}
       />
     );
   }
 
   return (
     <div
-      ref={ref}
-      onMouseDownCapture={() => activate(true)}
-      onFocusCapture={() => activate(true)}
+      className="bn-teststep-preview-wrapper"
+      tabIndex={0}
+      onMouseDownCapture={beginEditing}
+      onFocusCapture={beginEditing}
     >
       <TestStepPreview
         blockId={block.id}
         stepNumber={stepNumber}
+        viewMode={viewMode}
         stepTitle={(block.props.stepTitle as string) || ""}
         stepData={(block.props.stepData as string) || ""}
         expectedResult={(block.props.expectedResult as string) || ""}
@@ -387,14 +418,18 @@ function TestStepContent({
   block,
   editor,
   stepNumber,
+  viewMode,
   autoFocusEnabled = false,
   focusOnMount = false,
+  onEditEnd,
 }: {
   block: any;
   editor: any;
   stepNumber: number;
+  viewMode: StepViewMode;
   autoFocusEnabled?: boolean;
   focusOnMount?: boolean;
+  onEditEnd?: () => void;
 }) {
       // When a preview is upgraded by a click, focus its primary field once on
       // mount so a single click starts editing (caret at end).
@@ -411,12 +446,8 @@ function TestStepContent({
       const [isDataVisible, setIsDataVisible] = useState(dataHasContent);
       const [shouldFocusDataField, setShouldFocusDataField] = useState(false);
       const uploadImage = useStepImageUpload();
-      const [viewMode, setViewMode] = useState<StepViewMode>(() => readStepViewMode());
       const containerRef = useRef<HTMLDivElement>(null);
       const [forceVertical, setForceVertical] = useState(false);
-      // In compact mode each step collapses to a reading-focused row and only
-      // expands to the full editing layout while one of its fields has focus.
-      const [expanded, setExpanded] = useState(false);
 
       useEffect(() => {
         const el = containerRef.current?.parentElement;
@@ -432,29 +463,38 @@ function TestStepContent({
 
       const compactMode = viewMode === "compact";
       const effectiveHorizontal = viewMode === "horizontal" && !forceVertical;
-      // Compact steps render the vertical layout but collapse their chrome until
-      // a field gains focus, at which point the step expands to "normal" editing.
-      const compactCollapsed = compactMode && !expanded;
+      // A mounted step is, by definition, the one being edited, so it always
+      // shows the full editing layout — the collapsed reading row is now the
+      // read-only preview's job.
+      const compactCollapsed = false;
 
+      // Tear the editor back down to the read-only preview once focus leaves the
+      // whole step. Re-checked on the next frame so transient blurs (clicking a
+      // toolbar button, or the link popover that portals to <body>) don't
+      // collapse an active edit. Edits persist to block props on change, so
+      // unmounting never loses data. Re-bound when the layout (and thus the root
+      // element) changes so it always listens on the live root.
       useEffect(() => {
-        if (typeof window === "undefined") {
+        const root = containerRef.current;
+        if (!root || !onEditEnd) {
           return;
         }
-        const handleStorage = (event: StorageEvent) => {
-          if (event.key === VIEW_MODE_KEY) {
-            setViewMode(readStepViewMode());
-          }
+        const handleFocusOut = () => {
+          requestAnimationFrame(() => {
+            const active = document.activeElement;
+            if (
+              active &&
+              (root.contains(active) ||
+                active.closest(".bn-popover-content, .bn-form-popover, [role='dialog']"))
+            ) {
+              return;
+            }
+            onEditEnd();
+          });
         };
-        const handleLocal = () => {
-          setViewMode(readStepViewMode());
-        };
-        window.addEventListener("storage", handleStorage);
-        window.addEventListener("bn-step-view-mode", handleLocal as EventListener);
-        return () => {
-          window.removeEventListener("storage", handleStorage);
-          window.removeEventListener("bn-step-view-mode", handleLocal as EventListener);
-        };
-      }, []);
+        root.addEventListener("focusout", handleFocusOut);
+        return () => root.removeEventListener("focusout", handleFocusOut);
+      }, [onEditEnd, effectiveHorizontal]);
 
       const combinedStepValue = useMemo(() => {
         if (!stepData) {
@@ -588,33 +628,13 @@ function TestStepContent({
           next = "vertical";
         }
         writeStepViewMode(next);
-        setViewMode(next);
+        // The shared useStepViewMode hook (in every step, including this one)
+        // listens for this event and re-reads the mode, so we don't track it
+        // locally here.
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("bn-step-view-mode"));
         }
       }, [viewMode, forceVertical]);
-
-      const handleContentFocusCapture = useCallback(() => {
-        if (viewMode === "compact") {
-          setExpanded(true);
-        }
-      }, [viewMode]);
-
-      const handleContentBlurCapture = useCallback(
-        (event: FocusEvent<HTMLDivElement>) => {
-          if (viewMode !== "compact") {
-            return;
-          }
-          // Keep the step expanded while focus stays inside it (e.g. moving to a
-          // toolbar or action button); collapse only when focus leaves entirely.
-          const nextTarget = event.relatedTarget as Node | null;
-          if (nextTarget && event.currentTarget.contains(nextTarget)) {
-            return;
-          }
-          setExpanded(false);
-        },
-        [viewMode],
-      );
 
       const [dataFocusSignal] = useState(0);
       const [expectedFocusSignal, setExpectedFocusSignal] = useState(0);
@@ -694,11 +714,7 @@ function TestStepContent({
             <span className="bn-teststep__number">{stepNumber}</span>
             <div className="bn-teststep__line" />
           </div>
-          <div
-            className="bn-teststep__content"
-            onFocus={handleContentFocusCapture}
-            onBlur={handleContentBlurCapture}
-          >
+          <div className="bn-teststep__content">
             <div className="bn-teststep__header">
               {!compactMode && <span className="bn-teststep__title">Step</span>}
               {viewToggleButton}

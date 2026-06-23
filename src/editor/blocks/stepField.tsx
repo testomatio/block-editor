@@ -1,5 +1,5 @@
 import OverType, { type OverType as OverTypeInstance } from "overtype";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, ChangeEvent } from "react";
 import { useComponentsContext } from "@blocknote/react";
 import { EditLinkMenuItems } from "@blocknote/react";
@@ -63,7 +63,26 @@ const READ_ONLY_ALLOWED_KEYS = new Set([
 
 const AUTOCOMPLETE_TRIGGER_KEYS = new Set([" ", "Space"]);
 
-const markdownParser = (OverType as { MarkdownParser?: { parse: (markdown: string) => string } }).MarkdownParser;
+const markdownParser = (
+  OverType as {
+    MarkdownParser?: {
+      parse: (
+        markdown: string,
+        activeLine?: number,
+        showActiveLineRaw?: boolean,
+        instanceHighlighter?: unknown,
+        isPreviewMode?: boolean,
+      ) => string;
+    };
+  }
+).MarkdownParser;
+
+/**
+ * `useLayoutEffect` that degrades to `useEffect` outside the browser so SSR
+ * doesn't warn. Static previews and the OverType mount run pre-paint to avoid a
+ * blank/jumping frame on the click→edit swap.
+ */
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 function ImageUploadIcon() {
   return (
@@ -674,6 +693,106 @@ function markdownToPlainText(markdown: string): string {
   }
 }
 
+const IMAGE_SYNTAX = /!\[([^\]]*)\]\(([^)]+)\)/g;
+
+/**
+ * Swap any `![alt](url)` markdown still sitting in bare text nodes for real
+ * `<img>` elements. Run *after* formatting/link decoration: image syntax is
+ * never inside a bold/italic/code/link span (stripInlineMarkdown keeps it
+ * verbatim and never formats over it), so it always lands in an unwrapped text
+ * node and replacing it can't disturb the decoration offsets.
+ */
+function renderInlineImages(root: HTMLElement) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    if (node.nodeValue && node.nodeValue.includes("![")) {
+      textNodes.push(node);
+    }
+  }
+  for (const node of textNodes) {
+    const text = node.nodeValue ?? "";
+    IMAGE_SYNTAX.lastIndex = 0;
+    if (!IMAGE_SYNTAX.test(text)) continue;
+    IMAGE_SYNTAX.lastIndex = 0;
+    const frag = document.createDocumentFragment();
+    let last = 0;
+    let match: RegExpExecArray | null;
+    while ((match = IMAGE_SYNTAX.exec(text)) !== null) {
+      if (match.index > last) {
+        frag.appendChild(document.createTextNode(text.slice(last, match.index)));
+      }
+      const img = document.createElement("img");
+      img.src = match[2];
+      img.alt = match[1] || "Step image";
+      frag.appendChild(img);
+      last = match.index + match[0].length;
+    }
+    if (last < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(last)));
+    }
+    node.parentNode?.replaceChild(frag, node);
+  }
+}
+
+/**
+ * Render a step field's markdown into `el` as a faithful, read-only reading
+ * view — the same clean text + bold/italic/code/link decorations + inline
+ * images the live OverType preview shows, but with no editor instance. This is
+ * what every non-focused step renders, so only the step being edited ever pays
+ * the OverType mount cost.
+ */
+function renderStaticStepField(el: HTMLElement, value: string) {
+  const { plainText, links, formatting } = stripInlineMarkdown(value);
+  // Single text node holding the clean text (newlines preserved via
+  // `white-space: pre-wrap`). Because the text keeps its `\n`, formatting/link
+  // offsets — which are computed in this same space — map directly, so we must
+  // NOT pass a textareaValue (which would strip newlines from the offsets).
+  el.textContent = plainText;
+  applyFormattingHighlights(el, formatting);
+  applyLinkHighlights(el, links);
+  renderInlineImages(el);
+}
+
+/**
+ * Lightweight, non-interactive stand-in for {@link StepField}. Mounts no
+ * OverType editor, observers, or event handlers — just a styled `.bn-step-editor
+ * --preview` div whose markdown is decorated once on (layout) mount. Used for
+ * every step that isn't currently being edited.
+ */
+export function StepFieldPreview({
+  value,
+  fieldName,
+  multiline = true,
+}: {
+  value: string;
+  fieldName?: string;
+  multiline?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    if (ref.current) {
+      renderStaticStepField(ref.current, value);
+    }
+  }, [value]);
+
+  const editorClassName = [
+    "bn-step-editor",
+    multiline ? "bn-step-editor--multiline" : "",
+    "bn-step-editor--preview",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className="bn-step-field">
+      <div className={editorClassName} data-step-field={fieldName} />
+    </div>
+  );
+}
+
 export function StepField({
   label,
   showLabel = true,
@@ -712,6 +831,10 @@ export function StepField({
   const autoFocusRef = useRef(false);
   const pendingFocusRef = useRef(false);
   const initialValueRef = useRef(value);
+  // Read at OverType init so the editor mounts already-collapsed in compact
+  // mode (no tall first frame before the compact layout effect runs).
+  const compactModeRef = useRef(compactMode);
+  compactModeRef.current = compactMode;
   const onChangeRef = useRef(onChange);
   const [plainTextValue, setPlainTextValue] = useState(() => markdownToPlainText(value));
   const [isFocused, setIsFocused] = useState(false);
@@ -799,7 +922,7 @@ export function StepField({
     onChangeRef.current?.(markdown);
   }, [pushUndoSnapshot]);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const container = editorContainerRef.current;
     if (!container) {
       return;
@@ -820,11 +943,16 @@ export function StepField({
       value: plainText,
       placeholder: resolvedPlaceholder,
       autoResize: multiline,
-      minHeight: multiline ? "4rem" : "2.5rem",
+      // Seed the compact floor at init so a clicked step paints already
+      // collapsed — the compact layout effect below keeps it in sync after.
+      minHeight: compactModeRef.current ? "0px" : multiline ? "4rem" : "2.5rem",
       padding: "0.5rem 0.75rem",
       fontSize: "0.95rem",
       onChange: handleEditorChange,
     });
+    if (compactModeRef.current && instance.textarea) {
+      instance.textarea.rows = 1;
+    }
 
     // Monkey-patch updatePreview to add link highlights
     const originalUpdatePreview = instance.updatePreview.bind(instance);
@@ -976,7 +1104,7 @@ export function StepField({
   // so caret and value survive. Driven by the stable compactMode flag (not
   // `compact`) so collapsed and expanded share one height — focusing never
   // shifts the layout.
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const instance = editorInstanceRef.current as
       | (OverTypeInstance & {
           options?: { minHeight?: string };
