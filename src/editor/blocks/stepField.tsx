@@ -1,5 +1,5 @@
 import OverType, { type OverType as OverTypeInstance } from "overtype";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, ChangeEvent } from "react";
 import { useComponentsContext } from "@blocknote/react";
 import { EditLinkMenuItems } from "@blocknote/react";
@@ -696,70 +696,104 @@ function markdownToPlainText(markdown: string): string {
 const IMAGE_SYNTAX = /!\[([^\]]*)\]\(([^)]+)\)/g;
 
 /**
- * Swap any `![alt](url)` markdown still sitting in bare text nodes for real
- * `<img>` elements. Run *after* formatting/link decoration: image syntax is
- * never inside a bold/italic/code/link span (stripInlineMarkdown keeps it
- * verbatim and never formats over it), so it always lands in an unwrapped text
- * node and replacing it can't disturb the decoration offsets.
+ * Render a run of plain text, turning any `![alt](url)` markdown into real
+ * `<img>` elements. Returns a string when there are no images (so simple text
+ * stays a plain text node), otherwise a keyed array of strings and images.
  */
-function renderInlineImages(root: HTMLElement) {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const textNodes: Text[] = [];
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text;
-    if (node.nodeValue && node.nodeValue.includes("![")) {
-      textNodes.push(node);
-    }
+function renderTextWithImages(text: string, key: string): ReactNode {
+  if (!text.includes("![")) {
+    return text;
   }
-  for (const node of textNodes) {
-    const text = node.nodeValue ?? "";
-    IMAGE_SYNTAX.lastIndex = 0;
-    if (!IMAGE_SYNTAX.test(text)) continue;
-    IMAGE_SYNTAX.lastIndex = 0;
-    const frag = document.createDocumentFragment();
-    let last = 0;
-    let match: RegExpExecArray | null;
-    while ((match = IMAGE_SYNTAX.exec(text)) !== null) {
-      if (match.index > last) {
-        frag.appendChild(document.createTextNode(text.slice(last, match.index)));
-      }
-      const img = document.createElement("img");
-      img.src = match[2];
-      img.alt = match[1] || "Step image";
-      frag.appendChild(img);
-      last = match.index + match[0].length;
+  const nodes: ReactNode[] = [];
+  IMAGE_SYNTAX.lastIndex = 0;
+  let last = 0;
+  let part = 0;
+  let match: RegExpExecArray | null;
+  while ((match = IMAGE_SYNTAX.exec(text)) !== null) {
+    if (match.index > last) {
+      nodes.push(<Fragment key={`${key}-t${part++}`}>{text.slice(last, match.index)}</Fragment>);
     }
-    if (last < text.length) {
-      frag.appendChild(document.createTextNode(text.slice(last)));
-    }
-    node.parentNode?.replaceChild(frag, node);
+    nodes.push(<img key={`${key}-i${part++}`} src={match[2]} alt={match[1] || "Step image"} />);
+    last = match.index + match[0].length;
   }
+  if (last < text.length) {
+    nodes.push(<Fragment key={`${key}-t${part++}`}>{text.slice(last)}</Fragment>);
+  }
+  return nodes;
 }
 
 /**
- * Render a step field's markdown into `el` as a faithful, read-only reading
- * view — the same clean text + bold/italic/code/link decorations + inline
- * images the live OverType preview shows, but with no editor instance. This is
- * what every non-focused step renders, so only the step being edited ever pays
- * the OverType mount cost.
+ * Render a step field's markdown as a faithful, read-only reading view: the same
+ * clean text + bold/italic/code/link decorations + inline images the live
+ * OverType preview shows, but as plain React children (no editor, no refs, no
+ * imperative DOM — BlockNote's node-view renderer doesn't attach refs the way a
+ * normal React commit does, so the content must be declarative).
+ *
+ * Decorations are applied by slicing the plain text at every formatting/link
+ * boundary and wrapping each segment in the same `step-preview-*` elements the
+ * live editor uses, so all existing CSS applies unchanged.
  */
-function renderStaticStepField(el: HTMLElement, value: string) {
+function renderStepFieldContent(value: string): ReactNode {
   const { plainText, links, formatting } = stripInlineMarkdown(value);
-  // Single text node holding the clean text (newlines preserved via
-  // `white-space: pre-wrap`). Because the text keeps its `\n`, formatting/link
-  // offsets — which are computed in this same space — map directly, so we must
-  // NOT pass a textareaValue (which would strip newlines from the offsets).
-  el.textContent = plainText;
-  applyFormattingHighlights(el, formatting);
-  applyLinkHighlights(el, links);
-  renderInlineImages(el);
+  if (!plainText) {
+    return null;
+  }
+  if (formatting.length === 0 && links.length === 0) {
+    return renderTextWithImages(plainText, "p");
+  }
+
+  const len = plainText.length;
+  const points = new Set<number>([0, len]);
+  for (const f of formatting) {
+    points.add(Math.max(0, f.start));
+    points.add(Math.min(len, f.end));
+  }
+  for (const l of links) {
+    points.add(Math.max(0, l.start));
+    points.add(Math.min(len, l.end));
+  }
+  const sorted = [...points].sort((a, b) => a - b);
+
+  const out: ReactNode[] = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+    if (a >= b) {
+      continue;
+    }
+    const text = plainText.slice(a, b);
+    const fmts = new Set(
+      formatting.filter((f) => f.start <= a && f.end >= b).map((f) => f.type),
+    );
+    const link = links.find((l) => l.start <= a && l.end >= b);
+
+    let node: ReactNode = renderTextWithImages(text, `s${i}`);
+    if (fmts.has("code")) {
+      node = <code className="step-preview-code">{node}</code>;
+    }
+    if (fmts.has("italic")) {
+      node = <em className="step-preview-italic">{node}</em>;
+    }
+    if (fmts.has("bold")) {
+      node = <strong className="step-preview-bold">{node}</strong>;
+    }
+    if (link) {
+      node = (
+        <a className="step-preview-link" href={link.url}>
+          {node}
+        </a>
+      );
+    }
+    out.push(<Fragment key={i}>{node}</Fragment>);
+  }
+  return out;
 }
 
 /**
  * Lightweight, non-interactive stand-in for {@link StepField}. Mounts no
- * OverType editor, observers, or event handlers — just a styled `.bn-step-editor
- * --preview` div whose markdown is decorated once on (layout) mount. Used for
- * every step that isn't currently being edited.
+ * OverType editor, observers, or event handlers — just a styled
+ * `.bn-step-editor--preview` box whose markdown is rendered declaratively. Used
+ * for every step that isn't currently being edited.
  */
 export function StepFieldPreview({
   value,
@@ -770,13 +804,7 @@ export function StepFieldPreview({
   fieldName?: string;
   multiline?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useIsomorphicLayoutEffect(() => {
-    if (ref.current) {
-      renderStaticStepField(ref.current, value);
-    }
-  }, [value]);
+  const content = useMemo(() => renderStepFieldContent(value), [value]);
 
   const editorClassName = [
     "bn-step-editor",
@@ -788,7 +816,9 @@ export function StepFieldPreview({
 
   return (
     <div className="bn-step-field">
-      <div className={editorClassName} data-step-field={fieldName} />
+      <div className={editorClassName} data-step-field={fieldName}>
+        {content}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { createReactBlockSpec, useEditorChange } from "@blocknote/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { StepField, StepFieldPreview } from "./stepField";
 import { StepHorizontalView } from "./stepHorizontalView";
 import { useStepImageUpload } from "../stepImageUpload";
@@ -375,6 +375,18 @@ function TestStepBlock({ block, editor }: { block: any; editor: any }) {
     setEditing(true);
   }, []);
 
+  // Mousedown rather than click so the editor mounts before focus settles, and
+  // preventDefault so the browser doesn't move focus to <body> when the preview
+  // (the mousedown target) unmounts mid-click — that stray blur would otherwise
+  // immediately tear the new editor back down.
+  const beginEditingFromPointer = useCallback(
+    (event: ReactMouseEvent) => {
+      event.preventDefault();
+      beginEditing();
+    },
+    [beginEditing],
+  );
+
   const endEditing = useCallback(() => setEditing(false), []);
 
   if (editing) {
@@ -399,7 +411,7 @@ function TestStepBlock({ block, editor }: { block: any; editor: any }) {
     <div
       className="bn-teststep-preview-wrapper"
       tabIndex={0}
-      onMouseDownCapture={beginEditing}
+      onMouseDownCapture={beginEditingFromPointer}
       onFocusCapture={beginEditing}
     >
       <TestStepPreview
@@ -480,6 +492,9 @@ function TestStepContent({
           return;
         }
         const handleFocusOut = () => {
+          // Defer to the next frame so focus moving *within* the step (or to a
+          // popover that portals to <body>, e.g. the link editor) has settled
+          // before we decide whether editing has really ended.
           requestAnimationFrame(() => {
             const active = document.activeElement;
             if (
