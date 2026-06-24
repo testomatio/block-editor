@@ -1288,7 +1288,7 @@ describe("markdownToBlocks", () => {
 
     // Round-trip stays stable.
     const roundTrip = blocksToMarkdown(
-      markdownToBlocks(["### Steps", "", markdown].join("\n")),
+      markdownToBlocks(["### Steps", "", markdown].join("\n")) as CustomEditorBlock[],
     );
     expect(roundTrip).toContain(
       "  curl 'https://stable.testomat.io/api/runs/54?page=1&entry=' \\",
