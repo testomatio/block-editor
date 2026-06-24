@@ -631,6 +631,30 @@ html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-lin
   vertical-align: 1px;
 }
 
+/* Read-only preview parity for compact reading rows: the live compact field
+   tightens padding on the OverType layers (above), which the static preview
+   doesn't have, so apply the same padding to the flow `--preview` box. */
+.bn-teststep--compact .bn-step-editor--preview {
+  padding: 4px 12px;
+}
+
+/* Same "Expected" reading badge for the static preview. The static preview is a
+   single flow box (not OverType's per-line divs), so the badge goes on its own
+   ::before. */
+.bn-teststep--collapsed .bn-step-editor--preview[data-step-field="expected"]::before {
+  content: "Expected";
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--step-bg-light);
+  color: var(--step-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  vertical-align: 1px;
+}
+
 .bn-teststep__view-toggle--compact svg {
   color: var(--step-muted);
 }
@@ -1430,6 +1454,58 @@ html.dark .testomatio-editor [data-content-type="heading"] .bn-tag-badge {
 
 html.dark .bn-step-editor--preview {
   color: #e5e5e5;
+}
+
+/* Wrapper around a non-edited step's read-only preview. Focusable so Tab enters
+   a step (which mounts its editor); no lingering outline since focus moves to
+   the freshly-mounted field immediately. */
+.bn-teststep-preview-wrapper {
+  outline: none;
+}
+
+/* Inline decorations inside the read-only preview mirror the live OverType
+   preview, which uses the same step-preview-* classes. The live rules are
+   scoped to `.overtype-wrapper .overtype-preview` (which the static preview
+   doesn't render), so the same declarations are repeated here for the flow
+   `--preview` container. */
+.bn-step-editor--preview a.step-preview-link {
+  color: #4f46e5;
+  text-decoration: underline;
+  pointer-events: none;
+}
+
+.bn-step-editor--preview strong.step-preview-bold {
+  -webkit-text-stroke: 0.5px currentColor;
+  font-weight: inherit;
+  color: inherit;
+}
+
+.bn-step-editor--preview em.step-preview-italic {
+  font-style: italic;
+  color: inherit;
+}
+
+.bn-step-editor--preview code.step-preview-code {
+  background-color: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  color: rgb(146, 64, 14);
+}
+
+.bn-step-editor--preview img {
+  display: block;
+  max-width: 100%;
+  border-radius: 0.65rem;
+  margin: 0.5rem 0;
+  pointer-events: none;
+}
+
+html.dark .bn-step-editor--preview code.step-preview-code {
+  color: rgba(251, 191, 36, 1);
+}
+
+html.dark .bn-step-editor--preview a.step-preview-link {
+  color: rgba(129, 140, 248, 1);
 }
 
 .bn-step-editor.bn-step-editor--focused {

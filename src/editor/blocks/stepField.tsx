@@ -1,5 +1,5 @@
 import OverType, { type OverType as OverTypeInstance } from "overtype";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, ChangeEvent } from "react";
 import { useComponentsContext } from "@blocknote/react";
 import { EditLinkMenuItems } from "@blocknote/react";
@@ -63,7 +63,26 @@ const READ_ONLY_ALLOWED_KEYS = new Set([
 
 const AUTOCOMPLETE_TRIGGER_KEYS = new Set([" ", "Space"]);
 
-const markdownParser = (OverType as { MarkdownParser?: { parse: (markdown: string) => string } }).MarkdownParser;
+const markdownParser = (
+  OverType as {
+    MarkdownParser?: {
+      parse: (
+        markdown: string,
+        activeLine?: number,
+        showActiveLineRaw?: boolean,
+        instanceHighlighter?: unknown,
+        isPreviewMode?: boolean,
+      ) => string;
+    };
+  }
+).MarkdownParser;
+
+/**
+ * `useLayoutEffect` that degrades to `useEffect` outside the browser so SSR
+ * doesn't warn. Static previews and the OverType mount run pre-paint to avoid a
+ * blank/jumping frame on the click→edit swap.
+ */
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 function ImageUploadIcon() {
   return (
@@ -674,6 +693,136 @@ function markdownToPlainText(markdown: string): string {
   }
 }
 
+const IMAGE_SYNTAX = /!\[([^\]]*)\]\(([^)]+)\)/g;
+
+/**
+ * Render a run of plain text, turning any `![alt](url)` markdown into real
+ * `<img>` elements. Returns a string when there are no images (so simple text
+ * stays a plain text node), otherwise a keyed array of strings and images.
+ */
+function renderTextWithImages(text: string, key: string): ReactNode {
+  if (!text.includes("![")) {
+    return text;
+  }
+  const nodes: ReactNode[] = [];
+  IMAGE_SYNTAX.lastIndex = 0;
+  let last = 0;
+  let part = 0;
+  let match: RegExpExecArray | null;
+  while ((match = IMAGE_SYNTAX.exec(text)) !== null) {
+    if (match.index > last) {
+      nodes.push(<Fragment key={`${key}-t${part++}`}>{text.slice(last, match.index)}</Fragment>);
+    }
+    nodes.push(<img key={`${key}-i${part++}`} src={match[2]} alt={match[1] || "Step image"} />);
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) {
+    nodes.push(<Fragment key={`${key}-t${part++}`}>{text.slice(last)}</Fragment>);
+  }
+  return nodes;
+}
+
+/**
+ * Render a step field's markdown as a faithful, read-only reading view: the same
+ * clean text + bold/italic/code/link decorations + inline images the live
+ * OverType preview shows, but as plain React children (no editor, no refs, no
+ * imperative DOM — BlockNote's node-view renderer doesn't attach refs the way a
+ * normal React commit does, so the content must be declarative).
+ *
+ * Decorations are applied by slicing the plain text at every formatting/link
+ * boundary and wrapping each segment in the same `step-preview-*` elements the
+ * live editor uses, so all existing CSS applies unchanged.
+ */
+function renderStepFieldContent(value: string): ReactNode {
+  const { plainText, links, formatting } = stripInlineMarkdown(value);
+  if (!plainText) {
+    return null;
+  }
+  if (formatting.length === 0 && links.length === 0) {
+    return renderTextWithImages(plainText, "p");
+  }
+
+  const len = plainText.length;
+  const points = new Set<number>([0, len]);
+  for (const f of formatting) {
+    points.add(Math.max(0, f.start));
+    points.add(Math.min(len, f.end));
+  }
+  for (const l of links) {
+    points.add(Math.max(0, l.start));
+    points.add(Math.min(len, l.end));
+  }
+  const sorted = [...points].sort((a, b) => a - b);
+
+  const out: ReactNode[] = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+    if (a >= b) {
+      continue;
+    }
+    const text = plainText.slice(a, b);
+    const fmts = new Set(
+      formatting.filter((f) => f.start <= a && f.end >= b).map((f) => f.type),
+    );
+    const link = links.find((l) => l.start <= a && l.end >= b);
+
+    let node: ReactNode = renderTextWithImages(text, `s${i}`);
+    if (fmts.has("code")) {
+      node = <code className="step-preview-code">{node}</code>;
+    }
+    if (fmts.has("italic")) {
+      node = <em className="step-preview-italic">{node}</em>;
+    }
+    if (fmts.has("bold")) {
+      node = <strong className="step-preview-bold">{node}</strong>;
+    }
+    if (link) {
+      node = (
+        <a className="step-preview-link" href={link.url}>
+          {node}
+        </a>
+      );
+    }
+    out.push(<Fragment key={i}>{node}</Fragment>);
+  }
+  return out;
+}
+
+/**
+ * Lightweight, non-interactive stand-in for {@link StepField}. Mounts no
+ * OverType editor, observers, or event handlers — just a styled
+ * `.bn-step-editor--preview` box whose markdown is rendered declaratively. Used
+ * for every step that isn't currently being edited.
+ */
+export function StepFieldPreview({
+  value,
+  fieldName,
+  multiline = true,
+}: {
+  value: string;
+  fieldName?: string;
+  multiline?: boolean;
+}) {
+  const content = useMemo(() => renderStepFieldContent(value), [value]);
+
+  const editorClassName = [
+    "bn-step-editor",
+    multiline ? "bn-step-editor--multiline" : "",
+    "bn-step-editor--preview",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className="bn-step-field">
+      <div className={editorClassName} data-step-field={fieldName}>
+        {content}
+      </div>
+    </div>
+  );
+}
+
 export function StepField({
   label,
   showLabel = true,
@@ -712,6 +861,10 @@ export function StepField({
   const autoFocusRef = useRef(false);
   const pendingFocusRef = useRef(false);
   const initialValueRef = useRef(value);
+  // Read at OverType init so the editor mounts already-collapsed in compact
+  // mode (no tall first frame before the compact layout effect runs).
+  const compactModeRef = useRef(compactMode);
+  compactModeRef.current = compactMode;
   const onChangeRef = useRef(onChange);
   const [plainTextValue, setPlainTextValue] = useState(() => markdownToPlainText(value));
   const [isFocused, setIsFocused] = useState(false);
@@ -799,7 +952,7 @@ export function StepField({
     onChangeRef.current?.(markdown);
   }, [pushUndoSnapshot]);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const container = editorContainerRef.current;
     if (!container) {
       return;
@@ -820,11 +973,16 @@ export function StepField({
       value: plainText,
       placeholder: resolvedPlaceholder,
       autoResize: multiline,
-      minHeight: multiline ? "4rem" : "2.5rem",
+      // Seed the compact floor at init so a clicked step paints already
+      // collapsed — the compact layout effect below keeps it in sync after.
+      minHeight: compactModeRef.current ? "0px" : multiline ? "4rem" : "2.5rem",
       padding: "0.5rem 0.75rem",
       fontSize: "0.95rem",
       onChange: handleEditorChange,
     });
+    if (compactModeRef.current && instance.textarea) {
+      instance.textarea.rows = 1;
+    }
 
     // Monkey-patch updatePreview to add link highlights
     const originalUpdatePreview = instance.updatePreview.bind(instance);
@@ -976,7 +1134,7 @@ export function StepField({
   // so caret and value survive. Driven by the stable compactMode flag (not
   // `compact`) so collapsed and expanded share one height — focusing never
   // shifts the layout.
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const instance = editorInstanceRef.current as
       | (OverTypeInstance & {
           options?: { minHeight?: string };
