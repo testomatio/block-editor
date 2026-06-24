@@ -469,12 +469,22 @@ function serializeBlock(
 
       if (stepData.length > 0) {
         const dataLines = stepData.split(/\r?\n/);
+        let insideCodeFence = false;
         dataLines.forEach((dataLine: string) => {
           const trimmedLine = dataLine.trim();
-          if (trimmedLine.length > 0) {
-            lines.push(`  ${escapeStepContent(trimmedLine)}`);
-          } else {
+          if (trimmedLine.length === 0) {
             lines.push("  ");
+            return;
+          }
+          // Don't escape dots inside fenced code blocks (or on the fence lines
+          // themselves) — Markdown ignores backslash escapes there, so `\.`
+          // would render literally.
+          const isFence = trimmedLine.startsWith("```");
+          const content =
+            insideCodeFence || isFence ? trimmedLine : escapeStepContent(trimmedLine);
+          lines.push(`  ${content}`);
+          if (isFence) {
+            insideCodeFence = !insideCodeFence;
           }
         });
       }
@@ -483,16 +493,24 @@ function serializeBlock(
       if (normalizedExpected.length > 0) {
         const expectedLines = normalizedExpected.split(/\r?\n/);
         const label = "*Expected result*";
+        let insideCodeFence = false;
         expectedLines.forEach((expectedLine: string, index: number) => {
           const trimmedLine = expectedLine.trim();
           if (trimmedLine.length === 0) {
             return;
           }
 
+          // As with step data, leave dots untouched inside fenced code blocks.
+          const isFence = trimmedLine.startsWith("```");
+          const content =
+            insideCodeFence || isFence ? trimmedLine : escapeStepContent(trimmedLine);
           if (index === 0) {
-            lines.push(`  ${label}: ${escapeStepContent(trimmedLine)}`);
+            lines.push(`  ${label}: ${content}`);
           } else {
-            lines.push(`  ${escapeStepContent(trimmedLine)}`);
+            lines.push(`  ${content}`);
+          }
+          if (isFence) {
+            insideCodeFence = !insideCodeFence;
           }
         });
       }
