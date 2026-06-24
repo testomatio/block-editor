@@ -84,8 +84,44 @@ function escapeMarkdown(text: string): string {
   return result;
 }
 
-function escapeStepContent(text: string): string {
-  return text.replace(/\./g, "\\.");
+// Creates a stateful escaper that escapes dots outside Markdown code while
+// leaving code spans (inline `…`, fenced ``` … ```) verbatim — backslash
+// escapes are ignored inside code, so `\.` would render literally.
+//
+// The state (an open, not-yet-closed backtick run) carries across calls so a
+// fence can be opened in one segment and closed in another. This matters
+// because the step editor splits a multi-line code block across props: the
+// opening ``` lands in `stepTitle` while the body and closing ``` land in
+// `stepData`.
+function makeStepEscaper(): (text: string) => string {
+  let fence: string | null = null;
+  return (text: string): string => {
+    let result = "";
+    let i = 0;
+    while (i < text.length) {
+      if (text[i] === "`") {
+        let ticks = 0;
+        while (text[i + ticks] === "`") ticks++;
+        const run = "`".repeat(ticks);
+        result += run;
+        i += ticks;
+        if (fence === null) {
+          fence = run; // open a code span/fence
+        } else if (fence === run) {
+          fence = null; // matching run closes it
+        }
+        continue;
+      }
+      if (fence !== null) {
+        result += text[i]; // inside code — copy verbatim
+        i++;
+        continue;
+      }
+      result += text[i] === "." ? "\\." : text[i];
+      i++;
+    }
+    return result;
+  };
 }
 
 function stripHtmlWrappers(text: string): string {
@@ -461,57 +497,38 @@ function serializeBlock(
       const normalizedExpectedForCheck = stripExpectedPrefix(expectedResult).trim();
       const hasContent = stepData.length > 0 || normalizedExpectedForCheck.length > 0;
 
+      // One escaper threads code-fence state from the title into the data: the
+      // editor splits a multi-line code block so the opening ``` sits in the
+      // title and the body + closing ``` sit in the data. Both must be treated
+      // as a single code region so their dots stay literal.
+      const escapeBody = makeStepEscaper();
+
       if (normalizedTitle.length > 0 || hasContent) {
         const listStyle = (block.props as any).listStyle ?? "bullet";
         const prefix = listStyle === "ordered" ? `${(stepIndex ?? 0) + 1}.` : "*";
-        lines.push(normalizedTitle.length > 0 ? `${prefix} ${escapeStepContent(normalizedTitle)}` : `${prefix} `);
+        lines.push(normalizedTitle.length > 0 ? `${prefix} ${escapeBody(normalizedTitle)}` : `${prefix} `);
       }
 
       if (stepData.length > 0) {
-        const dataLines = stepData.split(/\r?\n/);
-        let insideCodeFence = false;
-        dataLines.forEach((dataLine: string) => {
+        const escaped = escapeBody(stepData);
+        escaped.split(/\r?\n/).forEach((dataLine: string) => {
           const trimmedLine = dataLine.trim();
-          if (trimmedLine.length === 0) {
-            lines.push("  ");
-            return;
-          }
-          // Don't escape dots inside fenced code blocks (or on the fence lines
-          // themselves) — Markdown ignores backslash escapes there, so `\.`
-          // would render literally.
-          const isFence = trimmedLine.startsWith("```");
-          const content =
-            insideCodeFence || isFence ? trimmedLine : escapeStepContent(trimmedLine);
-          lines.push(`  ${content}`);
-          if (isFence) {
-            insideCodeFence = !insideCodeFence;
-          }
+          lines.push(trimmedLine.length === 0 ? "  " : `  ${trimmedLine}`);
         });
       }
 
       const normalizedExpected = stripExpectedPrefix(expectedResult).trim();
       if (normalizedExpected.length > 0) {
-        const expectedLines = normalizedExpected.split(/\r?\n/);
+        const escaped = makeStepEscaper()(normalizedExpected);
         const label = "*Expected result*";
-        let insideCodeFence = false;
-        expectedLines.forEach((expectedLine: string, index: number) => {
+        let isFirst = true;
+        escaped.split(/\r?\n/).forEach((expectedLine: string) => {
           const trimmedLine = expectedLine.trim();
           if (trimmedLine.length === 0) {
             return;
           }
-
-          // As with step data, leave dots untouched inside fenced code blocks.
-          const isFence = trimmedLine.startsWith("```");
-          const content =
-            insideCodeFence || isFence ? trimmedLine : escapeStepContent(trimmedLine);
-          if (index === 0) {
-            lines.push(`  ${label}: ${content}`);
-          } else {
-            lines.push(`  ${content}`);
-          }
-          if (isFence) {
-            insideCodeFence = !insideCodeFence;
-          }
+          lines.push(isFirst ? `  ${label}: ${trimmedLine}` : `  ${trimmedLine}`);
+          isFirst = false;
         });
       }
 

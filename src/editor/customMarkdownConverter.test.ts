@@ -1296,6 +1296,65 @@ describe("markdownToBlocks", () => {
     expect(roundTrip).toContain("  -b 'gclau=1.1.1681594017.1781077572;'");
   });
 
+  it("does not escape dots inside inline code in step data", () => {
+    const markdown = blocksToMarkdown([
+      {
+        id: "step1",
+        type: "testStep",
+        props: {
+          stepTitle: "Run the request.",
+          stepData: "`curl https://example.com/api`",
+          expectedResult: "",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(markdown).toBe(
+      [
+        // Title outside code is still escaped.
+        "* Run the request\\.",
+        // Dots inside the inline code span stay literal.
+        "  `curl https://example.com/api`",
+      ].join("\n"),
+    );
+  });
+
+  it("does not escape dots when a fenced block opens in the title and the body lands in step data", () => {
+    // The step editor splits a multi-line code block: the opening ``` becomes
+    // the title and the body + closing ``` become the step data.
+    const markdown = blocksToMarkdown([
+      {
+        id: "step1",
+        type: "testStep",
+        props: {
+          stepTitle: "```",
+          stepData: [
+            "curl --location 'https://example.com.ua' \\",
+            "--data-raw '{ \"method\": \"url.method\" }'",
+            "```",
+          ].join("\n"),
+          expectedResult: "",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(markdown).toBe(
+      [
+        "* ```",
+        // Dots inside the fence stay literal even though it opened in the title.
+        "  curl --location 'https://example.com.ua' \\",
+        "  --data-raw '{ \"method\": \"url.method\" }'",
+        "  ```",
+      ].join("\n"),
+    );
+  });
+
   it("does not include content after a blank line in step data", () => {
     const markdown = [
       "### Steps",
