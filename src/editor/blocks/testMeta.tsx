@@ -31,6 +31,77 @@ export function serializeMetaFields(fields: MetaField[]): string {
   return JSON.stringify(fields);
 }
 
+type TestEditorLike = {
+  document: any[];
+  getTextCursorPosition?: () => { block?: { id?: string } };
+  insertBlocks: (
+    blocks: any[],
+    referenceId: string,
+    placement: "before" | "after",
+  ) => any[];
+};
+
+/** Reads the `labels` value from the first suite `testMeta` block, if any. */
+function suiteLabelsFromDocument(document: any[]): string {
+  for (const block of document) {
+    if (block?.type !== "testMeta") continue;
+    if ((block.props as any)?.metaKind !== "suite") continue;
+    const fields = parseMetaFields((block.props as any)?.metaFields);
+    const labels = fields.find((f) => f.key.trim().toLowerCase() === "labels");
+    if (labels) return labels.value;
+  }
+  return "";
+}
+
+/**
+ * Insert a new test: a `testMeta` panel (labelled "NEW TEST" until it gets an id)
+ * seeded with default metadata — `type: manual`, `priority: normal`, and `labels`
+ * copied from the suite block — followed by an empty H2 heading for the test title.
+ *
+ * Inserts at the text cursor when the editor is focused, otherwise at the end of
+ * the document. Returns the title heading's block id (for focusing), or null.
+ */
+export function addTestBlock(editor: TestEditorLike): string | null {
+  const fields: MetaField[] = [
+    { key: "type", value: "manual" },
+    { key: "priority", value: "normal" },
+    { key: "labels", value: suiteLabelsFromDocument(editor.document) },
+  ];
+
+  const metaBlock = {
+    type: "testMeta" as const,
+    props: {
+      metaKind: "test",
+      metaFields: serializeMetaFields(fields),
+      metaInline: false,
+    },
+    children: [],
+  };
+  const titleHeading = {
+    type: "heading" as const,
+    props: { level: 2 },
+    content: [],
+    children: [],
+  };
+
+  // Prefer the text cursor position — BlockNote keeps it in the editor state even
+  // after the editor blurs (e.g. when a toolbar button is clicked), so the test
+  // lands where the user left the caret. Fall back to the document end only when
+  // there is no cursor at all.
+  const docs = editor.document;
+  let referenceId: string | undefined;
+  try {
+    referenceId = editor.getTextCursorPosition?.().block?.id;
+  } catch {
+    referenceId = undefined;
+  }
+  if (!referenceId) referenceId = docs[docs.length - 1]?.id;
+  if (!referenceId) return null;
+
+  const inserted = editor.insertBlocks([metaBlock, titleHeading], referenceId, "after");
+  return inserted?.[1]?.id ?? null;
+}
+
 type AddFieldMenuProps = {
   kind: "test" | "suite";
   usedKeys: string[];
@@ -214,7 +285,9 @@ export const testMetaBlock = createReactBlockSpec(
           draggable={false}
         >
           <div className="bn-testmeta__header">
-            <span className="bn-testmeta__label">{kind.toUpperCase()}</span>
+            <span className="bn-testmeta__label">
+              {kind === "test" && !idField?.value ? "NEW TEST" : kind.toUpperCase()}
+            </span>
             {idField?.value && <span className="bn-testmeta__id">{idField.value}</span>}
             {!expanded && (
               <button

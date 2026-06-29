@@ -6,7 +6,7 @@ export {
 } from "./editor/customSchema";
 export { stepBlock, canInsertStepOrSnippet, isStepsHeading, addStepsBlock, addSnippetBlock } from "./editor/blocks/step";
 export { snippetBlock } from "./editor/blocks/snippet";
-export { testMetaBlock } from "./editor/blocks/testMeta";
+export { testMetaBlock, addTestBlock } from "./editor/blocks/testMeta";
 export {
   setMetaFieldSuggestions,
   getMetaFieldSuggestions,

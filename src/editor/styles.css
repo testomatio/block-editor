@@ -998,6 +998,19 @@ html.dark .testomatio-editor [data-content-type="heading"] .bn-tag-badge {
   color: var(--text-muted);
 }
 
+/*
+ * The "new test" title heading is inserted directly after a testMeta panel, so it
+ * is the block-outer immediately following the one containing a testMeta block.
+ * Override BlockNote's injected "Heading" placeholder just for that heading.
+ * !important beats the dynamically injected placeholder rule.
+ */
+.bn-block-outer:has(.bn-block-content[data-content-type="testMeta"])
+  + .bn-block-outer
+  .bn-block-content[data-content-type="heading"]
+  .bn-inline-content:has(> .ProseMirror-trailingBreak:only-child)::before {
+  content: "Enter test title" !important;
+}
+
 .bn-snippet-dropdown {
   position: relative;
 }

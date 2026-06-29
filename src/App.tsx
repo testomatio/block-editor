@@ -25,6 +25,7 @@ import { setStepsFetcher, type StepJsonApiDocument } from "./editor/stepAutocomp
 import { setSnippetFetcher, type SnippetJsonApiDocument } from "./editor/snippetAutocomplete";
 import { setImageUploadHandler } from "./editor/stepImageUpload";
 import { canInsertStepOrSnippet, addStepsBlock, addSnippetBlock } from "./editor/blocks/step";
+import { addTestBlock } from "./editor/blocks/testMeta";
 import "./App.css";
 
 const focusStepField = (
@@ -356,14 +357,8 @@ function CustomSlashMenu() {
       icon: <span className="bn-suggestion-icon">@T</span>,
       aliases: ["test", "metadata", "meta", "test id"],
       onItemClick: () => {
-        insertOrUpdateBlock(editor, {
-          type: "testMeta",
-          props: {
-            metaKind: "test",
-            metaFields: "[]",
-            metaInline: false,
-          },
-        });
+        const headingId = addTestBlock(editor);
+        focusStepField(editor, headingId ?? undefined);
       },
     };
 
@@ -554,6 +549,10 @@ function App() {
     const id = addSnippetBlock(editor);
     if (id) focusStepField(editor, id, "snippet-title");
   };
+  const insertTest = () => {
+    const id = addTestBlock(editor);
+    if (id) focusStepField(editor, id);
+  };
 
   const handleCopyMarkdown = async () => {
     if (conversionError) {
@@ -644,6 +643,13 @@ function App() {
             onClick={insertSnippet}
           >
             Insert Snippet
+          </button>
+          <button
+            type="button"
+            className="app__action app__action--ghost"
+            onClick={insertTest}
+          >
+            Insert Test
           </button>
           <button
             type="button"
