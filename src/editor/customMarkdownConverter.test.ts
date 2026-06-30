@@ -3223,6 +3223,77 @@ describe("test/suite metadata comments", () => {
     expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
   });
 
+  it("parses a YAML-list issues field without splitting URLs on ://", () => {
+    const markdown = [
+      "<!-- test",
+      "id: @T4ffddec3",
+      "type: manual",
+      "issues:",
+      "  - https://github.com/testomatio/testomatio/issues/8963",
+      "-->",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect((blocks[0].props as any).metaFields).toBe(
+      JSON.stringify([
+        { key: "id", value: "@T4ffddec3" },
+        { key: "type", value: "manual" },
+        {
+          key: "issues",
+          value: "https://github.com/testomatio/testomatio/issues/8963",
+        },
+      ]),
+    );
+  });
+
+  it("joins multiple YAML-list issues items with a comma", () => {
+    const markdown = [
+      "<!-- test",
+      "id: @T4ffddec3",
+      "issues:",
+      "  - https://github.com/testomatio/testomatio/issues/8963",
+      "  - https://github.com/testomatio/testomatio/issues/9001",
+      "-->",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect((blocks[0].props as any).metaFields).toBe(
+      JSON.stringify([
+        { key: "id", value: "@T4ffddec3" },
+        {
+          key: "issues",
+          value:
+            "https://github.com/testomatio/testomatio/issues/8963, https://github.com/testomatio/testomatio/issues/9001",
+        },
+      ]),
+    );
+  });
+
+  it("round-trips a YAML-list issues field (single item)", () => {
+    const markdown = [
+      "<!-- test",
+      "id: @T4ffddec3",
+      "type: manual",
+      "priority: normal",
+      "issues:",
+      "  - https://github.com/testomatio/testomatio/issues/8963",
+      "-->",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
+  it("round-trips a YAML-list issues field (multiple items)", () => {
+    const markdown = [
+      "<!-- test",
+      "id: @T4ffddec3",
+      "issues:",
+      "  - https://github.com/testomatio/testomatio/issues/8963",
+      "  - https://github.com/testomatio/testomatio/issues/9001",
+      "-->",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
   it("ignores lines without a colon inside a metadata block", () => {
     const markdown = [
       "<!-- test",

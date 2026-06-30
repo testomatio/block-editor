@@ -451,7 +451,20 @@ function serializeBlock(
       }
 
       lines.push(`<!-- ${kind}`);
-      fields.forEach((field) => lines.push(`${field.key}: ${field.value}`));
+      fields.forEach((field) => {
+        // List-valued keys (e.g. `issues`) are written back as a YAML list to
+        // preserve the backend's format. The single panel field holds the items
+        // comma-separated, so split them back out into `  - item` lines.
+        if (LIST_META_KEYS.has(field.key.trim().toLowerCase())) {
+          const items = field.value.split(",").map((s) => s.trim()).filter(Boolean);
+          if (items.length) {
+            lines.push(`${field.key}:`);
+            items.forEach((item) => lines.push(`  - ${item}`));
+            return;
+          }
+        }
+        lines.push(`${field.key}: ${field.value}`);
+      });
       lines.push("-->");
       return lines;
     }
@@ -1422,20 +1435,41 @@ function parseParagraph(lines: string[], index: number): { block: CustomPartialB
 
 const META_COMMENT_OPEN_REGEX = /^<!--\s*(test|suite)(?=\s|-->|$)/i;
 
+// Keys whose value is a YAML-style list (`key:` followed by indented `- item`
+// lines) in the testomat.io comment format — e.g. `issues` holding URLs. These
+// round-trip back to a list on serialize; everything else stays a flat line.
+const LIST_META_KEYS = new Set(["issues"]);
+
 function metaFieldsFromBody(bodyLines: string[]): { key: string; value: string }[] {
-  const fields: { key: string; value: string }[] = [];
+  const fields: { key: string; value: string; items: string[] }[] = [];
   for (const raw of bodyLines) {
     const line = raw.trim();
     if (!line) continue;
+
+    // YAML list item: belongs to the most recent `key:` field. The whole item
+    // (e.g. `https://github.com/...`) is kept verbatim — because we catch the
+    // list line before the colon check, URLs with `://` are never split.
+    if (line === "-" || line.startsWith("- ")) {
+      const item = line.slice(1).trim();
+      const current = fields[fields.length - 1];
+      if (current && item) current.items.push(item);
+      continue;
+    }
+
     const colon = line.indexOf(":");
     // "Each line is `key: value`; lines without `:` are ignored."
     if (colon === -1) continue;
     const key = line.slice(0, colon).trim();
     const value = line.slice(colon + 1).trim();
     if (!key) continue;
-    fields.push({ key, value });
+    fields.push({ key, value, items: [] });
   }
-  return fields;
+
+  // A field with collected list items → value is the items joined by ", ".
+  return fields.map(({ key, value, items }) => ({
+    key,
+    value: items.length ? items.join(", ") : value,
+  }));
 }
 
 function parseMetaComment(
