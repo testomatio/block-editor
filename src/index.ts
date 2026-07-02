@@ -47,6 +47,37 @@ export {
 } from "./editor/stepImageUpload";
 
 export {
+  setMentionSources,
+  getMentionSources,
+  parseActiveMention,
+  resolveMentionSource,
+  buildMentionInsertText,
+  applyMention,
+  filterMentionItems,
+  resolveMentionQuery,
+  normalizeMentionItems,
+  parseMentionsFromJsonApi,
+  type MentionSource,
+  type MentionItem,
+  type MentionItemsInput,
+  type MentionSearchResult,
+  type ActiveMention,
+  type MentionJsonApiDocument,
+  type MentionJsonApiResource,
+} from "./editor/mentionAutocomplete";
+
+export {
+  MentionMenu,
+  type MentionMenuProps,
+} from "./editor/MentionMenu";
+
+export {
+  useMentionAutocomplete,
+  type UseMentionAutocompleteOptions,
+  type UseMentionAutocompleteResult,
+} from "./editor/MentionAutocomplete";
+
+export {
   setFileDisplayUrlResolver,
   resolveFileDisplayUrl,
   type FileDisplayUrlResolver,

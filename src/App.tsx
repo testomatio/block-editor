@@ -23,6 +23,13 @@ import { customSchema, type CustomEditor } from "./editor/customSchema";
 import { tagBadgeExtension } from "./editor/tagBadge";
 import { setStepsFetcher, type StepJsonApiDocument } from "./editor/stepAutocomplete";
 import { setSnippetFetcher, type SnippetJsonApiDocument } from "./editor/snippetAutocomplete";
+import {
+  setMentionSources,
+  type MentionItem,
+  type MentionSearchResult,
+  type MentionSource,
+} from "./editor/mentionAutocomplete";
+import { MentionMenu } from "./editor/MentionMenu";
 import { setImageUploadHandler } from "./editor/stepImageUpload";
 import { canInsertStepOrSnippet, addStepsBlock, addSnippetBlock } from "./editor/blocks/step";
 import { addTestBlock } from "./editor/blocks/testMeta";
@@ -287,6 +294,73 @@ const DEMO_SNIPPET_FIXTURES: SnippetJsonApiDocument = {
   ],
 };
 
+const DEMO_USERS: MentionItem[] = [
+  { id: "u-davert", label: "davert", detail: "Michael Bodnarchuk" },
+  { id: "u-anna", label: "anna", detail: "Anna QA" },
+  { id: "u-taras", label: "taras", detail: "Taras Manager" },
+  { id: "u-siren", label: "siern", detail: "Sirena QA" },
+  { id: "u-bob", label: "bob", detail: "Bob Tester" },
+  { id: "u-carol", label: "carol", detail: "Carol Dev" },
+  { id: "u-dan", label: "dan", detail: "Dan Ops" },
+  { id: "u-eve", label: "eve", detail: "Eve Security" },
+];
+
+// Simulated "tests" API dataset — insertion uses the numeric id -> "@T{id}".
+const DEMO_TESTS: MentionItem[] = [
+  { id: "10231", label: "Login redirects to dashboard", detail: "#10231" },
+  { id: "10232", label: "Login rejects wrong password", detail: "#10232" },
+  { id: "10245", label: "Logout clears the session", detail: "#10245" },
+  { id: "10310", label: "Checkout applies discount code", detail: "#10310" },
+  { id: "10311", label: "Checkout blocks empty cart", detail: "#10311" },
+  { id: "10420", label: "Profile avatar upload", detail: "#10420" },
+  { id: "10421", label: "Profile email change requires confirm", detail: "#10421" },
+  { id: "10530", label: "Password reset sends email", detail: "#10530" },
+];
+
+const DEMO_SUITES: MentionItem[] = [
+  { id: "1001", label: "Authentication", detail: "#1001" },
+  { id: "1002", label: "Checkout flow", detail: "#1002" },
+  { id: "1003", label: "User profile", detail: "#1003" },
+  { id: "1004", label: "Notifications", detail: "#1004" },
+  { id: "1005", label: "Admin panel", detail: "#1005" },
+];
+
+const demoDelay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Demo @-mention config. Prefixes are fully data-driven: @T / @S hit a
+ * (simulated) API and insert an id token, while a bare @ filters the in-memory
+ * user list and inserts the handle.
+ */
+const DEMO_MENTION_SOURCES: MentionSource[] = [
+  {
+    prefix: "T",
+    label: "Tests",
+    search: async (query): Promise<MentionSearchResult> => {
+      await demoDelay(120); // simulate an API round-trip
+      const q = query.toLowerCase();
+      return DEMO_TESTS.filter((test) => test.label.toLowerCase().includes(q));
+    },
+    // default insert -> "@T{id}", e.g. "@T10231"
+  },
+  {
+    prefix: "S",
+    label: "Suites",
+    search: async (query): Promise<MentionSearchResult> => {
+      await demoDelay(120);
+      const q = query.toLowerCase();
+      return DEMO_SUITES.filter((suite) => suite.label.toLowerCase().includes(q));
+    },
+    // default insert -> "@S{id}", e.g. "@S1001"
+  },
+  {
+    prefix: "",
+    label: "Users",
+    items: DEMO_USERS,
+    insert: (item) => `@${item.label}`, // insert -> "@davert"
+  },
+];
+
 function CustomSlashMenu() {
   const editor = useBlockNoteEditor<Schema["blockSchema"], Schema["inlineContentSchema"], Schema["styleSchema"]>();
 
@@ -512,6 +586,7 @@ function App() {
     // Demo defaults: configure global handlers so the editor works without manual providers.
     setStepsFetcher(() => DEMO_STEP_FIXTURES);
     setSnippetFetcher(() => DEMO_SNIPPET_FIXTURES);
+    setMentionSources(DEMO_MENTION_SOURCES);
 
     const handler = editor?.uploadFile
       ? async (file: Blob) => {
@@ -538,6 +613,7 @@ function App() {
       setStepsFetcher(null);
       setSnippetFetcher(null);
       setImageUploadHandler(null);
+      setMentionSources(null);
     };
   }, [editor, uploadStepImage]);
 
@@ -675,6 +751,7 @@ function App() {
             className="markdown testomatio-editor"
           >
             <CustomSlashMenu />
+            <MentionMenu />
           </BlockNoteView>
         </div>
         <aside className="app__preview">
