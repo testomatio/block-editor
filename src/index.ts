@@ -24,6 +24,13 @@ export {
 } from "./editor/tagBadge";
 
 export {
+  autoLinkExtension,
+  AutoLinkExtension,
+  detectLinks,
+  type LinkMatch,
+} from "./editor/autoLink";
+
+export {
   blocksToMarkdown,
   markdownToBlocks,
   type CustomEditorBlock,
