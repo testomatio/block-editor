@@ -75,7 +75,7 @@ export {
   useMentionAutocomplete,
   type UseMentionAutocompleteOptions,
   type UseMentionAutocompleteResult,
-} from "./editor/MentionAutocomplete";
+} from "./editor/useMentionAutocomplete";
 
 export {
   setFileDisplayUrlResolver,
