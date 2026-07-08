@@ -772,6 +772,26 @@ html.dark .testomatio-editor [data-content-type="heading"] .bn-tag-badge {
 }
 
 /* ============================================
+   AUTO-LINKED URLS
+   Bare `http(s)://` URLs are painted as links by a ProseMirror inline
+   decoration (see src/editor/autoLink.ts). The text stays editable and the
+   markdown is untouched; only the styling and a Cmd/Ctrl+click handler are
+   added. Opening on click is wired in the plugin, not via `pointer-events`.
+   ============================================ */
+.testomatio-editor .bn-auto-link {
+  color: var(--color-primary-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.testomatio-editor .bn-auto-link:hover {
+  color: var(--color-primary-600);
+}
+html.dark .testomatio-editor .bn-auto-link {
+  color: rgba(129, 140, 248, 1);
+}
+
+/* ============================================
    TEST / SUITE METADATA BLOCK
    Dimmed card for `<!-- test ... -->` / `<!-- suite ... -->` comments.
    ============================================ */

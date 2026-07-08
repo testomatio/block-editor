@@ -21,6 +21,7 @@ import {
 import { createMarkdownPasteHandler } from "./editor/createMarkdownPasteHandler";
 import { customSchema, type CustomEditor } from "./editor/customSchema";
 import { tagBadgeExtension } from "./editor/tagBadge";
+import { autoLinkExtension } from "./editor/autoLink";
 import { setStepsFetcher, type StepJsonApiDocument } from "./editor/stepAutocomplete";
 import { setSnippetFetcher, type SnippetJsonApiDocument } from "./editor/snippetAutocomplete";
 import {
@@ -474,7 +475,7 @@ function CustomSlashMenu() {
 function App() {
   const editor = useCreateBlockNote({
     schema: customSchema,
-    extensions: [tagBadgeExtension()],
+    extensions: [tagBadgeExtension(), autoLinkExtension()],
     pasteHandler: createMarkdownPasteHandler(markdownToBlocks),
     uploadFile: async (file: File) => {
       const url = `https://placehold.co/600x400?text=${encodeURIComponent(file.name)}`;
