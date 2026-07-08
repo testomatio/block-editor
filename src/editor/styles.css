@@ -1952,6 +1952,20 @@ html.dark .bn-step-editor--preview a.step-preview-link {
   font-size: var(--badge-fz-sm);
 }
 
+.bn-mantine .bn-suggestion-menu {
+  max-width: 24rem;
+}
+
+.bn-mt-suggestion-menu-item-body {
+  min-width: 0;
+}
+
+.bn-mt-suggestion-menu-item-subtitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .bn-suggestion-icon {
   display: inline-flex;
   align-items: center;

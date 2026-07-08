@@ -308,9 +308,24 @@ const DEMO_USERS: MentionItem[] = [
 
 // Simulated "tests" API dataset — insertion uses the numeric id -> "@T{id}".
 const DEMO_TESTS: MentionItem[] = [
-  { id: "10231", label: "Login redirects to dashboard", detail: "#10231" },
-  { id: "10232", label: "Login rejects wrong password", detail: "#10232" },
-  { id: "10245", label: "Logout clears the session", detail: "#10245" },
+  {
+    id: "10231",
+    label: "Login redirects to dashboard",
+    detail:
+      "Given a registered user with valid credentials, when they submit the login form, the app authenticates against the API, persists the session token, and redirects to the dashboard within 2 seconds. Verifies the welcome banner shows the user's name and that the navigation reflects an authenticated state.",
+  },
+  {
+    id: "10232",
+    label: "Login rejects wrong password",
+    detail:
+      "Given a registered user, when they submit the login form with an incorrect password, the app keeps them on the login page, shows an inline 'Invalid email or password' error, does not create a session, and increments the failed-attempt counter used for rate limiting after five consecutive failures.",
+  },
+  {
+    id: "10245",
+    label: "Logout clears the session",
+    detail:
+      "Given an authenticated user on any page, when they trigger logout, the app revokes the session token server-side, clears local storage and cookies, redirects to the login screen, and ensures that pressing the browser back button does not restore access to protected routes.",
+  },
   { id: "10310", label: "Checkout applies discount code", detail: "#10310" },
   { id: "10311", label: "Checkout blocks empty cart", detail: "#10311" },
   { id: "10420", label: "Profile avatar upload", detail: "#10420" },
@@ -319,8 +334,18 @@ const DEMO_TESTS: MentionItem[] = [
 ];
 
 const DEMO_SUITES: MentionItem[] = [
-  { id: "1001", label: "Authentication", detail: "#1001" },
-  { id: "1002", label: "Checkout flow", detail: "#1002" },
+  {
+    id: "1001",
+    label: "Authentication",
+    detail:
+      "End-to-end coverage of the authentication surface: login with valid and invalid credentials, session persistence and expiry, logout and token revocation, password reset via email, rate limiting after repeated failures, and redirect behaviour for protected routes when unauthenticated.",
+  },
+  {
+    id: "1002",
+    label: "Checkout flow",
+    detail:
+      "Covers the full purchase journey from cart to confirmation: applying and rejecting discount codes, blocking checkout on an empty cart, tax and shipping calculation, payment authorization and failure handling, and the order confirmation screen with a valid receipt number.",
+  },
   { id: "1003", label: "User profile", detail: "#1003" },
   { id: "1004", label: "Notifications", detail: "#1004" },
   { id: "1005", label: "Admin panel", detail: "#1005" },
