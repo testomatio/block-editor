@@ -425,6 +425,8 @@ function serializeBlock(
       }
       return lines;
     }
+    case "exampleMarker":
+      return ["<!-- example -->"];
     case "testMeta": {
       const kind = (block.props as any).metaKind === "suite" ? "suite" : "test";
       const inline = Boolean((block.props as any).metaInline);
@@ -1435,6 +1437,23 @@ function parseParagraph(lines: string[], index: number): { block: CustomPartialB
 
 const META_COMMENT_OPEN_REGEX = /^<!--\s*(test|suite)(?=\s|-->|$)/i;
 
+// Marks the data/examples table that follows in a testomat.io test file. Accepts
+// both the singular `example` and plural `examples` spellings.
+const EXAMPLE_MARKER_REGEX = /^<!--\s*examples?\s*-->\s*$/i;
+
+function parseExampleMarker(
+  lines: string[],
+  index: number,
+): { block: CustomPartialBlock; nextIndex: number } | null {
+  if (!EXAMPLE_MARKER_REGEX.test(lines[index].trim())) {
+    return null;
+  }
+  return {
+    block: { type: "exampleMarker", props: {}, children: [] } as CustomPartialBlock,
+    nextIndex: index + 1,
+  };
+}
+
 // Keys whose value is a YAML-style list (`key:` followed by indented `- item`
 // lines) in the testomat.io comment format — e.g. `issues` holding URLs. These
 // round-trip back to a list on serialize; everything else stays a flat line.
@@ -1688,6 +1707,15 @@ export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOp
     if (metaComment) {
       blocks.push(metaComment.block);
       index = metaComment.nextIndex;
+      continue;
+    }
+
+    // Caught before parseParagraph so the `<!-- example -->` marker renders as
+    // an "examples" panel instead of raw comment text.
+    const exampleMarker = parseExampleMarker(lines, index);
+    if (exampleMarker) {
+      blocks.push(exampleMarker.block);
+      index = exampleMarker.nextIndex;
       continue;
     }
 

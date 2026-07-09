@@ -31,6 +31,12 @@ export {
 } from "./editor/autoLink";
 
 export {
+  exampleTableHighlightExtension,
+  ExampleTableHighlightExtension,
+  markExampleTables,
+} from "./editor/exampleTableHighlight";
+
+export {
   blocksToMarkdown,
   markdownToBlocks,
   type CustomEditorBlock,

@@ -811,6 +811,37 @@ html.dark .testomatio-editor .bn-auto-link {
   opacity: 0.5;
 }
 
+/* Compact marker for `<!-- example -->` — a cropped variant of the testMeta bar
+   (fit-content width, not full editor width) labelling the table below it. */
+.bn-example-marker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  box-sizing: border-box;
+  padding: 4px 12px;
+  background: var(--bg-muted);
+  border-top: 3px solid var(--color-slate-400);
+  margin-top: 1rem;
+  opacity: 0.6;
+}
+
+.bn-example-marker__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Gray cells for the data table that follows an `<!-- example -->` marker. The
+   `.bn-example-table` class is applied by a ProseMirror decoration (see
+   exampleTableHighlight.ts), bounded to tables between the marker and the next
+   test/suite comment (or end of document). */
+.bn-editor [data-content-type="table"].bn-example-table td,
+.bn-editor [data-content-type="table"].bn-example-table th {
+  background: var(--bg-muted);
+}
+
 /* Header line: `TEST  @T1233456 ............ [+]` — label, id, and add button
    always share one row. */
 .bn-testmeta__header {
