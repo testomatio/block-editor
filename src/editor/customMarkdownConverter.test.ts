@@ -3182,6 +3182,34 @@ describe("test/suite metadata comments", () => {
     expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
   });
 
+  it("parses an <!-- example --> marker into an exampleMarker block", () => {
+    const blocks = markdownToBlocks("<!-- example -->");
+    expect(blocks).toEqual([
+      {
+        type: "exampleMarker",
+        props: {},
+        children: [],
+      },
+    ]);
+  });
+
+  it("parses the plural <!-- examples --> spelling too", () => {
+    const blocks = markdownToBlocks("<!-- examples -->");
+    expect(blocks).toEqual([
+      {
+        type: "exampleMarker",
+        props: {},
+        children: [],
+      },
+    ]);
+  });
+
+  it("round-trips an <!-- example --> marker", () => {
+    const markdown = "<!-- example -->";
+    const blocks = markdownToBlocks(markdown);
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
   it("parses a multi-line suite block with ordered fields", () => {
     const markdown = [
       "<!-- suite",

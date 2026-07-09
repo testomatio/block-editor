@@ -3,6 +3,7 @@ import { BlockNoteSchema } from "@blocknote/core";
 import { stepBlock } from "./blocks/step";
 import { snippetBlock } from "./blocks/snippet";
 import { testMetaBlock } from "./blocks/testMeta";
+import { exampleMarkerBlock } from "./blocks/exampleMarker";
 import { fileBlock } from "./blocks/fileBlock";
 import { htmlToMarkdown, markdownToHtml } from "./blocks/markdown";
 
@@ -13,6 +14,7 @@ export const customSchema = BlockNoteSchema.create({
     testStep: stepBlock,
     snippet: snippetBlock,
     testMeta: testMetaBlock,
+    exampleMarker: exampleMarkerBlock,
   },
 });
 
