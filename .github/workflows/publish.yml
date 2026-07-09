@@ -39,8 +39,10 @@ jobs:
           node-version: "22.14"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Install latest npm
-        run: npm install -g npm@latest
+      - name: Install npm 11
+        # npm@latest is now v12, which requires Node >=22.22.2 and breaks on the
+        # pinned Node 22.14 below. npm 11 supports Node >=22.9 and --provenance.
+        run: npm install -g npm@11
 
       - name: Install dependencies
         run: npm ci
