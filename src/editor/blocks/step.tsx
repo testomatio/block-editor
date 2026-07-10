@@ -1,5 +1,5 @@
 import { createReactBlockSpec, useEditorChange } from "@blocknote/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StepField, StepFieldPreview } from "./stepField";
 import { StepHorizontalView } from "./stepHorizontalView";
 import { useStepImageUpload } from "../stepImageUpload";
@@ -375,53 +375,95 @@ function TestStepBlock({ block, editor }: { block: any; editor: any }) {
     setEditing(true);
   }, []);
 
-  // Mousedown rather than click so the editor mounts before focus settles, and
-  // preventDefault so the browser doesn't move focus to <body> when the preview
-  // (the mousedown target) unmounts mid-click — that stray blur would otherwise
-  // immediately tear the new editor back down.
-  const beginEditingFromPointer = useCallback(
-    (event: ReactMouseEvent) => {
-      event.preventDefault();
-      beginEditing();
-    },
-    [beginEditing],
-  );
-
   const endEditing = useCallback(() => setEditing(false), []);
 
-  if (editing) {
-    // Empty steps mounted eagerly (freshly inserted) auto-focus their title.
-    // A preview upgraded by a click focuses its field too, so a single click
-    // starts editing. The editor tears back down to a preview when focus
-    // leaves the step (see TestStepContent's blur handling).
-    return (
-      <TestStepContent
-        block={block}
-        editor={editor}
-        stepNumber={stepNumber}
-        viewMode={viewMode}
-        autoFocusEnabled={isEmptyStep}
-        focusOnMount={focusOnMountRef.current}
-        onEditEnd={endEditing}
-      />
-    );
-  }
+  // `editing` read from a ref so the single mousedown guard below (attached once)
+  // always sees the current state without re-binding.
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
+
+  // Zero-box anchor (display: contents) used only to locate this block's node-view
+  // element; it adds no layout box, so the step renders exactly as before.
+  const anchorRef = useRef<HTMLDivElement>(null);
+
+  // The step is a ProseMirror atom node (content: "none") whose node-view
+  // (`.bn-block-content`) is wider than the visible step, so the empty area around
+  // it — and, in the collapsed preview, the whole strip to the right of the text —
+  // is inert atom surface. A plain mousedown there makes ProseMirror node-select the
+  // block (the stray blue outline) instead of editing it. One native listener on the
+  // node-view guards every mousedown in both the preview and editing states before
+  // ProseMirror sees it. Native (not onMouseDown) is required because React 18
+  // delegates at the app root, so its handlers run after ProseMirror's own.
+  useEffect(() => {
+    const blockEl = anchorRef.current?.closest(".bn-block-content") as HTMLElement | null;
+    if (!blockEl) {
+      return;
+    }
+    const handleMouseDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      // The real editor surface, form controls, and popovers/dialogs need the
+      // native mousedown (caret placement, typing, focus) to behave normally.
+      if (
+        target?.closest(
+          '.overtype-container, textarea, input, [role="dialog"], .bn-popover-content, .bn-form-popover',
+        )
+      ) {
+        return;
+      }
+      // Buttons and links (toolbar, view toggle, action bar, autocomplete
+      // suggestions): preventDefault keeps the focused field from blurring — a blur
+      // node-selects the atom and can trip the focusout teardown on re-render — but
+      // we don't stopPropagation, so their own click/mousedown handlers still run.
+      if (target?.closest("button, a[href]")) {
+        event.preventDefault();
+        return;
+      }
+      // Everything else — field labels, the timeline, the header, surrounding
+      // padding, and the empty node-view strip — is inert atom chrome. Swallow the
+      // mousedown so ProseMirror can't node-select the block; in the collapsed
+      // preview a click there means "edit this step", so begin editing.
+      event.preventDefault();
+      event.stopPropagation();
+      if (!editingRef.current) {
+        beginEditing();
+      }
+    };
+    blockEl.addEventListener("mousedown", handleMouseDown);
+    return () => blockEl.removeEventListener("mousedown", handleMouseDown);
+  }, [beginEditing]);
 
   return (
-    <div
-      className="bn-teststep-preview-wrapper"
-      tabIndex={0}
-      onMouseDownCapture={beginEditingFromPointer}
-      onFocusCapture={beginEditing}
-    >
-      <TestStepPreview
-        blockId={block.id}
-        stepNumber={stepNumber}
-        viewMode={viewMode}
-        stepTitle={(block.props.stepTitle as string) || ""}
-        stepData={(block.props.stepData as string) || ""}
-        expectedResult={(block.props.expectedResult as string) || ""}
-      />
+    <div ref={anchorRef} style={{ display: "contents" }}>
+      {editing ? (
+        // Empty steps mounted eagerly (freshly inserted) auto-focus their title. A
+        // preview upgraded by a click focuses its field too, so a single click starts
+        // editing. The editor tears back down to a preview when focus leaves the step
+        // (see TestStepContent's blur handling).
+        <TestStepContent
+          block={block}
+          editor={editor}
+          stepNumber={stepNumber}
+          viewMode={viewMode}
+          autoFocusEnabled={isEmptyStep}
+          focusOnMount={focusOnMountRef.current}
+          onEditEnd={endEditing}
+        />
+      ) : (
+        <div
+          className="bn-teststep-preview-wrapper"
+          tabIndex={0}
+          onFocusCapture={beginEditing}
+        >
+          <TestStepPreview
+            blockId={block.id}
+            stepNumber={stepNumber}
+            viewMode={viewMode}
+            stepTitle={(block.props.stepTitle as string) || ""}
+            stepData={(block.props.stepData as string) || ""}
+            expectedResult={(block.props.expectedResult as string) || ""}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -460,6 +502,12 @@ function TestStepContent({
       const uploadImage = useStepImageUpload();
       const containerRef = useRef<HTMLDivElement>(null);
       const [forceVertical, setForceVertical] = useState(false);
+      // Set for a moment while a view-mode toggle is in flight. Switching into or
+      // out of the horizontal layout swaps the whole subtree, so the OverType editor
+      // unmounts and its blur would otherwise trip the focusout teardown below and
+      // collapse the step to a preview. The flag tells the teardown to re-focus the
+      // freshly mounted editor instead of ending the edit.
+      const viewTransitionRef = useRef(false);
 
       useEffect(() => {
         const el = containerRef.current?.parentElement;
@@ -503,6 +551,17 @@ function TestStepContent({
                 active.closest(".bn-popover-content, .bn-form-popover, [role='dialog']"))
             ) {
               return;
+            }
+            // A view-mode toggle remounted the editor; the blur isn't the user
+            // leaving the step. Keep editing and move focus into the freshly
+            // mounted layout instead of collapsing to a preview.
+            if (viewTransitionRef.current) {
+              viewTransitionRef.current = false;
+              const live = containerRef.current?.querySelector("textarea");
+              if (live) {
+                (live as HTMLTextAreaElement).focus();
+                return;
+              }
             }
             onEditEnd();
           });
@@ -641,6 +700,20 @@ function TestStepContent({
           next = "compact";
         } else {
           next = "vertical";
+        }
+        // Only switching into or out of the horizontal layout swaps the subtree and
+        // remounts the editor; vertical↔compact reuse the same editor instance and
+        // never blur. Flag just the remounting transitions so the focusout teardown
+        // re-focuses the new editor instead of collapsing — and so a genuine
+        // click-away after a non-remounting toggle still tears down normally. Cleared
+        // on a timer as a safety net in case the expected blur never arrives.
+        if (viewMode === "horizontal" || next === "horizontal") {
+          viewTransitionRef.current = true;
+          if (typeof window !== "undefined") {
+            window.setTimeout(() => {
+              viewTransitionRef.current = false;
+            }, 300);
+          }
         }
         writeStepViewMode(next);
         // The shared useStepViewMode hook (in every step, including this one)
