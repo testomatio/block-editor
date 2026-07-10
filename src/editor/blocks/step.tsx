@@ -510,7 +510,11 @@ function TestStepContent({
       const viewTransitionRef = useRef(false);
 
       useEffect(() => {
-        const el = containerRef.current?.parentElement;
+        // Measure the block's node-view box (the step's real available width). The
+        // immediate parent is a `display: contents` anchor with no box, so its width
+        // reads as 0 and would wrongly force the vertical layout — in horizontal view
+        // that spurious flip remounts the editor and collapses the step on open.
+        const el = containerRef.current?.closest(".bn-block-content");
         if (!el) return;
         const observer = new ResizeObserver((entries) => {
           for (const entry of entries) {
