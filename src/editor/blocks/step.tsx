@@ -679,9 +679,25 @@ function TestStepContent({
       const handleInsertNextStep = useCallback(() => {
         const allBlocks = editor.document;
         const idx = allBlocks.findIndex((b: any) => b.id === block.id);
-        const next = idx >= 0 ? allBlocks[idx + 1] : null;
-        if (next && isEmptyParagraph(next)) {
-          editor.removeBlocks([next.id]);
+        // Collapse blank line(s) directly after this step ONLY when they sit
+        // between two steps, so the step list stays contiguous (an empty
+        // paragraph between steps would reset the numbering on serialize). A
+        // blank line that separates the step list from following non-step
+        // content (a `---` rule, a heading, ...) is a real layout separator —
+        // keep it so the new step joins the group ahead of it instead of
+        // swallowing the blank line.
+        if (idx >= 0) {
+          let after = idx + 1;
+          while (after < allBlocks.length && isEmptyParagraph(allBlocks[after])) {
+            after += 1;
+          }
+          const followingBlock = allBlocks[after];
+          const followsAnotherStep =
+            followingBlock?.type === "testStep" || followingBlock?.type === "snippet";
+          if (followsAnotherStep && after > idx + 1) {
+            const emptyIds = allBlocks.slice(idx + 1, after).map((b: any) => b.id);
+            editor.removeBlocks(emptyIds);
+          }
         }
         const currentListStyle = (block.props as any).listStyle ?? "bullet";
         editor.insertBlocks(
