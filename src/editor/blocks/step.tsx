@@ -352,6 +352,10 @@ function TestStepBlock({ block, editor }: { block: any; editor: any }) {
     !((block.props.stepData as string) || "") &&
     !((block.props.expectedResult as string) || "");
   const viewMode = useStepViewMode();
+  // Vertical & horizontal modes keep every step's editor mounted (input +
+  // toolbar + action bar) regardless of focus — only compact collapses an
+  // unfocused step back to the read-only preview.
+  const alwaysExpanded = viewMode !== "compact";
   const [editing, setEditing] = useState(isEmptyStep);
   // Set when editing begins from a click/focus on the preview, so the freshly
   // mounted editor takes focus (a single click starts editing). Cleared after
@@ -380,7 +384,7 @@ function TestStepBlock({ block, editor }: { block: any; editor: any }) {
   // `editing` read from a ref so the single mousedown guard below (attached once)
   // always sees the current state without re-binding.
   const editingRef = useRef(editing);
-  editingRef.current = editing;
+  editingRef.current = editing || alwaysExpanded;
 
   // Zero-box anchor (display: contents) used only to locate this block's node-view
   // element; it adds no layout box, so the step renders exactly as before.
@@ -432,9 +436,24 @@ function TestStepBlock({ block, editor }: { block: any; editor: any }) {
     return () => blockEl.removeEventListener("mousedown", handleMouseDown);
   }, [beginEditing]);
 
+  // Entering compact mode collapses this step back to its read-only preview
+  // unless it currently holds focus. Vertical/horizontal keep every editor
+  // mounted (and never tear down on blur), so `editing` lingers as true; without
+  // this, steps edited before the switch would stay expanded in compact instead
+  // of collapsing like every other unfocused step.
+  useEffect(() => {
+    if (viewMode !== "compact") {
+      return;
+    }
+    const blockEl = anchorRef.current?.closest(".bn-block-content");
+    if (!blockEl || !blockEl.contains(document.activeElement)) {
+      setEditing(false);
+    }
+  }, [viewMode]);
+
   return (
     <div ref={anchorRef} style={{ display: "contents" }}>
-      {editing ? (
+      {editing || alwaysExpanded ? (
         // Empty steps mounted eagerly (freshly inserted) auto-focus their title. A
         // preview upgraded by a click focuses its field too, so a single click starts
         // editing. The editor tears back down to a preview when focus leaves the step
@@ -567,12 +586,16 @@ function TestStepContent({
                 return;
               }
             }
-            onEditEnd();
+            // Only compact mode collapses an unfocused step back to a preview.
+            // Vertical & horizontal keep the editor mounted on blur.
+            if (compactMode) {
+              onEditEnd();
+            }
           });
         };
         root.addEventListener("focusout", handleFocusOut);
         return () => root.removeEventListener("focusout", handleFocusOut);
-      }, [onEditEnd, effectiveHorizontal]);
+      }, [onEditEnd, effectiveHorizontal, compactMode]);
 
       const combinedStepValue = useMemo(() => {
         if (!stepData) {
