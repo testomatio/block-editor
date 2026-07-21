@@ -1275,6 +1275,30 @@ function parseTestStep(
     break;
   }
 
+  // Trailing blank line(s) that the scan loop consumed while looking for
+  // continuation are a real separator when the step is followed by non-step
+  // content (a `---` rule, a heading, a paragraph, ...). Release them so the
+  // outer parser can emit each as an empty paragraph block and the blank line
+  // survives the round-trip. Blanks before another step stay consumed so a
+  // numbered step run keeps contiguous numbering.
+  const breakingLine = next < lines.length ? lines[next] : null;
+  let breakingIsStep = false;
+  if (breakingLine !== null) {
+    const breakingIndent = breakingLine.length - breakingLine.trimStart().length;
+    const bt = breakingLine.trim();
+    breakingIsStep =
+      breakingIndent <= stepIndent &&
+      (bt.startsWith("* ") || bt.startsWith("- ") || bt === "*" || bt === "-" ||
+        NUMBERED_STEP_REGEX.test(bt));
+  }
+  if (!breakingIsStep) {
+    let firstBlank = next;
+    while (firstBlank > index + 1 && !lines[firstBlank - 1].trim()) {
+      firstBlank -= 1;
+    }
+    next = firstBlank;
+  }
+
   const stepData = stepDataLines
     .map((line) => line.trimEnd())
     .join("\n")

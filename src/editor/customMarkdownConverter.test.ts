@@ -3158,6 +3158,48 @@ describe("blank line <-> empty paragraph mapping", () => {
     const blocks = markdownToBlocks(markdown);
     expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
   });
+
+  it("preserves a blank line between a numbered step list and a following ---", () => {
+    const markdown = [
+      "### Steps",
+      "1. Navigate to the appropriate environment using the links above",
+      "2. Login with a `<Role>`",
+      "3. \\.\\.\\.",
+      "",
+      "---",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown) as CustomEditorBlock[];
+    const types = blocks.map((b) => b.type);
+    const lastStepIdx = types.lastIndexOf("testStep");
+    // The blank line separating the last step from --- must survive as an
+    // empty paragraph so the round-trip keeps the layout (otherwise
+    // "5. ..." + "---" renders as a setext heading).
+    expect(isEmptyParagraph(blocks[lastStepIdx + 1])).toBe(true);
+    expect(blocks[lastStepIdx + 2].type).toBe("paragraph");
+    expect(blocksToMarkdown(blocks)).toBe(markdown);
+  });
+
+  it("preserves a blank line between a step and a following heading", () => {
+    const markdown = [
+      "### Steps",
+      "1. do the thing",
+      "",
+      "### Expected Results",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown) as CustomEditorBlock[];
+    const types = blocks.map((b) => b.type);
+    const lastStepIdx = types.lastIndexOf("testStep");
+    expect(isEmptyParagraph(blocks[lastStepIdx + 1])).toBe(true);
+    expect(blocksToMarkdown(blocks)).toBe(markdown);
+  });
+
+  it("does not insert an empty paragraph between two numbered steps separated by a blank line", () => {
+    const markdown = ["### Steps", "1. one", "", "2. two"].join("\n");
+    const blocks = markdownToBlocks(markdown) as CustomEditorBlock[];
+    // Blanks between steps stay consumed so numbering remains contiguous.
+    expect(blocks.some(isEmptyParagraph)).toBe(false);
+    expect(blocksToMarkdown(blocks)).toBe(["### Steps", "1. one", "2. two"].join("\n"));
+  });
 });
 
 describe("test/suite metadata comments", () => {
