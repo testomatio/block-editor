@@ -69,6 +69,11 @@ const EXPECTED_LABEL_REGEX = /^(?:[*_`]*\s*)?(expected(?:\s+result)?)\s*(?:[*_`]
 const STEP_DATA_LINE_REGEX =
   /^(?!\s*(?:[*_`]*\s*)?(?:expected(?:\s+result)?)\b).+/i;
 const NUMBERED_STEP_REGEX = /^\d+[.)]\s+/;
+// An ordered list marker in step content: digits, a dot, then whitespace or the
+// end of a line. Anchored to the start of a line (leading indent still forms a
+// list), because Markdown only reads a marker there — "Response is 200. See …"
+// mid-sentence is plain text and must not switch escaping on.
+const ORDERED_MARKER_REGEX = /^[ \t]*\d+\.(?:\s|$)/m;
 
 function escapeMarkdown(text: string): string {
   let result = "";
@@ -84,26 +89,43 @@ function escapeMarkdown(text: string): string {
   return result;
 }
 
-// Creates a stateful escaper that escapes dots outside Markdown code while
-// leaving code spans (inline `…`, fenced ``` … ```) verbatim — backslash
-// escapes are ignored inside code, so `\.` would render literally.
+type StepSegment = { text: string; code: boolean };
+
+// Creates a stateful segmenter that splits step text into code and non-code
+// regions. Code spans (inline `…`, fenced ``` … ```) must stay verbatim —
+// backslash escapes are ignored inside code, so `\.` would render literally.
 //
 // The state (an open, not-yet-closed backtick run) carries across calls so a
 // fence can be opened in one segment and closed in another. This matters
 // because the step editor splits a multi-line code block across props: the
 // opening ``` lands in `stepTitle` while the body and closing ``` land in
 // `stepData`.
-function makeStepEscaper(): (text: string) => string {
+//
+// The split is lossless: joining every segment's text rebuilds the input.
+function makeStepSegmenter(): (text: string) => StepSegment[] {
   let fence: string | null = null;
-  return (text: string): string => {
-    let result = "";
+  return (text: string): StepSegment[] => {
+    const segments: StepSegment[] = [];
+    const push = (chunk: string, code: boolean) => {
+      if (!chunk) {
+        return;
+      }
+      const last = segments[segments.length - 1];
+      if (last && last.code === code) {
+        last.text += chunk;
+        return;
+      }
+      segments.push({ text: chunk, code });
+    };
+
     let i = 0;
     while (i < text.length) {
       if (text[i] === "`") {
         let ticks = 0;
         while (text[i + ticks] === "`") ticks++;
         const run = "`".repeat(ticks);
-        result += run;
+        // A delimiter run belongs to the code region it opens or closes.
+        push(run, true);
         i += ticks;
         if (fence === null) {
           fence = run; // open a code span/fence
@@ -112,16 +134,32 @@ function makeStepEscaper(): (text: string) => string {
         }
         continue;
       }
-      if (fence !== null) {
-        result += text[i]; // inside code — copy verbatim
-        i++;
-        continue;
-      }
-      result += text[i] === "." ? "\\." : text[i];
+      push(text[i], fence !== null);
       i++;
     }
-    return result;
+    return segments;
   };
+}
+
+// Detects an ordered list marker (`1. `) that Markdown — and our own parser via
+// NUMBERED_STEP_REGEX — would read as the start of a new step.
+//
+// Code regions are masked with a neutral character so a marker inside code
+// cannot trigger escaping (`1. ` in a code span never renders as a list) and so
+// no marker can form across a code boundary.
+function hasOrderedMarker(segments: StepSegment[]): boolean {
+  const masked = segments
+    .map((segment) => (segment.code ? "x".repeat(segment.text.length) : segment.text))
+    .join("");
+  return ORDERED_MARKER_REGEX.test(masked);
+}
+
+function renderStepSegments(segments: StepSegment[], escapeDots: boolean): string {
+  return segments
+    .map((segment) =>
+      segment.code || !escapeDots ? segment.text : segment.text.replace(/\./g, "\\."),
+    )
+    .join("");
 }
 
 function stripHtmlWrappers(text: string): string {
@@ -509,32 +547,49 @@ function serializeBlock(
         .filter((segment: string) => segment.length > 0)
         .join(" ");
 
-      const normalizedExpectedForCheck = stripExpectedPrefix(expectedResult).trim();
-      const hasContent = stepData.length > 0 || normalizedExpectedForCheck.length > 0;
+      const normalizedExpected = stripExpectedPrefix(expectedResult).trim();
+      const hasContent = stepData.length > 0 || normalizedExpected.length > 0;
 
-      // One escaper threads code-fence state from the title into the data: the
+      // One segmenter threads code-fence state from the title into the data: the
       // editor splits a multi-line code block so the opening ``` sits in the
       // title and the body + closing ``` sit in the data. Both must be treated
       // as a single code region so their dots stay literal.
-      const escapeBody = makeStepEscaper();
+      const segmentBody = makeStepSegmenter();
+      const titleSegments = segmentBody(normalizedTitle);
+      const dataSegments = segmentBody(stepData);
+      const expectedSegments = makeStepSegmenter()(normalizedExpected);
+
+      // Dots are escaped only when the step's own content carries an ordered
+      // list marker, which would otherwise be read as the start of a new step.
+      // Plain sentences and file names stay clean. The gate covers the whole
+      // block: a marker in any field escapes the dots in all of them, so a step
+      // never ends up half escaped. The `1.` prefix generated below for ordered
+      // steps is not content and does not count.
+      const escapeDots =
+        hasOrderedMarker(titleSegments) ||
+        hasOrderedMarker(dataSegments) ||
+        hasOrderedMarker(expectedSegments);
 
       if (normalizedTitle.length > 0 || hasContent) {
         const listStyle = (block.props as any).listStyle ?? "bullet";
         const prefix = listStyle === "ordered" ? `${(stepIndex ?? 0) + 1}.` : "*";
-        lines.push(normalizedTitle.length > 0 ? `${prefix} ${escapeBody(normalizedTitle)}` : `${prefix} `);
+        lines.push(
+          normalizedTitle.length > 0
+            ? `${prefix} ${renderStepSegments(titleSegments, escapeDots)}`
+            : `${prefix} `,
+        );
       }
 
       if (stepData.length > 0) {
-        const escaped = escapeBody(stepData);
+        const escaped = renderStepSegments(dataSegments, escapeDots);
         escaped.split(/\r?\n/).forEach((dataLine: string) => {
           const trimmedLine = dataLine.trim();
           lines.push(trimmedLine.length === 0 ? "  " : `  ${trimmedLine}`);
         });
       }
 
-      const normalizedExpected = stripExpectedPrefix(expectedResult).trim();
       if (normalizedExpected.length > 0) {
-        const escaped = makeStepEscaper()(normalizedExpected);
+        const escaped = renderStepSegments(expectedSegments, escapeDots);
         const label = "*Expected result*";
         let isFirst = true;
         escaped.split(/\r?\n/).forEach((expectedLine: string) => {

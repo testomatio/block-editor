@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StepField, StepFieldPreview } from "./stepField";
 import { StepHorizontalView } from "./stepHorizontalView";
 import { useStepImageUpload } from "../stepImageUpload";
+import { isSuiteDocument } from "../exampleTableHighlight";
 import type { StepSuggestion } from "../stepAutocomplete";
 
 const EXPECTED_COLLAPSED_KEY = "bn-expected-collapsed";
@@ -281,6 +282,20 @@ export function computeStepNumber(allBlocks: any[], blockId: string): number {
 }
 
 /**
+ * True when the document opens with a `<!-- suite ... -->` comment — i.e. its
+ * first block is a `testMeta` whose kind is "suite". Such documents list many
+ * tests at once, so their steps are locked to the compact reading view (see
+ * `TestStepBlock`). Shares the gate with the example-table highlighter so both
+ * features agree on what counts as a suite document.
+ */
+export function isSuiteBlockDocument(
+  blocks: readonly { type?: string; props?: { metaKind?: string } }[],
+): boolean {
+  const first = blocks?.[0];
+  return isSuiteDocument(first?.type, first?.props?.metaKind);
+}
+
+/**
  * Read-only stand-in rendered for every step that isn't currently being edited.
  * It mirrors the live step's structure for the active view mode and renders each
  * field via {@link StepFieldPreview} — a faithful, formatted reading view with
@@ -351,7 +366,15 @@ function TestStepBlock({ block, editor }: { block: any; editor: any }) {
     !((block.props.stepTitle as string) || "") &&
     !((block.props.stepData as string) || "") &&
     !((block.props.expectedResult as string) || "");
-  const viewMode = useStepViewMode();
+  const storedViewMode = useStepViewMode();
+  const [suiteDocument, setSuiteDocument] = useState(() =>
+    isSuiteBlockDocument(editor.document),
+  );
+  // A suite document is read-oriented (many tests listed at once), so its steps
+  // are pinned to compact and the view toggle is hidden. The shared preference
+  // in localStorage is left untouched, so ordinary test documents keep whatever
+  // mode the user picked.
+  const viewMode: StepViewMode = suiteDocument ? "compact" : storedViewMode;
   // Vertical & horizontal modes keep every step's editor mounted (input +
   // toolbar + action bar) regardless of focus — only compact collapses an
   // unfocused step back to the read-only preview.
@@ -372,6 +395,11 @@ function TestStepBlock({ block, editor }: { block: any; editor: any }) {
     // the whole step list.
     const next = computeStepNumber(editor.document, block.id);
     setStepNumber((prev) => (prev === next ? prev : next));
+    // Piggy-backs on this single subscription (a second `useEditorChange` per
+    // step would double the listeners in a large document) and bails out the
+    // same way, so it never causes an extra re-render on its own.
+    const suite = isSuiteBlockDocument(editor.document);
+    setSuiteDocument((prev) => (prev === suite ? prev : suite));
   }, editor);
 
   const beginEditing = useCallback(() => {
@@ -463,6 +491,7 @@ function TestStepBlock({ block, editor }: { block: any; editor: any }) {
           editor={editor}
           stepNumber={stepNumber}
           viewMode={viewMode}
+          viewLocked={suiteDocument}
           autoFocusEnabled={isEmptyStep}
           focusOnMount={focusOnMountRef.current}
           onEditEnd={endEditing}
@@ -492,6 +521,7 @@ function TestStepContent({
   editor,
   stepNumber,
   viewMode,
+  viewLocked = false,
   autoFocusEnabled = false,
   focusOnMount = false,
   onEditEnd,
@@ -500,6 +530,8 @@ function TestStepContent({
   editor: any;
   stepNumber: number;
   viewMode: StepViewMode;
+  /** Suite documents pin the view mode: no toggle, no cycling. */
+  viewLocked?: boolean;
   autoFocusEnabled?: boolean;
   focusOnMount?: boolean;
   onEditEnd?: () => void;
@@ -734,6 +766,11 @@ function TestStepContent({
       }, [editor, block.id]);
 
       const handleToggleView = useCallback(() => {
+        // Suite documents pin the mode; the toggle isn't rendered at all there,
+        // but guard anyway so the cycle can never run.
+        if (viewLocked) {
+          return;
+        }
         // Cycle vertical → horizontal → compact → vertical. Skip horizontal when
         // the container is too narrow to fit its two columns.
         let next: StepViewMode;
@@ -765,7 +802,7 @@ function TestStepContent({
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("bn-step-view-mode"));
         }
-      }, [viewMode, forceVertical]);
+      }, [viewMode, forceVertical, viewLocked]);
 
       const [dataFocusSignal] = useState(0);
       const [expectedFocusSignal, setExpectedFocusSignal] = useState(0);
@@ -791,7 +828,8 @@ function TestStepContent({
               ? "Switch to compact view"
               : "Switch to horizontal view";
 
-      const viewToggleButton = (
+      // Suite documents lock the view, so there's nothing to toggle.
+      const viewToggleButton = viewLocked ? null : (
         <button
           type="button"
           className={`bn-teststep__view-toggle${effectiveHorizontal ? " bn-teststep__view-toggle--horizontal" : ""}${compactMode ? " bn-teststep__view-toggle--compact" : ""}`}
@@ -816,6 +854,11 @@ function TestStepContent({
           )}
         </button>
       );
+
+      // In compact mode the header carries nothing but the toggle (the "Step"
+      // label is suppressed), so with the toggle gone drop the header entirely —
+      // matching TestStepPreview, which already omits it in compact.
+      const showHeader = !compactMode || viewToggleButton !== null;
 
       if (effectiveHorizontal) {
         return (
@@ -846,10 +889,12 @@ function TestStepContent({
             <div className="bn-teststep__line" />
           </div>
           <div className="bn-teststep__content">
-            <div className="bn-teststep__header">
-              {!compactMode && <span className="bn-teststep__title">Step</span>}
-              {viewToggleButton}
-            </div>
+            {showHeader && (
+              <div className="bn-teststep__header">
+                {!compactMode && <span className="bn-teststep__title">Step</span>}
+                {viewToggleButton}
+              </div>
+            )}
             <StepField
               label="Step"
               showLabel={false}
