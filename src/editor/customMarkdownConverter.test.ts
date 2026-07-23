@@ -287,10 +287,10 @@ describe("blocksToMarkdown", () => {
 
     expect(blocksToMarkdown(blocks)).toBe(
       [
-        "* Open the Login page\\.",
-        "  *Expected result*: The Login page loads successfully\\.",
-        "* Enter a valid username\\.",
-        "  *Expected result*: The username is accepted\\.",
+        "* Open the Login page.",
+        "  *Expected result*: The Login page loads successfully.",
+        "* Enter a valid username.",
+        "  *Expected result*: The username is accepted.",
       ].join("\n"),
     );
   });
@@ -508,7 +508,7 @@ describe("blocksToMarkdown", () => {
 
     expect(blocksToMarkdown(blocks)).toBe(
       [
-        "* Update an order status\\.",
+        "* Update an order status.",
         "  ```",
         "  SQL CREATE bnbmnbm mnbmb mm",
         "  mn,nm nm, m,nm,n,nn,m,",
@@ -519,8 +519,8 @@ describe("blocksToMarkdown", () => {
         "  ",
         "  asdsadas",
         "  ```",
-        "  ![](/attachments/HMhkVtlDrO\\.png)",
-        "  *Expected result*: The user receives a real-time notification for the order update\\.",
+        "  ![](/attachments/HMhkVtlDrO.png)",
+        "  *Expected result*: The user receives a real-time notification for the order update.",
       ].join("\n"),
     );
   });
@@ -1232,7 +1232,7 @@ describe("markdownToBlocks", () => {
 
     expect(markdownRoundTrip).toBe(
       [
-        "* Step 2: Update an order status\\.",
+        "* Step 2: Update an order status.",
         "  ```",
         "  SQL CREATE bnbmnbm mnbmb mm",
         "  mn,nm nm, m,nm,n,nn,m,",
@@ -1243,8 +1243,8 @@ describe("markdownToBlocks", () => {
         "  ",
         "  asdsadas",
         "  ```",
-        "  ![](/attachments/HMhkVtlDrO\\.png)",
-        "  *Expected result*: The user receives a real-time notification for the order update\\.",
+        "  ![](/attachments/HMhkVtlDrO.png)",
+        "  *Expected result*: The user receives a real-time notification for the order update.",
       ].join("\n"),
     );
   });
@@ -1263,7 +1263,8 @@ describe("markdownToBlocks", () => {
         id: "step1",
         type: "testStep",
         props: {
-          stepTitle: "Run the request.",
+          // The ordered marker turns dot escaping on for the whole block.
+          stepTitle: "1. Run the request.",
           stepData,
           expectedResult: "",
           listStyle: "bullet",
@@ -1276,7 +1277,7 @@ describe("markdownToBlocks", () => {
     expect(markdown).toBe(
       [
         // Title outside the fence is still escaped.
-        "* Run the request\\.",
+        "* 1\\. Run the request\\.",
         // Dots inside the fence stay literal.
         "  ```",
         "  curl 'https://stable.testomat.io/api/runs/54?page=1&entry=' \\",
@@ -1302,7 +1303,8 @@ describe("markdownToBlocks", () => {
         id: "step1",
         type: "testStep",
         props: {
-          stepTitle: "Run the request.",
+          // The ordered marker turns dot escaping on for the whole block.
+          stepTitle: "1. Run the request.",
           stepData: "`curl https://example.com/api`",
           expectedResult: "",
           listStyle: "bullet",
@@ -1315,7 +1317,7 @@ describe("markdownToBlocks", () => {
     expect(markdown).toBe(
       [
         // Title outside code is still escaped.
-        "* Run the request\\.",
+        "* 1\\. Run the request\\.",
         // Dots inside the inline code span stay literal.
         "  `curl https://example.com/api`",
       ].join("\n"),
@@ -1353,6 +1355,162 @@ describe("markdownToBlocks", () => {
         "  ```",
       ].join("\n"),
     );
+  });
+
+  it("leaves dots alone when the step carries no ordered list marker", () => {
+    const markdown = blocksToMarkdown([
+      {
+        id: "step1",
+        type: "testStep",
+        props: {
+          stepTitle: "Open the Login page.",
+          stepData: "Version 4.2 of the app.",
+          expectedResult: "The page loads. See report.png",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(markdown).not.toContain("\\.");
+    expect(markdown).toBe(
+      [
+        "* Open the Login page.",
+        "  Version 4.2 of the app.",
+        "  *Expected result*: The page loads. See report.png",
+      ].join("\n"),
+    );
+  });
+
+  it("does not treat a mid-sentence number followed by a dot as an ordered list marker", () => {
+    const markdown = blocksToMarkdown([
+      {
+        id: "step1",
+        type: "testStep",
+        props: {
+          // Markdown only reads an ordered marker at the start of a line, so
+          // "200. " inside a sentence cannot become a list.
+          stepTitle: "Check the output.",
+          stepData: "The build takes 1. 5 minutes on CI.",
+          expectedResult: "Response is 200. See report.png",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(markdown).not.toContain("\\.");
+    expect(markdown).toBe(
+      [
+        "* Check the output.",
+        "  The build takes 1. 5 minutes on CI.",
+        "  *Expected result*: Response is 200. See report.png",
+      ].join("\n"),
+    );
+  });
+
+  it("escapes every dot of the block when step data carries an ordered list marker", () => {
+    const markdown = blocksToMarkdown([
+      {
+        id: "step1",
+        type: "testStep",
+        props: {
+          stepTitle: "Follow the wizard.",
+          stepData: ["1. Pick a plan", "2. Confirm"].join("\n"),
+          expectedResult: "The wizard closes.",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    // The marker sits in the step data, but the gate covers the whole block so
+    // no field ends up half escaped.
+    expect(markdown).toBe(
+      [
+        "* Follow the wizard\\.",
+        "  1\\. Pick a plan",
+        "  2\\. Confirm",
+        "  *Expected result*: The wizard closes\\.",
+      ].join("\n"),
+    );
+  });
+
+  it("escapes every dot of the block when only the expected result carries an ordered list marker", () => {
+    const markdown = blocksToMarkdown([
+      {
+        id: "step1",
+        type: "testStep",
+        props: {
+          stepTitle: "Open the report.",
+          stepData: "",
+          expectedResult: "Two rows appear:\n1. Total\n2. Average",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(markdown).toBe(
+      [
+        "* Open the report\\.",
+        "  *Expected result*: Two rows appear:",
+        "  1\\. Total",
+        "  2\\. Average",
+      ].join("\n"),
+    );
+  });
+
+  it("does not escape dots when the only ordered list marker sits inside code", () => {
+    const markdown = blocksToMarkdown([
+      {
+        id: "step1",
+        type: "testStep",
+        props: {
+          // "1. " inside a fence never renders as a list, so it must not switch
+          // escaping on for the rest of the block.
+          stepTitle: "Check the output.",
+          stepData: ["```", "1. first line of output", "```"].join("\n"),
+          expectedResult: "The list is printed.",
+          listStyle: "bullet",
+        },
+        content: undefined,
+        children: [],
+      },
+    ]);
+
+    expect(markdown).not.toContain("\\.");
+    expect(markdown).toBe(
+      [
+        "* Check the output.",
+        "  ```",
+        "  1. first line of output",
+        "  ```",
+        "  *Expected result*: The list is printed.",
+      ].join("\n"),
+    );
+  });
+
+  it("keeps a step with an ordered list marker in step data as a single block across a round-trip", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Follow the wizard\\.",
+      "  1\\. Pick a plan",
+      "  2\\. Confirm",
+    ].join("\n");
+
+    const blocks = markdownToBlocks(markdown) as CustomEditorBlock[];
+    const steps = blocks.filter((block) => block.type === "testStep");
+    expect(steps).toHaveLength(1);
+    expect(steps[0].props).toMatchObject({ stepData: "1. Pick a plan\n2. Confirm" });
+
+    // Escaping is reproduced identically, so saving twice does not churn.
+    expect(blocksToMarkdown(blocks)).toBe(markdown);
   });
 
   it("does not include content after a blank line in step data", () => {
@@ -1681,8 +1839,8 @@ describe("markdownToBlocks", () => {
 
     expect(markdownRoundTrip).toBe(
       [
-        "* Display the generated report\\.",
-        "  *Expected result*: ![](/attachments/report\\.png)",
+        "* Display the generated report.",
+        "  *Expected result*: ![](/attachments/report.png)",
       ].join("\n"),
     );
   });
@@ -1730,7 +1888,7 @@ describe("markdownToBlocks", () => {
       [
         "* Should open login screen",
         "  *Expected result*: Login should look like this",
-        "  ![](/login\\.png)",
+        "  ![](/login.png)",
       ].join("\n"),
     );
   });
@@ -2462,10 +2620,12 @@ describe("markdownToBlocks", () => {
 
     // Test round-trip conversion — numbered steps preserve their ordered style
     const roundTripMarkdown = blocksToMarkdown(blocks as CustomEditorBlock[]);
-    expect(roundTripMarkdown).toContain("1. Navigate to the product listing page\\.");
-    expect(roundTripMarkdown).toContain("2. Select a product and click the \"Add to Cart\" button\\.");
-    expect(roundTripMarkdown).toContain("3. Open the shopping cart page\\.");
-    expect(roundTripMarkdown).toContain("4. Verify that the added item is displayed with the correct name, price, and quantity\\.");
+    // The "1." prefix is generated from listStyle, not part of the step content,
+    // so it does not switch dot escaping on.
+    expect(roundTripMarkdown).toContain("1. Navigate to the product listing page.");
+    expect(roundTripMarkdown).toContain("2. Select a product and click the \"Add to Cart\" button.");
+    expect(roundTripMarkdown).toContain("3. Open the shopping cart page.");
+    expect(roundTripMarkdown).toContain("4. Verify that the added item is displayed with the correct name, price, and quantity.");
     // Check that step data is preserved
     expect(roundTripMarkdown).toContain("  Expected open");
     expect(roundTripMarkdown).toContain("  Expected result close");
@@ -3164,7 +3324,7 @@ describe("blank line <-> empty paragraph mapping", () => {
       "### Steps",
       "1. Navigate to the appropriate environment using the links above",
       "2. Login with a `<Role>`",
-      "3. \\.\\.\\.",
+      "3. ...",
       "",
       "---",
     ].join("\n");
