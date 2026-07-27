@@ -85,6 +85,13 @@ export {
 } from "./editor/MentionMenu";
 
 export {
+  attachMentionReopen,
+  findMentionAtCaret,
+  type MentionReopenEditor,
+  type MentionReopenOptions,
+} from "./editor/mentionReopen";
+
+export {
   useMentionAutocomplete,
   type UseMentionAutocompleteOptions,
   type UseMentionAutocompleteResult,
