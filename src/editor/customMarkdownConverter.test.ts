@@ -3524,6 +3524,33 @@ describe("test/suite metadata comments", () => {
     expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
   });
 
+  it("keeps fields that are no longer suggested (creator, shared)", () => {
+    // `creator`/`shared` were dropped from the "+" menu suggestions, but whatever
+    // the markdown already carries must still parse, render and round-trip.
+    const markdown = [
+      "<!-- test",
+      "id: @T4ffddec3",
+      "creator: qa@example.com",
+      "shared: true",
+      "issues:",
+      "  - https://github.com/testomatio/testomatio/issues/8963",
+      "-->",
+    ].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect((blocks[0].props as any).metaFields).toBe(
+      JSON.stringify([
+        { key: "id", value: "@T4ffddec3" },
+        { key: "creator", value: "qa@example.com" },
+        { key: "shared", value: "true" },
+        {
+          key: "issues",
+          value: "https://github.com/testomatio/testomatio/issues/8963",
+        },
+      ]),
+    );
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
   it("ignores lines without a colon inside a metadata block", () => {
     const markdown = [
       "<!-- test",

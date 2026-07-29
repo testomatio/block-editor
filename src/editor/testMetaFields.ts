@@ -16,14 +16,16 @@ export type MetaFieldSuggestionsConfig =
 
 // Defaults follow the classical Testomatio markdown format. `id` is intentionally
 // omitted: it is a read-only, system-assigned field, not something users add.
+// `creator`/`shared` are likewise not offered — they are managed elsewhere. The
+// list only drives the "+" menu, so fields already present in the markdown (any
+// key, including these) keep rendering and round-tripping untouched.
 const DEFAULT_TEST_FIELDS: MetaFieldSuggestion[] = [
   { key: "priority" },
   { key: "type" },
   { key: "tags" },
   { key: "labels" },
   { key: "assignee" },
-  { key: "creator" },
-  { key: "shared" },
+  { key: "issues" },
 ];
 
 const DEFAULT_SUITE_FIELDS: MetaFieldSuggestion[] = [
