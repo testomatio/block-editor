@@ -110,6 +110,10 @@ return (
    - `testStep`: inline WYSIWYG inputs for Step Title, Data, and Expected Result with bold/italic/underline formatting/images.
    - `snippet`: dropdown to pick a reusable snippet and editable body (no formatting buttons).
 
+5. **Spellcheck**
+
+   Step and snippet fields inherit the browser's `spellcheck` setting from the editor container, so it is enabled by default. To turn it off for the whole editor (paragraphs and steps), set `spellcheck="false"` on any wrapper around `BlockNoteView`.
+
 ## Step Autocomplete & Image Upload Hooks
 
 Configure everything via JS—no React providers required:
