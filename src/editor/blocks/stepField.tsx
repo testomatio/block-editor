@@ -983,6 +983,9 @@ export function StepField({
     if (compactModeRef.current && instance.textarea) {
       instance.textarea.rows = 1;
     }
+    // OverType hard-codes spellcheck="false"; drop it so the textarea inherits
+    // the host's spellcheck setting (enabled by default).
+    instance.textarea?.removeAttribute("spellcheck");
 
     // Monkey-patch updatePreview to add link highlights
     const originalUpdatePreview = instance.updatePreview.bind(instance);
