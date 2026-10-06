@@ -143,6 +143,47 @@
   word-break: break-word;
 }
 
+.app__action--small {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+.app__action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.app__panel .app__action--ghost {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.app__md-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 200px;
+  resize: vertical;
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.5rem;
+  background: rgba(15, 23, 42, 0.6);
+  color: inherit;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.app__md-input::placeholder {
+  color: rgba(148, 163, 184, 0.7);
+}
+
+.app__md-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
 .app__error {
   margin: 0;
   color: #fca5a5;
@@ -258,6 +299,21 @@ html.dark .app__editor {
 html.dark .app__panel {
   background: #171717;
   box-shadow: inset 0 0 0 1px rgba(64, 64, 64, 0.5);
+}
+
+html.dark .app__md-input {
+  background: #0a0a0a;
+  border-color: #404040;
+}
+
+html.dark .app__md-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+}
+
+html.dark .app__panel .app__action--ghost {
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.15);
 }
 
 html.dark .app__panel--light {
