@@ -11,6 +11,12 @@ import type {
 import { resolveFileDisplayUrl } from "./fileDisplayUrl";
 import type { customSchema } from "./customSchema";
 import { isStepsHeading } from "./blocks/step";
+import {
+  codeBlockFence,
+  indexOfOutsideCode,
+  scanCodeSpan,
+  wrapCodeSpan,
+} from "./codeSpan";
 
 // Types derived from the custom schema so the converter stays type-safe when the schema evolves.
 type Schema = typeof customSchema;
@@ -120,6 +126,13 @@ function makeStepSegmenter(): (text: string) => StepSegment[] {
 
     let i = 0;
     while (i < text.length) {
+      // An escaped backtick outside code is literal and opens nothing. Inside
+      // code a backslash is itself literal, so it cannot escape the closer.
+      if (fence === null && text[i] === "\\" && text[i + 1] === "`") {
+        push(text.slice(i, i + 2), false);
+        i += 2;
+        continue;
+      }
       if (text[i] === "`") {
         let ticks = 0;
         while (text[i + ticks] === "`") ticks++;
@@ -213,8 +226,22 @@ function stripLeadingFormatting(text: string): string {
   return result;
 }
 
-function unescapeMarkdown(text: string): string {
+function unescapeMarkdownText(text: string): string {
   return stripHtmlWrappers(text).replace(/\\([*_`~\[\]()<>.\\])/g, "$1").replace(/\\>/g, ">");
+}
+
+// Unescapes step text outside code regions only — backslashes inside code
+// spans and fences are literal in Markdown, so `C:\\dir` must stay as written.
+function unescapeMarkdown(text: string): string {
+  return makeStepSegmenter()(text)
+    .map((segment) => (segment.code ? segment.text : unescapeMarkdownText(segment.text)))
+    .join("");
+}
+
+// Inline (non-code) text unescape: CommonMark lets a backslash escape any ASCII
+// punctuation character.
+function unescapeInlineText(text: string): string {
+  return stripHtmlWrappers(text).replace(/\\([!-\/:-@\[-`{-~])/g, "$1");
 }
 
 function applyTextStyles(text: string, styles: EditorStyles | undefined): string {
@@ -230,8 +257,10 @@ function applyTextStyles(text: string, styles: EditorStyles | undefined): string
     const trailingWs = result.match(/(\s*)$/)?.[1] ?? "";
     const trimmed = result.slice(leadingWs.length, result.length - trailingWs.length || undefined);
     if (!trimmed) return result;
-    // Code style supersedes other styles in Markdown.
-    return leadingWs + "`" + trimmed.replace(/`/g, "\\`") + "`" + trailingWs;
+    // Code style supersedes other styles in Markdown. Backslash escapes do not
+    // work inside code spans, so literal backticks are handled by picking a
+    // longer delimiter instead.
+    return leadingWs + wrapCodeSpan(trimmed) + trailingWs;
   }
 
   const wrappers: Array<{ prefix: string; suffix?: string }> = [];
@@ -409,13 +438,13 @@ function serializeBlock(
     }
     case "codeBlock": {
       const language = (block.props as any).language || "";
-      const fence = "```" + language;
       const body = inlineContentToPlainText(block.content);
-      lines.push(fence);
+      const fence = codeBlockFence(body);
+      lines.push(fence + language);
       if (body.length > 0) {
         lines.push(body);
       }
-      lines.push("```");
+      lines.push(fence);
       return lines;
     }
     case "bulletListItem": {
@@ -771,7 +800,47 @@ export function blocksToMarkdown(blocks: CustomEditorBlock[]): string {
 }
 
 function parseInlineMarkdown(text: string): EditorInline[] {
-  return parseInlineSegments(stripHtmlWrappers(text), {});
+  // HTML wrappers (<span>, <u>) are stripped from plain text in pushPlain, so
+  // code spans keep them verbatim.
+  return parseInlineSegments(text, {});
+}
+
+const WORD_CHAR_REGEX = /[\p{L}\p{N}]/u;
+const ASCII_PUNCTUATION_REGEX = /[!-\/:-@\[-`{-~]/;
+
+function isWordChar(ch: string | undefined): boolean {
+  return ch !== undefined && WORD_CHAR_REGEX.test(ch);
+}
+
+function isWhitespaceOrEdge(ch: string | undefined): boolean {
+  return ch === undefined || /\s/.test(ch);
+}
+
+// Simplified CommonMark flanking rules: a delimiter run opens when followed by
+// non-whitespace and closes when preceded by non-whitespace. `_` additionally
+// cannot open or close inside a word, so `snake_case_name` stays plain text.
+function canOpenEmphasis(text: string, index: number, length: number): boolean {
+  if (isWhitespaceOrEdge(text[index + length])) {
+    return false;
+  }
+  return text[index] === "_" ? !isWordChar(text[index - 1]) : true;
+}
+
+function canCloseEmphasis(text: string, index: number, length: number): boolean {
+  if (isWhitespaceOrEdge(text[index - 1])) {
+    return false;
+  }
+  return text[index] === "_" ? !isWordChar(text[index + length]) : true;
+}
+
+// Finds a closing `***`/`**`/`__`/… delimiter, skipping code spans and escapes
+// and requiring non-empty content.
+function findEmphasisClose(text: string, from: number, marker: string): number {
+  let j = indexOfOutsideCode(text, marker, from);
+  while (j !== -1 && (j === from || !canCloseEmphasis(text, j, marker.length))) {
+    j = indexOfOutsideCode(text, marker, j + 1);
+  }
+  return j;
 }
 
 function findItalicClose(
@@ -786,15 +855,20 @@ function findItalicClose(
       j += 2;
       continue;
     }
-    if ((ch === "*" || ch === "_") && text[j + 1] === ch) {
-      const close = text.indexOf(ch + ch, j + 2);
-      if (close === -1) {
-        return -1;
-      }
-      j = close + 2;
+    if (ch === "`") {
+      j = scanCodeSpan(text, j)!.end;
       continue;
     }
-    if (ch === marker) {
+    if ((ch === "*" || ch === "_") && text[j + 1] === ch) {
+      // Skip over a nested strong run; an unmatched double run falls through
+      // so its first character can still close the italic (`*foo**`).
+      const close = canOpenEmphasis(text, j, 2) ? findEmphasisClose(text, j + 2, ch + ch) : -1;
+      if (close !== -1) {
+        j = close + 2;
+        continue;
+      }
+    }
+    if (ch === marker && j > start && canCloseEmphasis(text, j, 1)) {
       return j;
     }
     j += 1;
@@ -810,15 +884,16 @@ function parseInlineSegments(
   let buffer = "";
 
   const pushPlain = () => {
-    if (buffer.length === 0) {
+    const text = unescapeInlineText(buffer);
+    buffer = "";
+    if (text.length === 0) {
       return;
     }
     result.push({
       type: "text",
-      text: unescapeMarkdown(buffer),
+      text,
       styles: { ...outerStyles } as EditorStyles,
     });
-    buffer = "";
   };
 
   const wrap = (inner: string, add: Record<string, boolean>) => {
@@ -827,82 +902,95 @@ function parseInlineSegments(
     result.push(...nested);
   };
 
+  // Tries a symmetric delimiter (`***`, `**`, `~~`, …) at `i`; returns the
+  // index after the closing delimiter, or -1 when it does not apply.
+  const tryDelimited = (
+    i: number,
+    marker: string,
+    add: Record<string, boolean>,
+    flanking: boolean,
+  ): number => {
+    if (!cleaned.startsWith(marker, i)) {
+      return -1;
+    }
+    if (flanking && !canOpenEmphasis(cleaned, i, marker.length)) {
+      return -1;
+    }
+    const from = i + marker.length;
+    const end = flanking
+      ? findEmphasisClose(cleaned, from, marker)
+      : indexOfOutsideCode(cleaned, marker, from);
+    if (end === -1 || end === from) {
+      return -1;
+    }
+    wrap(cleaned.slice(from, end), add);
+    return end + marker.length;
+  };
+
   let i = 0;
   while (i < cleaned.length) {
-    if (cleaned.startsWith("***", i)) {
-      const end = cleaned.indexOf("***", i + 3);
-      if (end !== -1) {
-        wrap(cleaned.slice(i + 3, end), { bold: true, italic: true });
-        i = end + 3;
-        continue;
-      }
+    const ch = cleaned[i];
+
+    // Backslash escapes: keep the pair in the buffer (pushPlain unescapes it)
+    // so the escaped character never acts as a delimiter.
+    if (ch === "\\" && ASCII_PUNCTUATION_REGEX.test(cleaned[i + 1] ?? "")) {
+      buffer += cleaned.slice(i, i + 2);
+      i += 2;
+      continue;
     }
 
-    if (cleaned.startsWith("___", i)) {
-      const end = cleaned.indexOf("___", i + 3);
-      if (end !== -1) {
-        wrap(cleaned.slice(i + 3, end), { bold: true, italic: true });
-        i = end + 3;
-        continue;
-      }
-    }
-
-    if (cleaned.startsWith("**", i)) {
-      const end = cleaned.indexOf("**", i + 2);
-      if (end !== -1) {
-        wrap(cleaned.slice(i + 2, end), { bold: true });
-        i = end + 2;
-        continue;
-      }
-    }
-
-    if (cleaned.startsWith("__", i)) {
-      const end = cleaned.indexOf("__", i + 2);
-      if (end !== -1) {
-        wrap(cleaned.slice(i + 2, end), { bold: true });
-        i = end + 2;
-        continue;
-      }
-    }
-
-    if (cleaned.startsWith("~~", i)) {
-      const end = cleaned.indexOf("~~", i + 2);
-      if (end !== -1) {
-        wrap(cleaned.slice(i + 2, end), { strike: true });
-        i = end + 2;
-        continue;
-      }
-    }
-
-    if (cleaned.startsWith("`", i)) {
-      const end = cleaned.indexOf("`", i + 1);
-      if (end !== -1) {
+    // Code spans bind tighter than every other inline construct and their
+    // content is literal — no unescaping, no emphasis.
+    if (ch === "`") {
+      const scan = scanCodeSpan(cleaned, i)!;
+      if (scan.kind === "span") {
         pushPlain();
-        const inner = cleaned.slice(i + 1, end);
         result.push({
           type: "text",
-          text: unescapeMarkdown(inner),
+          text: scan.content,
           styles: { ...outerStyles, code: true } as EditorStyles,
         });
-        i = end + 1;
+      } else {
+        buffer += cleaned.slice(i, scan.end);
+      }
+      i = scan.end;
+      continue;
+    }
+
+    if (ch === "*" || ch === "_") {
+      let next = tryDelimited(i, ch.repeat(3), { bold: true, italic: true }, true);
+      if (next === -1) {
+        next = tryDelimited(i, ch.repeat(2), { bold: true }, true);
+      }
+      if (next !== -1) {
+        i = next;
         continue;
       }
     }
 
-    if (cleaned[i] === "[") {
-      const endLabel = cleaned.indexOf("]", i + 1);
-      const startLink = cleaned.indexOf("(", endLabel + 1);
-      const endLink = cleaned.indexOf(")", startLink + 1);
-      if (endLabel !== -1 && startLink === endLabel + 1 && endLink !== -1) {
+    if (ch === "~") {
+      const next = tryDelimited(i, "~~", { strike: true }, false);
+      if (next !== -1) {
+        i = next;
+        continue;
+      }
+    }
+
+    if (ch === "[") {
+      const endLabel = indexOfOutsideCode(cleaned, "]", i + 1);
+      const endLink = endLabel !== -1 && cleaned[endLabel + 1] === "("
+        ? cleaned.indexOf(")", endLabel + 2)
+        : -1;
+      if (endLink !== -1) {
         pushPlain();
         const label = cleaned.slice(i + 1, endLabel);
-        const href = cleaned.slice(startLink + 1, endLink);
+        const href = cleaned.slice(endLabel + 2, endLink);
         const parsedLabel = parseInlineSegments(label, {});
         // Ensure link content is never undefined - if empty, add empty text
         const linkContent = parsedLabel.length > 0 ? parsedLabel : [{ type: "text", text: "", styles: {} }];
         result.push({
           type: "link",
-          href: unescapeMarkdown(href),
+          href: unescapeInlineText(href),
           content: linkContent,
         } as any);
         i = endLink + 1;
@@ -910,9 +998,8 @@ function parseInlineSegments(
       }
     }
 
-    if (cleaned[i] === "*" || cleaned[i] === "_") {
-      const marker = cleaned[i] as "*" | "_";
-      const end = findItalicClose(cleaned, i + 1, marker);
+    if ((ch === "*" || ch === "_") && canOpenEmphasis(cleaned, i, 1)) {
+      const end = findItalicClose(cleaned, i + 1, ch);
       if (end !== -1) {
         wrap(cleaned.slice(i + 1, end), { italic: true });
         i = end + 1;
@@ -927,7 +1014,7 @@ function parseInlineSegments(
       continue;
     }
 
-    buffer += cleaned[i];
+    buffer += ch;
     i += 1;
   }
 
@@ -1079,7 +1166,7 @@ function parseList(
       items.push({
         type: "checkListItem",
         props: { ...cloneBaseProps(), checked },
-        content: createTextContent(unescapeMarkdown(text)),
+        content: createTextContent(text),
         children: [],
       });
     } else if (listType === "numbered") {
@@ -1089,7 +1176,7 @@ function parseList(
       items.push({
         type: "numberedListItem",
         props: { ...cloneBaseProps(), start },
-        content: createTextContent(unescapeMarkdown(text)),
+        content: createTextContent(text),
         children: [],
       });
     } else {
@@ -1098,7 +1185,7 @@ function parseList(
       items.push({
         type: "bulletListItem",
         props: cloneBaseProps(),
-        content: createTextContent(unescapeMarkdown(text)),
+        content: createTextContent(text),
         children: [],
       });
     }
@@ -1419,52 +1506,48 @@ function parseHeading(lines: string[], index: number): { block: CustomPartialBlo
     block: {
       type: "heading",
       props: { ...cloneBaseProps(), level },
-      content: createTextContent(unescapeMarkdown(text)),
+      content: createTextContent(text),
       children: [],
     },
     nextIndex: index + 1,
   };
 }
 
+// Opening code fence: three or more backticks or tildes, then an info string.
+const CODE_FENCE_OPEN_REGEX = /^(\s*)(`{3,}|~{3,})(.*)$/;
+
+// Fenced code blocks per CommonMark: the closing fence uses the same character
+// and is at least as long as the opening one (so a ````md block can contain
+// ``` lines), and an unclosed fence runs to the end of the document. A
+// backtick fence's info string cannot contain backticks, which makes a
+// one-line ```code``` an inline code span rather than a block.
 function parseCodeBlock(lines: string[], index: number): { block: CustomPartialBlock; nextIndex: number } | null {
-  const trimmed = lines[index].trim();
-  if (!trimmed.startsWith("```") ) {
+  const open = lines[index].match(CODE_FENCE_OPEN_REGEX);
+  if (!open) {
+    return null;
+  }
+  const [, indent, fence, info] = open;
+  if (fence[0] === "`" && info.includes("`")) {
     return null;
   }
 
-  const afterOpening = trimmed.slice(3);
-  const closeMatch = afterOpening.match(/```\s*$/);
-  if (closeMatch) {
-    const content = afterOpening.slice(0, afterOpening.length - closeMatch[0].length);
-    return {
-      block: {
-        type: "codeBlock",
-        props: { language: "" },
-        content: content.length
-          ? [{ type: "text", text: content, styles: {} }]
-          : undefined,
-        children: [],
-      },
-      nextIndex: index + 1,
-    };
-  }
-
-  const language = afterOpening.trim();
+  const closeRegex = new RegExp(`^\\s*${fence[0]}{${fence.length},}\\s*$`);
   const body: string[] = [];
   let next = index + 1;
-  while (next < lines.length && !lines[next].startsWith("```") ) {
-    body.push(lines[next]);
+  while (next < lines.length && !closeRegex.test(lines[next])) {
+    // Drop the opening fence's indentation from body lines, as Markdown does.
+    body.push(indent ? lines[next].replace(new RegExp(`^ {0,${indent.length}}`), "") : lines[next]);
     next += 1;
   }
 
-  if (next < lines.length && lines[next].startsWith("```")) {
+  if (next < lines.length) {
     next += 1;
   }
 
   return {
     block: {
       type: "codeBlock",
-      props: { language },
+      props: { language: info.trim() },
       content: body.length
         ? [{ type: "text", text: body.join("\n"), styles: {} }]
         : undefined,
@@ -1494,7 +1577,7 @@ function parseQuote(lines: string[], index: number): { block: CustomPartialBlock
     block: {
       type: "quote",
       props: cloneBaseProps(),
-      content: createTextContent(unescapeMarkdown(collected.join("\n"))),
+      content: createTextContent(collected.join("\n")),
       children: [],
     },
     nextIndex: next,
@@ -1507,7 +1590,7 @@ function parseParagraph(lines: string[], index: number): { block: CustomPartialB
     block: {
       type: "paragraph",
       props: cloneBaseProps(),
-      content: createTextContent(unescapeMarkdown(line.trim())),
+      content: createTextContent(line.trim()),
       children: [],
     },
     nextIndex: index + 1,

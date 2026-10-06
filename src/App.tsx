@@ -523,6 +523,8 @@ function App() {
     "idle",
   );
   const [darkMode, setDarkMode] = useState(false);
+  const [markdownInput, setMarkdownInput] = useState("");
+  const [inputError, setInputError] = useState<string | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -657,6 +659,21 @@ function App() {
     if (id) focusStepField(editor, id);
   };
 
+  // Load the pasted Markdown as the whole document, the way a host app does on
+  // initial load (unlike pasting into the editor, which goes through the paste handler).
+  const handleApplyMarkdown = () => {
+    try {
+      const blocks = markdownToBlocks(markdownInput);
+      editor.replaceBlocks(
+        editor.document,
+        blocks.length > 0 ? blocks : [{ type: "paragraph" }],
+      );
+      setInputError(null);
+    } catch (error) {
+      setInputError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const handleCopyMarkdown = async () => {
     if (conversionError) {
       return;
@@ -782,6 +799,49 @@ function App() {
           </BlockNoteView>
         </div>
         <aside className="app__preview">
+          <div className="app__panel">
+            <div className="app__panel-header">
+              <h2>Markdown Input</h2>
+              <div className="app__copy">
+                <button
+                  type="button"
+                  className="app__action app__action--ghost app__action--small"
+                  onClick={() => {
+                    setMarkdownInput("");
+                    setInputError(null);
+                  }}
+                  disabled={markdownInput.length === 0}
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  className="app__action app__action--small"
+                  onClick={handleApplyMarkdown}
+                  disabled={markdownInput.trim().length === 0}
+                  title="Replace editor content (Ctrl/Cmd+Enter)"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+            <textarea
+              className="app__md-input"
+              value={markdownInput}
+              onChange={(event) => setMarkdownInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  if (markdownInput.trim().length > 0) {
+                    handleApplyMarkdown();
+                  }
+                }
+              }}
+              placeholder="Paste Markdown here, then Apply (Ctrl/Cmd+Enter) to load it into the editor"
+              spellCheck={false}
+            />
+            {inputError && <p className="app__error">{inputError}</p>}
+          </div>
           <div className="app__panel">
             <div className="app__panel-header">
               <h2>Markdown Preview</h2>

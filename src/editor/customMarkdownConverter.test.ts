@@ -153,7 +153,7 @@ describe("blocksToMarkdown", () => {
     expect(out).not.toMatch(/\\[*_~<]/);
   });
 
-  it("still escapes literal backticks inside inline code", () => {
+  it("wraps inline code containing backticks in a longer delimiter", () => {
     const blocks: CustomEditorBlock[] = [
       {
         id: "p_tick",
@@ -166,7 +166,9 @@ describe("blocksToMarkdown", () => {
       },
     ];
 
-    expect(blocksToMarkdown(blocks)).toBe("`a\\`b`");
+    // Backslash escapes do not work inside code spans (CommonMark), so a
+    // literal backtick needs a longer delimiter instead.
+    expect(blocksToMarkdown(blocks)).toBe("``a`b``");
   });
 
   it("places bold markers outside leading/trailing spaces", () => {
@@ -2899,18 +2901,20 @@ describe("markdownToBlocks", () => {
     expect(roundTripMarkdown).not.toMatch(/\n!\s*$/);
   });
 
-  it("parses a single-line fenced code block", () => {
+  it("parses one-line ```code``` as an inline code span, not a code block", () => {
+    // A backtick fence's info string cannot contain backticks, so CommonMark
+    // (and the Markdown preview) reads this line as inline code.
     const markdown = "```{{baseURL}}/endpoint?query_param_one=value_one&query_param_two=value_two```";
     const blocks = markdownToBlocks(markdown);
     expect(blocks).toEqual([
       {
-        type: "codeBlock",
-        props: { language: "" },
+        type: "paragraph",
+        props: baseProps,
         content: [
           {
             type: "text",
             text: "{{baseURL}}/endpoint?query_param_one=value_one&query_param_two=value_two",
-            styles: {},
+            styles: { code: true },
           },
         ],
         children: [],
@@ -2918,25 +2922,22 @@ describe("markdownToBlocks", () => {
     ]);
   });
 
-  it("parses an empty single-line fence without swallowing following lines", () => {
+  it("treats a lone run of six backticks as an unclosed fence", () => {
     const markdown = ["``````", "next line"].join("\n");
     const blocks = markdownToBlocks(markdown);
-    expect(blocks).toHaveLength(2);
-    expect(blocks[0]).toEqual({
-      type: "codeBlock",
-      props: { language: "" },
-      content: undefined,
-      children: [],
-    });
-    expect(blocks[1].type).toBe("paragraph");
+    expect(blocks).toEqual([
+      {
+        type: "codeBlock",
+        props: { language: "" },
+        content: [{ type: "text", text: "next line", styles: {} }],
+        children: [],
+      },
+    ]);
   });
 
-  it("normalizes a single-line fenced code block to multi-line on round-trip", () => {
-    const markdown = "```hello world```";
-    const blocks = markdownToBlocks(markdown);
-    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(
-      ["```", "hello world", "```"].join("\n"),
-    );
+  it("round-trips one-line ```code``` as an inline code span", () => {
+    const blocks = markdownToBlocks("```hello world```");
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe("`hello world`");
   });
 
   it("still treats an opening fence with a language identifier as multi-line", () => {
@@ -3620,5 +3621,142 @@ describe("test/suite metadata comments", () => {
     expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(
       "<!-- ai/agent generated description -->",
     );
+  });
+});
+
+describe("backticks and code spans (CommonMark)", () => {
+  const URL = "{{baseURL}}/endpoint?query_param_one=value_one&query_param_two=value_two";
+
+  const inlineOf = (markdown: string) => {
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe("paragraph");
+    return blocks[0].content;
+  };
+
+  it.each([
+    ["single backticks", "`" + URL + "`"],
+    ["double backticks", "``" + URL + "``"],
+    ["triple backticks on one line", "```" + URL + "```"],
+  ])("parses %s as one inline code span and round-trips losslessly", (_label, markdown) => {
+    expect(inlineOf(markdown)).toEqual([
+      { type: "text", text: URL, styles: { code: true } },
+    ]);
+    const serialized = blocksToMarkdown(markdownToBlocks(markdown) as CustomEditorBlock[]);
+    expect(serialized).toBe("`" + URL + "`");
+  });
+
+  it("closes a code span only with a run of the same length", () => {
+    expect(inlineOf("`` a ` b ``")).toEqual([
+      { type: "text", text: "a ` b", styles: { code: true } },
+    ]);
+  });
+
+  it("strips one padding space so a span can start and end with a backtick", () => {
+    const markdown = "`` `code` ``";
+    expect(inlineOf(markdown)).toEqual([
+      { type: "text", text: "`code`", styles: { code: true } },
+    ]);
+    expect(blocksToMarkdown(markdownToBlocks(markdown) as CustomEditorBlock[])).toBe(markdown);
+  });
+
+  it("keeps backslashes inside code spans literal", () => {
+    for (const markdown of ["`a\\.b`", "`C:\\\\dir`", "`\\*not escaped\\*`"]) {
+      const code = markdown.slice(1, -1);
+      expect(inlineOf(markdown)).toEqual([
+        { type: "text", text: code, styles: { code: true } },
+      ]);
+      expect(blocksToMarkdown(markdownToBlocks(markdown) as CustomEditorBlock[])).toBe(markdown);
+    }
+  });
+
+  it("keeps HTML-looking text inside code spans", () => {
+    expect(inlineOf("`<u>x</u>`")).toEqual([
+      { type: "text", text: "<u>x</u>", styles: { code: true } },
+    ]);
+  });
+
+  it("treats an unmatched backtick run as literal text", () => {
+    expect(inlineOf("foo `unclosed")).toEqual([
+      { type: "text", text: "foo `unclosed", styles: {} },
+    ]);
+    expect(inlineOf("``foo`bar")).toEqual([
+      { type: "text", text: "``foo`bar", styles: {} },
+    ]);
+  });
+
+  it("lets code spans take precedence over emphasis delimiters", () => {
+    expect(inlineOf("**bold `x**` y**")).toEqual([
+      { type: "text", text: "bold ", styles: { bold: true } },
+      { type: "text", text: "x**", styles: { bold: true, code: true } },
+      { type: "text", text: " y", styles: { bold: true } },
+    ]);
+    expect(inlineOf("`a_b` and _c_")).toEqual([
+      { type: "text", text: "a_b", styles: { code: true } },
+      { type: "text", text: " and ", styles: {} },
+      { type: "text", text: "c", styles: { italic: true } },
+    ]);
+  });
+
+  it("does not treat escaped markers as formatting", () => {
+    expect(inlineOf("\\*not italic\\*")).toEqual([
+      { type: "text", text: "*not italic*", styles: {} },
+    ]);
+    expect(inlineOf("\\`not code\\`")).toEqual([
+      { type: "text", text: "`not code`", styles: {} },
+    ]);
+  });
+
+  it("does not italicize underscores inside words", () => {
+    expect(inlineOf("snake_case_name and query_param_one")).toEqual([
+      { type: "text", text: "snake_case_name and query_param_one", styles: {} },
+    ]);
+    expect(inlineOf("an _italic_ word")).toEqual([
+      { type: "text", text: "an ", styles: {} },
+      { type: "text", text: "italic", styles: { italic: true } },
+      { type: "text", text: " word", styles: {} },
+    ]);
+    expect(inlineOf("2 * 3 * 4")).toEqual([
+      { type: "text", text: "2 * 3 * 4", styles: {} },
+    ]);
+  });
+
+  it("closes a fence only with the same character and at least the same length", () => {
+    const markdown = ["````md", "```js", "x", "```", "````", "after"].join("\n");
+    const blocks = markdownToBlocks(markdown);
+    expect(blocks[0]).toEqual({
+      type: "codeBlock",
+      props: { language: "md" },
+      content: [{ type: "text", text: ["```js", "x", "```"].join("\n"), styles: {} }],
+      children: [],
+    });
+    expect(blocks[1].type).toBe("paragraph");
+    expect(blocksToMarkdown(blocks as CustomEditorBlock[])).toBe(markdown);
+  });
+
+  it("parses tilde fences", () => {
+    const blocks = markdownToBlocks(["~~~python", "print(1)", "~~~"].join("\n"));
+    expect(blocks).toEqual([
+      {
+        type: "codeBlock",
+        props: { language: "python" },
+        content: [{ type: "text", text: "print(1)", styles: {} }],
+        children: [],
+      },
+    ]);
+  });
+
+  it("keeps backslashes inside code in step fields", () => {
+    const markdown = [
+      "### Steps",
+      "",
+      "* Open ``" + URL + "`` and check `a\\.b`.",
+      "  *Expected*: Path `C:\\\\dir` is shown\\.",
+    ].join("\n");
+    const step = markdownToBlocks(markdown).find((b) => b.type === "testStep");
+    expect(step?.props).toMatchObject({
+      stepTitle: "Open ``" + URL + "`` and check `a\\.b`.",
+      expectedResult: "Path `C:\\\\dir` is shown.",
+    });
   });
 });
