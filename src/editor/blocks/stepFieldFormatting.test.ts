@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyInlineExclusion,
   buildFullMarkdown,
+  stripInlineMarkdown,
   type FormattingMeta,
   type LinkMeta,
 } from "./stepField";
@@ -101,5 +102,46 @@ describe("applyInlineExclusion mutual-exclusion rules", () => {
     ];
     const result = applyInlineExclusion(formatting, [], 2, 8, "italic");
     expect(result.formatting).toEqual([]);
+  });
+});
+
+describe("step field code spans", () => {
+  const URL = "{{baseURL}}/endpoint?query_param_one=value_one";
+
+  it.each([
+    ["`" + URL + "`"],
+    ["``" + URL + "``"],
+    ["```" + URL + "```"],
+  ])("reads %s as one code range without italics", (markdown) => {
+    expect(stripInlineMarkdown(markdown)).toEqual({
+      plainText: URL,
+      links: [],
+      formatting: [{ start: 0, end: URL.length, type: "code" }],
+    });
+  });
+
+  it("keeps an unmatched backtick run as text", () => {
+    expect(stripInlineMarkdown("a ``b` c")).toEqual({
+      plainText: "a ``b` c",
+      links: [],
+      formatting: [],
+    });
+  });
+
+  it("keeps multi-line code blocks multi-line", () => {
+    const result = stripInlineMarkdown(["```", "line 1", "line 2", "```"].join("\n"));
+    expect(result.plainText).toBe("line 1\nline 2");
+    expect(result.formatting).toEqual([{ start: 0, end: 13, type: "code" }]);
+  });
+
+  it("wraps code containing backticks in a longer delimiter", () => {
+    const formatting: FormattingMeta[] = [{ start: 4, end: 7, type: "code" }];
+    const markdown = buildFullMarkdown("run a`b now", [], formatting);
+    expect(markdown).toBe("run ``a`b`` now");
+    expect(stripInlineMarkdown(markdown)).toEqual({
+      plainText: "run a`b now",
+      links: [],
+      formatting,
+    });
   });
 });

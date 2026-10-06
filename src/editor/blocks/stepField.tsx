@@ -7,6 +7,7 @@ import { useStepAutocomplete, type StepSuggestion } from "../stepAutocomplete";
 import { type SnippetSuggestion } from "../snippetAutocomplete";
 import { useStepImageUpload } from "../stepImageUpload";
 import { escapeMarkdownText, normalizePlainText } from "./markdown";
+import { backtickRunLength, codeBlockFence, findBacktickRun, scanCodeSpan, wrapCodeSpan } from "../codeSpan";
 import { useAutoResize } from "./useAutoResize";
 
 type Suggestion = StepSuggestion | SnippetSuggestion;
@@ -167,7 +168,7 @@ function getActiveFormats(
 }
 
 
-function stripInlineMarkdown(markdown: string): {
+export function stripInlineMarkdown(markdown: string): {
   plainText: string;
   links: LinkMeta[];
   formatting: FormattingMeta[];
@@ -291,32 +292,36 @@ function stripInlineMarkdown(markdown: string): {
       }
     }
 
-    // Code block: ```\n...\n``` (triple backticks with newlines)
-    if (markdown[i] === "`" && markdown[i + 1] === "`" && markdown[i + 2] === "`") {
-      const contentStart = markdown[i + 3] === "\n" ? i + 4 : i + 3;
-      const closeIdx = markdown.indexOf("```", contentStart);
-      if (closeIdx !== -1) {
-        const contentEnd = markdown[closeIdx - 1] === "\n" ? closeIdx - 1 : closeIdx;
-        const inner = markdown.slice(contentStart, contentEnd);
-        const start = plainText.length;
-        plainText += inner;
-        formatting.push({ start, end: plainText.length, type: "code" });
-        i = closeIdx + 3;
-        continue;
-      }
-    }
-
-    // Inline code: `text`
     if (markdown[i] === "`") {
-      const closeIdx = markdown.indexOf("`", i + 1);
-      if (closeIdx !== -1) {
-        const inner = markdown.slice(i + 1, closeIdx);
-        const start = plainText.length;
-        plainText += inner;
-        formatting.push({ start, end: plainText.length, type: "code" });
-        i = closeIdx + 1;
-        continue;
+      const run = backtickRunLength(markdown, i);
+      // Code block: ```\n...\n``` — a fence of 3+ backticks closed by a run of
+      // the same length with a line break in between. Kept multi-line, unlike
+      // a code span whose line breaks collapse to spaces.
+      if (run >= 3) {
+        const contentStart = markdown[i + run] === "\n" ? i + run + 1 : i + run;
+        const closeIdx = findBacktickRun(markdown, contentStart, run);
+        if (closeIdx !== -1 && markdown.slice(i + run, closeIdx).includes("\n")) {
+          const contentEnd = markdown[closeIdx - 1] === "\n" ? closeIdx - 1 : closeIdx;
+          const start = plainText.length;
+          plainText += markdown.slice(contentStart, Math.max(contentStart, contentEnd));
+          formatting.push({ start, end: plainText.length, type: "code" });
+          i = closeIdx + run;
+          continue;
+        }
       }
+
+      // Inline code: `text`, ``te`xt``, ```text``` — CommonMark code span.
+      // An unmatched run stays literal text.
+      const scan = scanCodeSpan(markdown, i)!;
+      if (scan.kind === "span") {
+        const start = plainText.length;
+        plainText += scan.content;
+        formatting.push({ start, end: plainText.length, type: "code" });
+      } else {
+        plainText += markdown.slice(i, scan.end);
+      }
+      i = scan.end;
+      continue;
     }
 
     plainText += markdown[i];
@@ -340,9 +345,18 @@ export function buildFullMarkdown(plainText: string, links: LinkMeta[], formatti
     let closeMarker: string;
     if (fmt.type === "code") {
       const content = plainText.slice(fmt.start, fmt.end);
-      const isMultiline = content.includes("\n");
-      openMarker = isMultiline ? "```\n" : "`";
-      closeMarker = isMultiline ? "\n```" : "`";
+      if (content.includes("\n")) {
+        const fence = codeBlockFence(content);
+        openMarker = `${fence}\n`;
+        closeMarker = `\n${fence}`;
+      } else {
+        // A delimiter longer than any backtick run inside, padded when the
+        // content touches a backtick — split back into open/close halves.
+        const wrapped = wrapCodeSpan(content);
+        const delimiterLength = (wrapped.length - content.length) / 2;
+        openMarker = wrapped.slice(0, delimiterLength);
+        closeMarker = wrapped.slice(wrapped.length - delimiterLength);
+      }
     } else {
       openMarker = fmt.type === "bold" ? "**" : "_";
       closeMarker = openMarker;
