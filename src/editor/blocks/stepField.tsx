@@ -3,7 +3,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import type { ReactNode, ChangeEvent } from "react";
 import { useComponentsContext } from "@blocknote/react";
 import { EditLinkMenuItems } from "@blocknote/react";
-import { useStepAutocomplete, type StepSuggestion } from "../stepAutocomplete";
+import { isStepAutocompleteOnTypeEnabled, useStepAutocomplete, type StepSuggestion } from "../stepAutocomplete";
 import { type SnippetSuggestion } from "../snippetAutocomplete";
 import { useStepImageUpload } from "../stepImageUpload";
 import { escapeMarkdownText, normalizePlainText } from "./markdown";
@@ -884,6 +884,10 @@ export function StepField({
   const [isFocused, setIsFocused] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
+  const [suggestWhileTyping, setSuggestWhileTyping] = useState(true);
+  // Suggestions opened explicitly (button / Ctrl+Space) keep filtering while
+  // typing even when the host disabled suggest-while-typing.
+  const [suggestionsRequested, setSuggestionsRequested] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [showLinkPopover, setShowLinkPopover] = useState(false);
@@ -959,6 +963,7 @@ export function StepField({
     prevTextRef.current = nextValue;
 
     const markdown = buildFullMarkdown(nextValue, linksRef.current, formattingRef.current);
+    setSuggestWhileTyping(isStepAutocompleteOnTypeEnabled(editorContainerRef.current));
     setPlainTextValue((prev) => {
       const normalized = markdownToPlainText(markdown);
       return prev === normalized ? prev : normalized;
@@ -1255,6 +1260,7 @@ export function StepField({
     const handleBlur = () => {
       setIsFocused(false);
       setShowAllSuggestions(false);
+      setSuggestionsRequested(false);
       // Re-apply formatting highlights after blur because OverType may
       // re-render the preview (via debounced selectionchange) and strip them.
       const instance = editorInstanceRef.current;
@@ -1641,7 +1647,8 @@ export function StepField({
     isFocused &&
     filteredSuggestions.length > 0 &&
     (!hasExactMatch || showAllSuggestions) &&
-    (showAllSuggestions || normalizedQuery.length >= 1);
+    (showAllSuggestions ||
+      (normalizedQuery.length >= 1 && (suggestWhileTyping || suggestionsRequested)));
 
   useEffect(() => {
     setActiveSuggestionIndex(0);
@@ -1736,6 +1743,7 @@ export function StepField({
       onSuggestionSelect?.(suggestion);
       setActiveSuggestionIndex(0);
       setShowAllSuggestions(false);
+      setSuggestionsRequested(false);
       requestAnimationFrame(() => {
         textareaNode?.focus();
         if (textareaNode) {
@@ -1914,6 +1922,7 @@ export function StepField({
       ) {
         event.preventDefault();
         setShowAllSuggestions(true);
+        setSuggestionsRequested(true);
         return;
       }
 
@@ -2183,6 +2192,7 @@ export function StepField({
                   onMouseDown={(event) => {
                     event.preventDefault();
                     setShowAllSuggestions(true);
+                    setSuggestionsRequested(true);
                     textareaNode?.focus();
                   }}
                   aria-label="Show suggestions"

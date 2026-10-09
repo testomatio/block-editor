@@ -523,6 +523,7 @@ function App() {
     "idle",
   );
   const [darkMode, setDarkMode] = useState(false);
+  const [suggestWhileTyping, setSuggestWhileTyping] = useState(true);
   const [markdownInput, setMarkdownInput] = useState("");
   const [inputError, setInputError] = useState<string | null>(null);
 
@@ -773,6 +774,13 @@ function App() {
           </button>
           <button
             type="button"
+            className="app__action app__action--ghost"
+            onClick={() => setSuggestWhileTyping((v) => !v)}
+          >
+            Suggest while typing: {suggestWhileTyping ? "on" : "off"}
+          </button>
+          <button
+            type="button"
             className="app__dark-toggle"
             onClick={() => setDarkMode((v) => !v)}
             title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
@@ -787,7 +795,10 @@ function App() {
       </header>
 
       <section className="app__workspace">
-        <div className="app__editor">
+        <div
+          className="app__editor"
+          data-step-autocomplete={suggestWhileTyping ? "true" : "false"}
+        >
           <BlockNoteView
             editor={editor}
             theme={darkMode ? "dark" : "light"}

@@ -167,6 +167,8 @@ Step suggestions accept either an array of `{ id, title, ... }` or the JSON:API 
 
 When a user types in Step Title, autocomplete filters these titles; Tab/Enter/Ctrl/Cmd+Space or the ⌄ button will insert the selection.
 
+To stop suggestions from popping up while typing, set `data-step-autocomplete="false"` on any ancestor of the editor (for example the element the editor is mounted into). The "Show suggestions" button and Ctrl/Cmd+Space still open the list. The attribute is read on every edit, so toggling it takes effect immediately; `isStepAutocompleteOnTypeEnabled(element)` exposes the same check.
+
 ## Running Tests
 
 Vitest covers the Markdown/block converter. Run the suite with:

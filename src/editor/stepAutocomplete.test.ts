@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { parseStepsFromJsonApi } from "./stepAutocomplete";
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
-import { setStepsFetcher, useStepAutocomplete } from "./stepAutocomplete";
+import {
+  STEP_AUTOCOMPLETE_ATTRIBUTE,
+  isStepAutocompleteOnTypeEnabled,
+  setStepsFetcher,
+  useStepAutocomplete,
+} from "./stepAutocomplete";
 
 describe("parseStepsFromJsonApi", () => {
   it("converts JSON:API resources into step suggestions", () => {
@@ -99,5 +104,31 @@ describe("parseStepsFromJsonApi", () => {
 
     // reset for other tests
     setStepsFetcher(null);
+  });
+});
+
+describe("isStepAutocompleteOnTypeEnabled", () => {
+  const nodeWithHost = (value: string | null) =>
+    ({
+      closest: (selector: string) => {
+        expect(selector).toBe(`[${STEP_AUTOCOMPLETE_ATTRIBUTE}]`);
+        return value === null ? null : { getAttribute: () => value };
+      },
+    }) as unknown as Element;
+
+  it("is enabled without a node", () => {
+    expect(isStepAutocompleteOnTypeEnabled(null)).toBe(true);
+  });
+
+  it("is enabled when no ancestor carries the attribute", () => {
+    expect(isStepAutocompleteOnTypeEnabled(nodeWithHost(null))).toBe(true);
+  });
+
+  it("is enabled when the attribute is \"true\"", () => {
+    expect(isStepAutocompleteOnTypeEnabled(nodeWithHost("true"))).toBe(true);
+  });
+
+  it("is disabled when the attribute is \"false\"", () => {
+    expect(isStepAutocompleteOnTypeEnabled(nodeWithHost("false"))).toBe(false);
   });
 });
