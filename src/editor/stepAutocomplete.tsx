@@ -47,6 +47,15 @@ export function setStepsFetcher(fetcher: StepSuggestionsFetcher | null) {
   inflightPromise = null;
 }
 
+// Hosts that cannot reach `setX` setters opt out of suggest-while-typing with
+// `data-step-autocomplete="false"` on any ancestor of the editor.
+export const STEP_AUTOCOMPLETE_ATTRIBUTE = "data-step-autocomplete";
+
+export function isStepAutocompleteOnTypeEnabled(node: Element | null | undefined): boolean {
+  const host = node?.closest(`[${STEP_AUTOCOMPLETE_ATTRIBUTE}]`);
+  return host?.getAttribute(STEP_AUTOCOMPLETE_ATTRIBUTE) !== "false";
+}
+
 export function useStepAutocomplete(): StepSuggestion[] {
   const [suggestions, setSuggestions] = useState<StepSuggestion[]>(() => {
     if (cachedSuggestions.length > 0) return cachedSuggestions;

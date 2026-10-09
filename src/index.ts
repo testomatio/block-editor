@@ -48,6 +48,8 @@ export {
   useStepAutocomplete,
   parseStepsFromJsonApi,
   setStepsFetcher,
+  isStepAutocompleteOnTypeEnabled,
+  STEP_AUTOCOMPLETE_ATTRIBUTE,
   type StepSuggestion,
   type StepJsonApiDocument,
   type StepJsonApiResource,
