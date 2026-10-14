@@ -749,7 +749,7 @@ function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <div>
+        <div className="app__intro">
           <h1>BlockNote Custom Block Playground</h1>
           <p>
             Explore custom blocks for documenting test cases and actionable steps, then convert the document to Markdown using a bespoke serializer.
