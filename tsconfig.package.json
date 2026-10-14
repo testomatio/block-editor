@@ -22,6 +22,7 @@
   "include": [
     "src/index.ts",
     "src/snippets.ts",
+    "src/markdown.ts",
     "src/editor/**/*.ts",
     "src/editor/**/*.tsx"
   ],

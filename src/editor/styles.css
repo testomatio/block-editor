@@ -1,4 +1,68 @@
 /* ============================================
+   THEME TOKENS
+   A host app restyles the editor by setting these on any ancestor
+   (or :root). Defaults are the Testomat.io look.
+   ============================================ */
+:root {
+  --tme-font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --tme-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Step field text. */
+  --tme-text-size: 14px;
+  --tme-leading: 20px;
+  --tme-h1: 22px;
+  --tme-h2: 20px;
+  --tme-h3: 18px;
+  --tme-h4: 16px;
+  --tme-h5: 14px;
+  --tme-h6: 14px;
+
+  --tme-fg: #262626;
+  --tme-fg-strong: #0a0a0a;
+  --tme-fg-soft: #404040;
+  --tme-muted-fg: #737373;
+  --tme-placeholder: #a1a1a1;
+  --tme-border: #e5e5e5;
+  --tme-border-strong: #d4d4d4;
+  --tme-surface: #ffffff;
+  --tme-surface-hover: #fafafa;
+  --tme-muted: rgba(15, 23, 42, 0.05);
+  --tme-primary: #4f46e5;
+  --tme-ring: rgba(79, 70, 229, 0.25);
+  --tme-link: #4f46e5;
+  --tme-code: rgb(146, 64, 14);
+  --tme-danger: #ef4444;
+  --tme-tooltip-bg: #0a0a0a;
+  --tme-tooltip-fg: #fafafa;
+  --tme-shadow: rgba(0, 0, 0, 0.12);
+  --tme-radius: 8px;
+
+  /* Test and suite header. */
+  --tme-meta-bg: var(--tme-muted);
+  --tme-meta-border: var(--tme-border);
+  --tme-meta-border-open: color-mix(in srgb, var(--tme-primary) 50%, transparent);
+  --tme-meta-gap: 2rem;
+}
+
+html.dark {
+  --tme-fg: #fafafa;
+  --tme-fg-strong: #d4d4d4;
+  --tme-fg-soft: #a3a3a3;
+  --tme-muted-fg: #737373;
+  --tme-placeholder: #525252;
+  --tme-border: #404040;
+  --tme-border-strong: #404040;
+  --tme-surface: #262626;
+  --tme-surface-hover: #333333;
+  --tme-muted: rgba(255, 255, 255, 0.05);
+  --tme-primary: #6366f1;
+  --tme-ring: rgba(99, 102, 241, 0.25);
+  --tme-link: rgb(129, 140, 248);
+  --tme-code: rgb(251, 191, 36);
+  --tme-tooltip-bg: #262626;
+  --tme-shadow: rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
    COLOR PALETTE
    Adjust these variables to change the theme
    ============================================ */
@@ -47,8 +111,6 @@
   --step-card-bg: #f7f7f8;
   --step-card-border: #e5e7eb;
   --step-card-shadow: rgba(15, 23, 42, 0.06);
-  --step-input-border: #d1d5db;
-  --step-input-border-focus: #4f46e5;
   --step-input-shadow: rgba(79, 70, 229, 0.25);
   --step-text: #1f2937;
   --step-muted: #6b7280;
@@ -159,129 +221,22 @@ html.dark {
   --status-blocked-bg: rgba(239, 68, 68, 0.08);
 }
 
-/* Dark mode hardcoded color overrides */
-html.dark .bn-step-action-btn {
-  color: #a3a3a3;
-}
-
-html.dark .bn-step-toolbar__button {
-  color: #d4d4d4;
-}
-
-html.dark .bn-step-toolbar__divider {
-  background: #404040;
-}
-
-html.dark .bn-teststep__view-toggle svg {
-  color: #d4d4d4;
-}
-
-html.dark [data-tooltip]::after {
-  background: #262626;
-}
-
-html.dark .bn-step-field__dismiss {
-  color: #737373;
-}
-
-html.dark .bn-step-editor {
-  color: #fafafa;
-}
-
-html.dark .bn-step-editor .overtype-wrapper .overtype-input {
-  caret-color: #fafafa !important;
-}
-
-html.dark .bn-step-editor .overtype-wrapper .overtype-preview {
-  color: #fafafa !important;
-}
-
-html.dark .bn-step-editor .overtype-wrapper textarea.overtype-input::placeholder {
-  color: #525252 !important;
-}
-
-html.dark .bn-step-editor .overtype-wrapper textarea.overtype-input::-webkit-input-placeholder {
-  color: #525252 !important;
-}
-
-html.dark .bn-step-custom-caret {
-  background: #fafafa;
-}
-
-html.dark .bn-step-link-tooltip {
-  background: #262626;
-  border-color: #404040;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-html.dark .bn-step-link-tooltip__url {
-  color: #737373;
-}
-
-html.dark .bn-snippet-dropdown__panel {
-  background: #262626;
-  border-color: #404040;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-}
-
-html.dark .bn-snippet-dropdown__search-wrapper {
-  border-bottom-color: #404040;
-}
-
-html.dark .bn-snippet-dropdown__search {
-  border-color: #404040;
-}
-
-html.dark .bn-snippet-dropdown__search-icon {
-  color: #525252;
-}
-
-html.dark .bn-snippet-dropdown__search-input {
-  color: #fafafa;
-}
-
-html.dark .bn-snippet-dropdown__search-input::placeholder {
-  color: #525252;
-}
-
-html.dark .bn-snippet-dropdown__item--selected {
-  background: #333333;
-}
-
-html.dark .bn-snippet-dropdown__item-check {
-  color: #fafafa;
-}
-
-html.dark .bn-snippet-dropdown__chevron {
-  color: #525252;
-}
-
-html.dark .bn-step-image-preview__content {
-  background: #262626;
-}
+/* Dark mode overrides for BlockNote's own file block */
 
 html.dark [data-file-block] .bn-add-file-button {
-  background-color: #262626;
-  color: #a3a3a3;
+  background-color: var(--tme-surface);
+  color: var(--tme-fg-soft);
 }
 
 html.dark .bn-editor[contenteditable="true"] [data-file-block] .bn-add-file-button:hover,
 html.dark [data-file-block] .bn-file-name-with-icon:hover,
 html.dark .ProseMirror-selectednode .bn-file-name-with-icon {
-  background-color: #333333;
+  background-color: var(--tme-surface-hover);
 }
 
-html.dark .bn-step-editor .overtype-wrapper .overtype-preview code.step-preview-code {
-  color: rgba(251, 191, 36, 1) !important;
-}
-
-html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-link,
-html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-link::selection {
-  color: rgba(129, 140, 248, 1) !important;
-}
-
-.testomatio-editor {
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+.testomatio-editor,
+.testomatio-editor .bn-default-styles {
+  font-family: var(--tme-font-sans);
 }
 
 .bn-testcase {
@@ -337,7 +292,7 @@ html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-lin
 }
 
 .bn-testcase__reference:focus-visible {
-  outline: 2px solid var(--step-focus-outline);
+  outline: 2px solid var(--tme-primary);
   outline-offset: 2px;
 }
 
@@ -354,7 +309,7 @@ html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-lin
   border-radius: 0.5rem;
   border: 1px solid var(--border-default);
   padding: 0.35rem 0.6rem;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--tme-surface);
   font-size: 0.85rem;
   font-weight: 600;
   color: inherit;
@@ -376,16 +331,16 @@ html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-lin
 
 .bn-teststep-plain {
   padding: 4px 0;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: var(--tme-font-sans);
   font-size: 14px;
   line-height: 20px;
-  color: #262626;
+  color: var(--tme-fg);
 }
 
 .bn-teststep-plain__data,
 .bn-teststep-plain__expected {
   display: block;
-  color: #737373;
+  color: var(--tme-muted-fg);
   font-size: 13px;
 }
 
@@ -394,7 +349,7 @@ html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-lin
 .bn-teststep input,
 .bn-teststep textarea,
 .bn-teststep select {
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: var(--tme-font-sans);
 }
 
 .bn-teststep {
@@ -517,7 +472,7 @@ html.dark .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-lin
 
 .bn-teststep__view-toggle svg {
   display: block;
-  color: #0a0a0a;
+  color: var(--tme-fg-strong);
 }
 
 .bn-teststep__view-toggle--horizontal svg {
@@ -718,33 +673,43 @@ html.dark .bn-teststep__view-toggle--compact svg {
    compact 22px → 14px range. BlockNote derives heading font-size from the
    `--level` custom property, so we just redefine it per level.
    ============================================ */
-.testomatio-editor [data-content-type="heading"] {
-  --level: 22px; /* h1 (level 1 has no [data-level] rule of its own) */
+.testomatio-editor [data-content-type="heading"],
+.testomatio-editor [data-content-type="heading"][data-level="1"] {
+  --level: var(--tme-h1); /* h1 (level 1 has no [data-level] rule of its own) */
 }
 .testomatio-editor [data-content-type="heading"][data-level="2"] {
-  --level: 20px;
+  --level: var(--tme-h2);
 }
 .testomatio-editor [data-content-type="heading"][data-level="3"] {
-  --level: 18px;
+  --level: var(--tme-h3);
 }
 .testomatio-editor [data-content-type="heading"][data-level="4"] {
-  --level: 16px;
+  --level: var(--tme-h4);
 }
 .testomatio-editor [data-content-type="heading"][data-level="5"] {
-  --level: 14px;
+  --level: var(--tme-h5);
 }
 .testomatio-editor [data-content-type="heading"][data-level="6"] {
-  --level: 14px;
+  --level: var(--tme-h6);
 }
 /* Keep size stable during BlockNote's heading-transition animation. */
 .testomatio-editor [data-prev-level="1"] {
-  --prev-level: 22px;
+  --prev-level: var(--tme-h1);
 }
 .testomatio-editor [data-prev-level="2"] {
-  --prev-level: 20px;
+  --prev-level: var(--tme-h2);
 }
 .testomatio-editor [data-prev-level="3"] {
-  --prev-level: 18px;
+  --prev-level: var(--tme-h3);
+}
+.testomatio-editor [data-prev-level="4"] {
+  --prev-level: var(--tme-h4);
+}
+.testomatio-editor [data-prev-level="5"] {
+  --prev-level: var(--tme-h5);
+}
+.testomatio-editor [data-prev-level="6"] {
+  --prev-level: var(--tme-h6);
 }
 
 /* ============================================
@@ -788,27 +753,281 @@ html.dark .testomatio-editor [data-content-type="heading"] .bn-tag-badge {
   color: var(--color-primary-600);
 }
 html.dark .testomatio-editor .bn-auto-link {
-  color: rgba(129, 140, 248, 1);
+  color: var(--tme-link);
 }
 
+
 /* ============================================
-   TEST / SUITE METADATA BLOCK
-   Dimmed card for `<!-- test ... -->` / `<!-- suite ... -->` comments.
+   TEST / SUITE HEADER
+   A card for `<!-- test ... -->` / `<!-- suite ... -->` comments that folds
+   open into its fields. Colors come from the --tme-meta-* tokens.
    ============================================ */
+.bn-testmeta-block {
+  width: 100%;
+}
+
+/* The open border already marks the header in use; BlockNote's selection ring would double it. */
+.bn-block-content[data-content-type="testMeta"].ProseMirror-selectednode > *,
+.ProseMirror-selectednode > .bn-block-content[data-content-type="testMeta"] > * {
+  outline: none;
+}
+
+.bn-block-outer:not(:first-child):has(> .bn-block > .bn-block-content[data-content-type="testMeta"]) {
+  margin-top: var(--tme-meta-gap);
+}
+
 .bn-testmeta {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--tme-font-sans);
+  color: var(--tme-fg);
+  background: var(--tme-meta-bg);
+  border: 1px solid var(--tme-meta-border);
+  border-radius: var(--tme-radius);
+  transition: border-color 150ms ease;
+}
+
+.bn-testmeta--open {
+  border-color: var(--tme-meta-border-open);
+}
+
+.bn-testmeta__header {
+  position: relative;
+  display: flex;
+  border-radius: inherit;
+}
+
+.bn-testmeta__trigger {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.bn-testmeta__header--actions .bn-testmeta__trigger {
+  padding-right: 44px;
+}
+
+.bn-testmeta--open .bn-testmeta__trigger {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.bn-testmeta__trigger:hover {
+  background: color-mix(in srgb, var(--tme-muted) 60%, transparent);
+}
+
+.bn-testmeta__trigger:focus-visible {
+  outline: none;
+  border-color: var(--tme-primary);
+  box-shadow: 0 0 0 3px var(--tme-ring);
+}
+
+.bn-testmeta__title {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.bn-testmeta__label,
+.bn-testmeta__summary,
+.bn-testmeta__status {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--tme-muted-fg);
+}
+
+.bn-testmeta__label,
+.bn-testmeta__id,
+.bn-testmeta__more,
+.bn-testmeta__status {
+  flex-shrink: 0;
+}
+
+.bn-testmeta__id {
+  font-family: var(--tme-font-mono);
+  font-size: 12px;
+}
+
+.bn-testmeta__summary {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bn-testmeta__more {
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--tme-muted-fg);
+  background: var(--tme-muted);
+  border-radius: 999px;
+}
+
+.bn-testmeta__status {
+  margin-left: auto;
+}
+
+.bn-testmeta__chevron {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--tme-muted-fg);
+  transition: transform 200ms ease-out, color 150ms ease;
+}
+
+.bn-testmeta__trigger:hover .bn-testmeta__chevron {
+  color: var(--tme-fg);
+}
+
+.bn-testmeta--open .bn-testmeta__chevron {
+  transform: rotate(180deg);
+}
+
+.bn-testmeta__actions {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+}
+
+.bn-testmeta__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--tme-muted-fg);
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--tme-radius) - 2px);
+  cursor: pointer;
+}
+
+.bn-testmeta__icon-btn:hover {
+  color: var(--tme-fg);
+  background: var(--tme-muted);
+}
+
+.bn-testmeta__remove {
+  width: 24px;
+  height: 24px;
+}
+
+.bn-testmeta__menu {
+  position: absolute;
+  top: calc(100% - 2px);
+  right: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  width: 160px;
+  max-height: 240px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 4px;
+  background: var(--tme-surface);
+  border: 1px solid var(--tme-border);
+  border-radius: var(--tme-radius);
+  box-shadow: 0 4px 12px var(--tme-shadow);
+}
+
+.bn-testmeta__menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: var(--tme-fg);
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--tme-radius) - 2px);
+  cursor: pointer;
+}
+
+.bn-testmeta__menu-item:hover {
+  background: var(--tme-muted);
+}
+
+.bn-testmeta__menu-separator {
+  height: 1px;
+  margin: 4px -4px;
+  background: var(--tme-border);
+}
+
+.bn-testmeta__rows {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding: 0 12px 8px;
+}
+
+.bn-testmeta__empty {
+  margin: 0;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--tme-muted-fg);
+}
+
+.bn-testmeta__row {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr) 1.5rem;
+  align-items: center;
+  gap: 8px;
+  margin-left: -8px;
+}
+
+.bn-testmeta__key,
+.bn-testmeta__value {
   width: 100%;
+  min-width: 0;
+  height: 28px;
   box-sizing: border-box;
-  padding: 6px 10px;
-  background: var(--bg-muted);
-  /*border: 1px solid var(--border-default);*/
-  /* Stronger top edge signals that the test case begins below this line. */
-  border-top: 3px solid var(--color-slate-400);
-  /*border-radius: 8px;*/
-  margin-top: 2rem;
-  opacity: 0.5;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--tme-fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: calc(var(--tme-radius) - 2px);
+  outline: none;
+}
+
+.bn-testmeta__key {
+  color: var(--tme-muted-fg);
+}
+
+.bn-testmeta__key:not([readonly]):hover,
+.bn-testmeta__value:not([readonly]):hover,
+.bn-testmeta__key:not([readonly]):focus,
+.bn-testmeta__value:not([readonly]):focus {
+  border-color: var(--tme-border);
+}
+
+.bn-testmeta__key::placeholder,
+.bn-testmeta__value::placeholder {
+  color: var(--tme-placeholder);
 }
 
 /* Compact marker for `<!-- example -->` — a cropped variant of the testMeta bar
@@ -840,213 +1059,6 @@ html.dark .testomatio-editor .bn-auto-link {
 .bn-editor [data-content-type="table"].bn-example-table td,
 .bn-editor [data-content-type="table"].bn-example-table th {
   background: var(--bg-muted);
-}
-
-/* Header line: `TEST  @T1233456 ............ [+]` — label, id, and add button
-   always share one row. */
-.bn-testmeta__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: 8px;
-}
-
-/* Add button + expand/collapse toggle live in a right-pinned action group. */
-.bn-testmeta__header .bn-testmeta__actions {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-/* Compact one-liner: the metadata rendered as truncated read text, click to
-   expand. Takes the remaining header width and ellipsizes when it overflows. */
-.bn-testmeta__summary {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  text-align: left;
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-}
-
-.bn-testmeta__summary:hover {
-  color: var(--text-primary);
-}
-
-.bn-testmeta__summary--empty {
-  font-style: italic;
-  opacity: 0.7;
-}
-
-.bn-testmeta__toggle {
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-  transition: background-color 120ms ease;
-}
-
-.bn-testmeta__toggle:hover {
-  background: var(--step-bg-button-hover);
-  color: var(--text-primary);
-}
-
-.bn-testmeta__toggle svg {
-  transition: transform 150ms ease;
-}
-
-.bn-testmeta__toggle--expanded svg {
-  transform: rotate(180deg);
-}
-
-.bn-testmeta__label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.bn-testmeta__id {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.bn-testmeta__rows {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.bn-testmeta__row {
-  display: grid;
-  grid-template-columns: 140px minmax(0, 1fr) 24px;
-  align-items: center;
-  gap: 8px;
-}
-
-.bn-testmeta__key {
-  min-width: 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* Defined values blend into the block like normal text, and only reveal the
-   input affordance on hover/focus ("activate on click"). */
-.bn-testmeta__key--input,
-.bn-testmeta__value {
-  width: 100%;
-  height: 26px;
-  padding: 0 8px;
-  box-sizing: border-box;
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--text-primary);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: text;
-}
-
-.bn-testmeta__key--input:hover,
-.bn-testmeta__value:hover {
-  border-color: var(--border-light);
-}
-
-.bn-testmeta__key--input:focus,
-.bn-testmeta__value:focus {
-  outline: none;
-  background: var(--bg-white);
-  border-color: var(--step-input-border-focus);
-  box-shadow: 0 0 0 2px var(--step-input-shadow);
-}
-
-.bn-testmeta__remove,
-.bn-testmeta__add {
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  line-height: 1;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  padding: 0;
-}
-
-.bn-testmeta__remove:hover,
-.bn-testmeta__add:hover {
-  background: var(--step-bg-button-hover);
-  color: var(--text-primary);
-}
-
-.bn-testmeta__add-wrap {
-  position: relative;
-}
-
-.bn-testmeta__menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 100;
-  min-width: 160px;
-  max-height: 240px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  padding: 4px;
-  background: var(--bg-white-opaque);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px var(--shadow-medium);
-}
-
-.bn-testmeta__menu-item {
-  display: block;
-  width: 100%;
-  padding: 6px 8px;
-  text-align: left;
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--text-primary);
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.bn-testmeta__menu-item:hover {
-  background: var(--bg-muted);
-}
-
-.bn-testmeta__menu-item--custom {
-  margin-top: 2px;
-  border-top: 1px solid var(--border-light);
-  border-radius: 0 0 6px 6px;
-  color: var(--text-muted);
 }
 
 /*
@@ -1092,7 +1104,7 @@ html.dark .testomatio-editor .bn-auto-link {
   flex-shrink: 0;
   width: 16px;
   height: 16px;
-  color: #737373;
+  color: var(--tme-muted-fg);
 }
 
 .bn-snippet-dropdown__text {
@@ -1108,10 +1120,10 @@ html.dark .testomatio-editor .bn-auto-link {
   left: 0;
   top: calc(100% + 4px);
   width: 280px;
-  background: white;
-  border: 1px solid #e5e5e5;
+  background: var(--tme-surface);
+  border: 1px solid var(--tme-border);
   border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 10px var(--tme-shadow);
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -1120,7 +1132,7 @@ html.dark .testomatio-editor .bn-auto-link {
 
 .bn-snippet-dropdown__search-wrapper {
   padding: 4px 16px 12px;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--tme-border);
 }
 
 .bn-snippet-dropdown__search {
@@ -1129,20 +1141,20 @@ html.dark .testomatio-editor .bn-auto-link {
   gap: 8px;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid #d4d4d4;
+  border: 1px solid var(--tme-border-strong);
   border-radius: 6px;
   transition: border-color 120ms ease;
 }
 
 .bn-snippet-dropdown__search:focus-within {
-  border-color: #6366f1;
+  border-color: var(--tme-primary);
 }
 
 .bn-snippet-dropdown__search-icon {
   flex-shrink: 0;
   width: 20px;
   height: 20px;
-  color: #a4a4a4;
+  color: var(--tme-placeholder);
 }
 
 .bn-snippet-dropdown__search-input {
@@ -1165,7 +1177,7 @@ html.dark .testomatio-editor .bn-auto-link {
 }
 
 .bn-snippet-dropdown__search-input::placeholder {
-  color: #a4a4a4;
+  color: var(--tme-placeholder);
 }
 
 .bn-snippet-dropdown__list {
@@ -1207,7 +1219,7 @@ html.dark .testomatio-editor .bn-auto-link {
 }
 
 .bn-snippet-dropdown__item--selected {
-  background: #fafafa;
+  background: var(--tme-surface-hover);
 }
 
 .bn-snippet-dropdown__item:hover {
@@ -1250,7 +1262,7 @@ html.dark .testomatio-editor .bn-auto-link {
 .bn-step-action-btn {
   border: none;
   background: transparent;
-  color: #404040;
+  color: var(--tme-fg-soft);
   font-weight: 500;
   font-size: 14px;
   line-height: 20px;
@@ -1329,7 +1341,7 @@ html.dark .testomatio-editor .bn-auto-link {
 .bn-step-field__dismiss {
   border: none;
   background: transparent;
-  color: #737373;
+  color: var(--tme-muted-fg);
   width: 28px;
   height: 28px;
   display: inline-flex;
@@ -1405,14 +1417,14 @@ html.dark .testomatio-editor .bn-auto-link {
 .bn-step-toolbar__divider {
   width: 1px;
   align-self: stretch;
-  background: #e5e5e5;
+  background: var(--tme-border);
   margin: 4px;
 }
 
 .bn-step-toolbar__button {
   border: none;
   background: transparent;
-  color: #0a0a0a;
+  color: var(--tme-fg-strong);
   width: 28px;
   height: 28px;
   border-radius: 8px;
@@ -1448,9 +1460,9 @@ html.dark .testomatio-editor .bn-auto-link {
   top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
-  background: #0a0a0a;
-  color: #fafafa;
-  font-family: Inter, sans-serif;
+  background: var(--tme-tooltip-bg);
+  color: var(--tme-tooltip-fg);
+  font-family: var(--tme-font-sans);
   font-weight: 400;
   font-size: 14px;
   line-height: 20px;
@@ -1480,11 +1492,11 @@ html.dark .testomatio-editor .bn-auto-link {
   background: transparent;
   transition: none;
   min-height: 2.5rem;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-family: var(--tme-font-sans);
+  font-size: var(--tme-text-size);
   font-weight: 400;
-  line-height: 20px;
-  color: #262626;
+  line-height: var(--tme-leading);
+  color: var(--tme-fg);
   overflow: hidden;
 }
 
@@ -1512,13 +1524,10 @@ html.dark .testomatio-editor .bn-auto-link {
   padding: 10px 12px;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #262626;
+  color: var(--tme-fg);
   cursor: text;
 }
 
-html.dark .bn-step-editor--preview {
-  color: #e5e5e5;
-}
 
 /* Wrapper around a non-edited step's read-only preview. Focusable so Tab enters
    a step (which mounts its editor); no lingering outline since focus moves to
@@ -1533,7 +1542,7 @@ html.dark .bn-step-editor--preview {
    doesn't render), so the same declarations are repeated here for the flow
    `--preview` container. */
 .bn-step-editor--preview a.step-preview-link {
-  color: #4f46e5;
+  color: var(--tme-link);
   text-decoration: underline;
   pointer-events: none;
 }
@@ -1553,7 +1562,7 @@ html.dark .bn-step-editor--preview {
   background-color: transparent;
   font-family: inherit;
   font-size: inherit;
-  color: rgb(146, 64, 14);
+  color: var(--tme-code);
 }
 
 .bn-step-editor--preview img {
@@ -1562,14 +1571,6 @@ html.dark .bn-step-editor--preview {
   border-radius: 0.65rem;
   margin: 0.5rem 0;
   pointer-events: none;
-}
-
-html.dark .bn-step-editor--preview code.step-preview-code {
-  color: rgba(251, 191, 36, 1);
-}
-
-html.dark .bn-step-editor--preview a.step-preview-link {
-  color: rgba(129, 140, 248, 1);
 }
 
 .bn-step-editor.bn-step-editor--focused {
@@ -1591,7 +1592,7 @@ html.dark .bn-step-editor--preview a.step-preview-link {
   padding: 10px 12px !important;
   min-height: inherit !important;
   background: transparent !important;
-  font-family: "Inter", system-ui, -apple-system, sans-serif !important;
+  font-family: var(--tme-font-sans) !important;
   font-size: inherit !important;
   font-weight: inherit !important;
   line-height: inherit !important;
@@ -1599,7 +1600,7 @@ html.dark .bn-step-editor--preview a.step-preview-link {
 
 .bn-step-editor .overtype-wrapper .overtype-input {
   color: transparent !important;
-  caret-color: #262626 !important;
+  caret-color: var(--tme-fg) !important;
 }
 
 .bn-step-editor .overtype-wrapper .overtype-input.bn-step-caret-hidden {
@@ -1611,13 +1612,13 @@ html.dark .bn-step-editor--preview a.step-preview-link {
 }
 
 .bn-step-editor .overtype-wrapper textarea.overtype-input::placeholder {
-  color: #a1a1a1 !important;
+  color: var(--tme-placeholder) !important;
   font-weight: 400 !important;
   opacity: 1 !important;
 }
 
 .bn-step-editor .overtype-wrapper textarea.overtype-input::-webkit-input-placeholder {
-  color: #a1a1a1 !important;
+  color: var(--tme-placeholder) !important;
   font-weight: 400 !important;
 }
 
@@ -1626,11 +1627,11 @@ html.dark .bn-step-editor--preview a.step-preview-link {
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview {
-  color: #262626 !important;
+  color: var(--tme-fg) !important;
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview a.step-preview-link {
-  color: #4f46e5 !important;
+  color: var(--tme-link) !important;
   text-decoration: underline !important;
   pointer-events: none !important;
 }
@@ -1650,7 +1651,7 @@ html.dark .bn-step-editor--preview a.step-preview-link {
   background-color: transparent !important;
   font-family: inherit !important;
   font-size: inherit !important;
-  color: rgb(146, 64, 14) !important;
+  color: var(--tme-code) !important;
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview li.bullet-list .syntax-marker,
@@ -1663,7 +1664,7 @@ html.dark .bn-step-editor--preview a.step-preview-link {
   display: none;
   position: absolute;
   width: 1px;
-  background: #262626;
+  background: var(--tme-fg);
   z-index: 2;
   pointer-events: none;
   animation: bn-step-caret-blink 1s step-end infinite;
@@ -1679,10 +1680,10 @@ html.dark .bn-step-editor--preview a.step-preview-link {
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  background: #fff;
-  border: 1px solid var(--step-input-border, #d4d4d4);
+  background: var(--tme-surface);
+  border: 1px solid var(--tme-border-strong);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 12px var(--tme-shadow);
   font-size: 12px;
   position: absolute;
   z-index: 20;
@@ -1692,7 +1693,7 @@ html.dark .bn-step-editor--preview a.step-preview-link {
 }
 
 .bn-step-link-tooltip__url {
-  color: #6b7280;
+  color: var(--tme-muted-fg);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1706,7 +1707,7 @@ html.dark .bn-step-editor--preview a.step-preview-link {
   padding: 2px 6px;
   border: none;
   background: transparent;
-  color: #4f46e5;
+  color: var(--tme-link);
   font-size: 12px;
   cursor: pointer;
   border-radius: 4px;
@@ -1714,15 +1715,15 @@ html.dark .bn-step-editor--preview a.step-preview-link {
 }
 
 .bn-step-link-tooltip__btn:hover {
-  background: rgba(79, 70, 229, 0.08);
+  background: color-mix(in srgb, var(--tme-link) 8%, transparent);
 }
 
 .bn-step-link-tooltip__btn--danger {
-  color: #ef4444;
+  color: var(--tme-danger);
 }
 
 .bn-step-link-tooltip__btn--danger:hover {
-  background: rgba(239, 68, 68, 0.08);
+  background: color-mix(in srgb, var(--tme-danger) 8%, transparent);
 }
 
 .bn-step-editor .overtype-wrapper .overtype-preview img {
@@ -1820,7 +1821,7 @@ html.dark .bn-step-editor--preview a.step-preview-link {
   position: relative;
   max-width: min(90vw, 800px);
   width: 100%;
-  background: var(--color-white);
+  background: var(--tme-surface);
   border-radius: 0.75rem;
   padding: 1rem;
   box-shadow: 0 25px 45px var(--shadow-heavy);

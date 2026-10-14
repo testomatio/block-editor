@@ -114,6 +114,68 @@ return (
 
    Step and snippet fields inherit the browser's `spellcheck` setting from the editor container, so it is enabled by default. To turn it off for the whole editor (paragraphs and steps), set `spellcheck="false"` on any wrapper around `BlockNoteView`.
 
+## Test and Suite Header
+
+`<!-- test -->` and `<!-- suite -->` comments render as a card that folds open into their fields. Shut, it shows the id, the first filled field and how many more. The `+` button adds a field from `getMetaFieldSuggestions`. The card is read-only when the editor is not editable.
+
+The same card is exported for read-only views outside the editor:
+
+```tsx
+import { TestMetaCard } from "testomatio-editor-blocks";
+
+<TestMetaCard kind="test" fields={[{ key: "id", value: "@T1234abcd" }]} onChange={() => {}} readOnly />
+```
+
+## Theming
+
+Every color, font and size comes from a `--tme-*` token. Defaults are the Testomat.io look. Set the tokens on any ancestor of the editor (or `:root`) to restyle it. Dark values switch on `html.dark`.
+
+| Token | Default (light) | Used for |
+| --- | --- | --- |
+| `--tme-font-sans` / `--tme-font-mono` | Inter / system mono | Text / ids |
+| `--tme-text-size` / `--tme-leading` | 14px / 20px | Step fields |
+| `--tme-h1` … `--tme-h6` | 22 / 20 / 18 / 16 / 14 / 14px | Headings |
+| `--tme-fg` | #262626 | Text |
+| `--tme-fg-strong` / `--tme-fg-soft` | #0a0a0a / #404040 | Icons / step buttons |
+| `--tme-muted-fg` / `--tme-placeholder` | #737373 / #a1a1a1 | Labels / placeholders |
+| `--tme-border` / `--tme-border-strong` | #e5e5e5 / #d4d4d4 | Borders |
+| `--tme-surface` / `--tme-surface-hover` | #fff / #fafafa | Popovers, menus |
+| `--tme-muted` | slate 5% | Soft fills |
+| `--tme-primary` / `--tme-ring` | #4f46e5 / its 25% | Focus, open card |
+| `--tme-link` / `--tme-code` / `--tme-danger` | indigo / amber / red | Links / code / remove |
+| `--tme-tooltip-bg` / `--tme-tooltip-fg` | #0a0a0a / #fafafa | Tooltips |
+| `--tme-shadow` / `--tme-radius` | 12% black / 8px | Popovers / corners |
+| `--tme-meta-bg` / `--tme-meta-border` / `--tme-meta-border-open` | muted / border / primary 50% | Test and suite header |
+| `--tme-meta-gap` | 2rem | Space above each test |
+
+Step and snippet blocks also keep their older `--step-*` and `--snippet-*` variables.
+
+```css
+.my-editor {
+  --tme-font-sans: var(--font-sans);
+  --tme-fg: var(--foreground);
+  --tme-primary: var(--primary);
+}
+```
+
+## Headless Parser
+
+`testomatio-editor-blocks/markdown` holds the Markdown parser and serializer without React, BlockNote or a DOM, so a server can read test files with the same rules as the editor.
+
+```ts
+import { parseTestDocument, metaFieldValue, splitTags } from "testomatio-editor-blocks/markdown";
+
+for (const section of parseTestDocument(markdown)) {
+  // section.meta: { kind: "test" | "suite", fields, inline } | null
+  // section.start / bodyStart / end: 0-based lines, end exclusive
+  // section.heading: the first # or ## heading; section.steps: { title, data, expected }
+  const id = metaFieldValue(section.meta, "id");
+  const { title, tags } = splitTags(section.heading?.text ?? "");
+}
+```
+
+It also exports `markdownToBlocks`, `blocksToMarkdown`, `scanMarkdownBlocks` (blocks with their source lines), `isStepsHeading` and `getMetaFieldSuggestions`.
+
 ## Step Autocomplete & Image Upload Hooks
 
 Configure everything via JS—no React providers required:

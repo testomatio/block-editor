@@ -523,6 +523,7 @@ function App() {
     "idle",
   );
   const [darkMode, setDarkMode] = useState(false);
+  const [customTheme, setCustomTheme] = useState(false);
   const [suggestWhileTyping, setSuggestWhileTyping] = useState(true);
   const [markdownInput, setMarkdownInput] = useState("");
   const [inputError, setInputError] = useState<string | null>(null);
@@ -781,6 +782,13 @@ function App() {
           </button>
           <button
             type="button"
+            className="app__action app__action--ghost"
+            onClick={() => setCustomTheme((v) => !v)}
+          >
+            Theme: {customTheme ? "custom" : "Testomat.io"}
+          </button>
+          <button
+            type="button"
             className="app__dark-toggle"
             onClick={() => setDarkMode((v) => !v)}
             title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
@@ -796,7 +804,7 @@ function App() {
 
       <section className="app__workspace">
         <div
-          className="app__editor"
+          className={`app__editor${customTheme ? " app__editor--custom-theme" : ""}`}
           data-step-autocomplete={suggestWhileTyping ? "true" : "false"}
         >
           <BlockNoteView

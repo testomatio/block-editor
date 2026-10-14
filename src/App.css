@@ -350,3 +350,17 @@ html.dark .app__copy-status {
     grid-template-columns: 1fr;
   }
 }
+
+/* A sample host theme: the editor restyled only through --tme-* tokens. */
+.app__editor--custom-theme {
+  --tme-font-sans: Georgia, serif;
+  --tme-fg: #1e1b4b;
+  --tme-muted-fg: #6d28d9;
+  --tme-primary: #7c3aed;
+  --tme-link: #7c3aed;
+  --tme-meta-bg: #f5f3ff;
+  --tme-meta-border: #ddd6fe;
+  --tme-radius: 12px;
+  --tme-h1: 28px;
+  --tme-h2: 24px;
+}
