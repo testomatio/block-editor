@@ -6,7 +6,13 @@ export {
 } from "./editor/customSchema";
 export { stepBlock, canInsertStepOrSnippet, isStepsHeading, addStepsBlock, addSnippetBlock } from "./editor/blocks/step";
 export { snippetBlock } from "./editor/blocks/snippet";
-export { testMetaBlock, addTestBlock } from "./editor/blocks/testMeta";
+export {
+  testMetaBlock,
+  addTestBlock,
+  TestMetaCard,
+  type TestMetaCardProps,
+  type MetaField,
+} from "./editor/blocks/testMeta";
 export {
   setMetaFieldSuggestions,
   getMetaFieldSuggestions,
@@ -20,6 +26,7 @@ export {
   TagBadgeExtension,
   TAGS_DETECT_REGEXP,
   detectTags,
+  splitTags,
   type TagMatch,
 } from "./editor/tagBadge";
 
@@ -39,10 +46,23 @@ export {
 export {
   blocksToMarkdown,
   markdownToBlocks,
+  scanMarkdownBlocks,
   type CustomEditorBlock,
   type CustomPartialBlock,
+  type LocatedBlock,
   type MarkdownToBlocksOptions,
 } from "./editor/customMarkdownConverter";
+
+export {
+  parseTestDocument,
+  metaFieldValue,
+  type TestDocumentHeading,
+  type TestDocumentMeta,
+  type TestDocumentSection,
+  type TestDocumentStep,
+  type TestMetaField,
+  type TestMetaKind,
+} from "./editor/testDocument";
 
 export {
   useStepAutocomplete,

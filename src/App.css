@@ -16,16 +16,21 @@
 
 .app__header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1.5rem;
 }
 
+.app__intro {
+  flex: 1 1 32rem;
+}
+
 .app__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
-  flex-shrink: 0;
 }
 
 .app__header h1 {
@@ -349,4 +354,18 @@ html.dark .app__copy-status {
   .app__preview {
     grid-template-columns: 1fr;
   }
+}
+
+/* A sample host theme: the editor restyled only through --tme-* tokens. */
+.app__editor--custom-theme {
+  --tme-font-sans: Georgia, serif;
+  --tme-fg: #1e1b4b;
+  --tme-muted-fg: #6d28d9;
+  --tme-primary: #7c3aed;
+  --tme-link: #7c3aed;
+  --tme-meta-bg: #f5f3ff;
+  --tme-meta-border: #ddd6fe;
+  --tme-radius: 12px;
+  --tme-h1: 28px;
+  --tme-h2: 24px;
 }

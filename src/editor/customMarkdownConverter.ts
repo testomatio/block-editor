@@ -1,7 +1,3 @@
-import {
-  isLinkInlineContent,
-  isStyledTextInlineContent,
-} from "@blocknote/core";
 import type {
   Block,
   InlineContent,
@@ -10,7 +6,7 @@ import type {
 } from "@blocknote/core";
 import { resolveFileDisplayUrl } from "./fileDisplayUrl";
 import type { customSchema } from "./customSchema";
-import { isStepsHeading } from "./blocks/step";
+import { isStepsHeading } from "./stepsHeading";
 import {
   codeBlockFence,
   indexOfOutsideCode,
@@ -314,6 +310,16 @@ function applyTextStyles(text: string, styles: EditorStyles | undefined): string
   });
 
   return wrapped.join("\n");
+}
+
+// Local copies of BlockNote's guards keep this module free of runtime imports,
+// so `testomatio-editor-blocks/markdown` loads without BlockNote or a DOM.
+function isStyledTextInlineContent(item: unknown): item is { type: "text"; text: string; styles: EditorStyles } {
+  return typeof item === "object" && item !== null && (item as { type?: string }).type === "text";
+}
+
+function isLinkInlineContent(item: unknown): item is { type: "link"; href: string; content: any } {
+  return typeof item === "object" && item !== null && (item as { type?: string }).type === "link";
 }
 
 function inlineToMarkdown(content: CustomEditorBlock["content"]): string {
@@ -1845,19 +1851,52 @@ export interface MarkdownToBlocksOptions {
 }
 
 export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOptions): CustomPartialBlock[] {
+  const blocks = scanMarkdownBlocks(markdown).map((located) => located.block);
+
+  // Drop trailing empty paragraphs so a trailing blank line in the source
+  // doesn't leave a ghost empty block at the end of the document.
+  while (
+    blocks.length > 0 &&
+    blocks[blocks.length - 1].type === "paragraph" &&
+    (!blocks[blocks.length - 1].content ||
+      (blocks[blocks.length - 1].content as any[]).length === 0)
+  ) {
+    blocks.pop();
+  }
+
+  return fixMalformedImageBlocks(blocks);
+}
+
+/** A parsed block with the source lines it came from: `start` inclusive, `end` exclusive. */
+export type LocatedBlock = { block: CustomPartialBlock; start: number; end: number };
+
+/** The parser behind `markdownToBlocks`, keeping each block's source line range. */
+export function scanMarkdownBlocks(markdown: string): LocatedBlock[] {
   const normalized = markdown.replace(/\r\n/g, "\n");
   const lines = normalized.split("\n");
-  const blocks: CustomPartialBlock[] = [];
+  const located: LocatedBlock[] = [];
+  const emit = (...blocks: CustomPartialBlock[]) => {
+    for (const block of blocks) located.push({ block, start: blockStart, end: blockStart + 1 });
+  };
   let index = 0;
+  let blockStart = 0;
   let stepsHeadingLevel: number | null = null;
 
+  const settle = () => {
+    for (let i = located.length - 1; i >= 0 && located[i].start === blockStart; i--) {
+      located[i].end = Math.max(index, blockStart + 1);
+    }
+  };
+
   while (index < lines.length) {
+    settle();
+    blockStart = index;
     const line = lines[index];
     if (!line.trim()) {
       // Drop blank lines until we've emitted at least one block, so leading
       // blanks don't produce a ghost empty paragraph at the top of the doc.
-      if (blocks.length > 0) {
-        blocks.push({ type: "paragraph", content: [], children: [] } as CustomPartialBlock);
+      if (located.length > 0) {
+        emit({ type: "paragraph", content: [], children: [] } as CustomPartialBlock);
       }
       index += 1;
       continue;
@@ -1867,7 +1906,7 @@ export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOp
     // a document or right after a heading), so this runs ungated.
     const metaComment = parseMetaComment(lines, index);
     if (metaComment) {
-      blocks.push(metaComment.block);
+      emit(metaComment.block);
       index = metaComment.nextIndex;
       continue;
     }
@@ -1876,7 +1915,7 @@ export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOp
     // an "examples" panel instead of raw comment text.
     const exampleMarker = parseExampleMarker(lines, index);
     if (exampleMarker) {
-      blocks.push(exampleMarker.block);
+      emit(exampleMarker.block);
       index = exampleMarker.nextIndex;
       continue;
     }
@@ -1885,7 +1924,7 @@ export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOp
       ? parseSnippetWrapper(lines, index)
       : null;
     if (snippetWrapper) {
-      blocks.push(snippetWrapper.block);
+      emit(snippetWrapper.block);
       index = snippetWrapper.nextIndex;
       continue;
     }
@@ -1894,14 +1933,14 @@ export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOp
       ? parseTestStep(lines, index, true)
       : null;
     if (stepLikeBlock) {
-      blocks.push(stepLikeBlock.block);
+      emit(stepLikeBlock.block);
       index = stepLikeBlock.nextIndex;
       continue;
     }
 
     const table = parseTable(lines, index);
     if (table) {
-      blocks.push(table.block);
+      emit(table.block);
       index = table.nextIndex;
       continue;
     }
@@ -1923,21 +1962,21 @@ export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOp
         stepsHeadingLevel = null;
       }
 
-      blocks.push(headingBlock);
+      emit(headingBlock);
       index = heading.nextIndex;
       continue;
     }
 
     const code = parseCodeBlock(lines, index);
     if (code) {
-      blocks.push(code.block);
+      emit(code.block);
       index = code.nextIndex;
       continue;
     }
 
     const quote = parseQuote(lines, index);
     if (quote) {
-      blocks.push(quote.block);
+      emit(quote.block);
       index = quote.nextIndex;
       continue;
     }
@@ -1951,14 +1990,14 @@ export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOp
         0,
         stepsHeadingLevel !== null,
       );
-      blocks.push(...items);
+      emit(...items);
       index = nextIndex;
       continue;
     }
 
     const fileMatch = line.trim().match(/^\[!\[([^\]]*)\]\(([^)]*)\)\]\(([^)]+)\)$/);
     if (fileMatch) {
-      blocks.push({
+      emit({
         type: "file",
         props: {
           name: fileMatch[1] || "",
@@ -1974,7 +2013,7 @@ export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOp
     const imageMatch = line.trim().match(/^!\[([^\]]*)\]\(([^)]+?)(?:\s+=(\d+)x(\d+|\*))?\)$/);
     if (imageMatch) {
       const width = imageMatch[3] ? parseInt(imageMatch[3], 10) : undefined;
-      blocks.push({
+      emit({
         type: "image",
         props: {
           url: imageMatch[2],
@@ -1989,22 +2028,12 @@ export function markdownToBlocks(markdown: string, _options?: MarkdownToBlocksOp
     }
 
     const paragraph = parseParagraph(lines, index);
-    blocks.push(paragraph.block);
+    emit(paragraph.block);
     index = paragraph.nextIndex;
   }
+  settle();
 
-  // Drop trailing empty paragraphs so a trailing blank line in the source
-  // doesn't leave a ghost empty block at the end of the document.
-  while (
-    blocks.length > 0 &&
-    blocks[blocks.length - 1].type === "paragraph" &&
-    (!blocks[blocks.length - 1].content ||
-      (blocks[blocks.length - 1].content as any[]).length === 0)
-  ) {
-    blocks.pop();
-  }
-
-  return fixMalformedImageBlocks(blocks);
+  return located;
 }
 
 function splitTableRow(line: string): string[] {

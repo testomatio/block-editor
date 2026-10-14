@@ -1,6 +1,5 @@
 import { createReactBlockSpec } from "@blocknote/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getMetaFieldSuggestions } from "../testMetaFields";
 
 export type MetaField = { key: string; value: string };
@@ -54,7 +53,7 @@ function suiteLabelsFromDocument(document: any[]): string {
 }
 
 /**
- * Insert a new test: a `testMeta` panel (labelled "NEW TEST" until it gets an id)
+ * Insert a new test: a `testMeta` panel
  * seeded with default metadata — `type: manual`, `priority: normal`, and `labels`
  * copied from the suite block — followed by an empty H2 heading for the test title.
  *
@@ -102,11 +101,103 @@ export function addTestBlock(editor: TestEditorLike): string | null {
   return inserted?.[1]?.id ?? null;
 }
 
-type AddFieldMenuProps = {
-  kind: "test" | "suite";
-  usedKeys: string[];
-  onPick: (key: string) => void;
-};
+/**
+ * The `<!-- test -->` / `<!-- suite -->` header: a card that folds open into
+ * its fields. Shut, it shows the id, the first filled field and how many more.
+ */
+export function TestMetaCard({ kind, fields, onChange, readOnly }: TestMetaCardProps) {
+  const id = fields.find(isIdField)?.value;
+  const rows = fields
+    .map((field, index) => ({ field, index }))
+    .filter(({ field }) => !isIdField(field));
+  const filled = rows
+    .filter(({ field }) => field.key.trim() && field.value.trim())
+    .map(({ field }) => `${field.key}: ${field.value}`);
+  const summary = filled[0];
+  const more = filled.length - 1;
+  const [open, setOpen] = useState(() => !summary && rows.length > 0);
+
+  const update = (index: number, patch: Partial<MetaField>) =>
+    onChange(fields.map((field, i) => (i === index ? { ...field, ...patch } : field)));
+  const add = (key: string) => {
+    onChange([...fields, { key, value: "" }]);
+    setOpen(true);
+  };
+
+  return (
+    <div
+      className={`bn-testmeta${open ? " bn-testmeta--open" : ""}`}
+      data-kind={kind}
+      data-source={fields.map((field) => `${field.key}: ${field.value}`).join("\n")}
+    >
+      <div className={`bn-testmeta__header${readOnly ? "" : " bn-testmeta__header--actions"}`}>
+        <button
+          type="button"
+          className="bn-testmeta__trigger"
+          aria-expanded={open}
+          aria-label={open ? "Hide details" : "Show details"}
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          <span className="bn-testmeta__title">
+            <span className="bn-testmeta__label">{KIND_LABEL[kind]}</span>
+            {id && <span className="bn-testmeta__id">{id}</span>}
+            {!open && summary && <span className="bn-testmeta__summary">{summary}</span>}
+            {!open && more > 0 && <span className="bn-testmeta__more">+{more}</span>}
+          </span>
+          {!open && !summary && <span className="bn-testmeta__status">No details</span>}
+          <svg className="bn-testmeta__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        {!readOnly && (
+          <AddFieldMenu kind={kind} usedKeys={fields.map((field) => field.key)} onPick={add} />
+        )}
+      </div>
+      {open && (
+        <div className="bn-testmeta__rows">
+          {rows.length === 0 && <p className="bn-testmeta__empty">No details yet.</p>}
+          {rows.map(({ field, index }) => (
+            <div className="bn-testmeta__row" key={index}>
+              <input
+                className="bn-testmeta__key"
+                type="text"
+                value={field.key}
+                placeholder="Field"
+                spellCheck={false}
+                readOnly={readOnly}
+                aria-label="Field name"
+                onChange={(event) => update(index, { key: event.target.value })}
+              />
+              <input
+                className="bn-testmeta__value"
+                type="text"
+                value={field.value}
+                placeholder="Empty"
+                spellCheck={false}
+                readOnly={readOnly}
+                aria-label={`${field.key || "Field"} value`}
+                onChange={(event) => update(index, { value: event.target.value })}
+              />
+              {!readOnly && (
+                <button
+                  type="button"
+                  className="bn-testmeta__icon-btn bn-testmeta__remove"
+                  aria-label="Remove field"
+                  data-tooltip="Remove field"
+                  onClick={() => onChange(fields.filter((_, i) => i !== index))}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AddFieldMenu({ kind, usedKeys, onPick }: AddFieldMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -115,63 +206,70 @@ function AddFieldMenu({ kind, usedKeys, onPick }: AddFieldMenuProps) {
   useEffect(() => {
     if (!isOpen) return;
     const handleMouseDown = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+      if (containerRef.current?.contains(event.target as Node)) return;
+      setIsOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
     };
     document.addEventListener("mousedown", handleMouseDown);
-    return () => document.removeEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [isOpen]);
 
-  const available = useMemo(() => {
-    const used = new Set(usedKeys.map((k) => k.trim().toLowerCase()));
-    return getMetaFieldSuggestions(kind).filter((s) => !used.has(s.key.trim().toLowerCase()));
-  }, [kind, usedKeys]);
-
-  const pick = useCallback(
-    (key: string) => {
-      onPick(key);
-      setIsOpen(false);
-    },
-    [onPick],
+  const taken = new Set(usedKeys.map((key) => key.trim().toLowerCase()));
+  const options = getMetaFieldSuggestions(kind).filter(
+    (option) => !taken.has(option.key.trim().toLowerCase()),
   );
+  const pick = (key: string) => {
+    onPick(key);
+    setIsOpen(false);
+  };
 
   return (
-    <div className="bn-testmeta__add-wrap" ref={containerRef}>
+    <div className="bn-testmeta__actions" ref={containerRef}>
       <button
         type="button"
-        className="bn-testmeta__add"
+        className="bn-testmeta__icon-btn bn-testmeta__add"
         aria-label="Add field"
-        title="Add field"
+        aria-expanded={isOpen}
+        data-tooltip={isOpen ? undefined : "Add field"}
         onClick={() => setIsOpen((prev) => !prev)}
       >
-        +
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M8 3.5V12.5M3.5 8H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
       </button>
       {isOpen && (
-        <div className="bn-testmeta__menu" role="listbox">
-          {available.map((suggestion) => (
+        <div className="bn-testmeta__menu" role="menu">
+          {options.map((option) => (
             <button
               type="button"
-              key={suggestion.key}
-              role="option"
+              key={option.key}
+              role="menuitem"
               className="bn-testmeta__menu-item"
               onMouseDown={(event) => {
                 event.preventDefault();
-                pick(suggestion.key);
+                pick(option.key);
               }}
             >
-              {suggestion.label ?? suggestion.key}
+              {option.label ?? option.key}
             </button>
           ))}
+          {options.length > 0 && <div className="bn-testmeta__menu-separator" role="separator" />}
           <button
             type="button"
-            className="bn-testmeta__menu-item bn-testmeta__menu-item--custom"
+            role="menuitem"
+            className="bn-testmeta__menu-item"
             onMouseDown={(event) => {
               event.preventDefault();
               pick("");
             }}
           >
-            Custom field…
+            Custom field
           </button>
         </div>
       )}
@@ -199,158 +297,46 @@ export const testMetaBlock = createReactBlockSpec(
     },
   },
   {
-    render: ({ block, editor }) => {
-      const kind = (block.props.metaKind as string) === "suite" ? "suite" : "test";
-      const fields = useMemo(
-        () => parseMetaFields(block.props.metaFields),
-        [block.props.metaFields],
-      );
-
-      const commitFields = useCallback(
-        (next: MetaField[]) => {
-          editor.updateBlock(block.id, {
-            props: { metaFields: serializeMetaFields(next) } as any,
-          });
-        },
-        [block.id, editor],
-      );
-
-      const handleValueChange = useCallback(
-        (index: number, value: string) => {
-          const next = fields.map((field, i) =>
-            i === index ? { ...field, value } : field,
-          );
-          commitFields(next);
-        },
-        [fields, commitFields],
-      );
-
-      const handleKeyChange = useCallback(
-        (index: number, key: string) => {
-          const next = fields.map((field, i) =>
-            i === index ? { ...field, key } : field,
-          );
-          commitFields(next);
-        },
-        [fields, commitFields],
-      );
-
-      const handleRemove = useCallback(
-        (index: number) => {
-          commitFields(fields.filter((_, i) => i !== index));
-        },
-        [fields, commitFields],
-      );
-
-      const handleAddField = useCallback(
-        (key: string) => {
-          commitFields([...fields, { key, value: "" }]);
-        },
-        [fields, commitFields],
-      );
-
-      const usedKeys = useMemo(() => fields.map((f) => f.key), [fields]);
-
-      // The read-only `id` is shown inline on the header line next to the kind
-      // label; every other field renders as an editable row below.
-      const idField = fields.find((f) => ID_KEYS.has(f.key.trim().toLowerCase()));
-      const editableFields = fields
-        .map((field, index) => ({ field, index }))
-        .filter(({ field }) => !ID_KEYS.has(field.key.trim().toLowerCase()));
-
-      // Compact (reading) view: collapse the rows into a single truncated line
-      // built only from fields that actually have a value — keys without values
-      // are an editing-only concern and never appear in the compact summary (the
-      // expanded rows still show them so they can be filled in). The
-      // expand/collapse toggle pinned to the far right reveals the full rows.
-      const summaryText = editableFields
-        .filter(({ field }) => field.key.trim().length > 0 && field.value.trim().length > 0)
-        .map(({ field }) => `${field.key}: ${field.value}`)
-        .join("  ·  ");
-      // Default to the compact (collapsed) view whenever the block carries any
-      // field — this keeps suite blocks compact too, even when their fields have
-      // no value yet (e.g. a seeded `emoji:` row) and so produce an empty
-      // summary. Only a genuinely empty block (no fields at all) starts expanded
-      // so it's immediately editable. `expanded` is UI-only state — never
-      // serialized.
-      const [expanded, setExpanded] = useState(() => fields.length === 0);
-
-      return (
-        <div
-          className={`bn-testmeta${expanded ? " bn-testmeta--expanded" : " bn-testmeta--collapsed"}`}
-          data-block-id={block.id}
-          data-kind={kind}
-          contentEditable={false}
-          suppressContentEditableWarning
-          draggable={false}
-        >
-          <div className="bn-testmeta__header">
-            <span className="bn-testmeta__label">
-              {kind === "test" && !idField?.value ? "NEW TEST" : kind.toUpperCase()}
-            </span>
-            {idField?.value && <span className="bn-testmeta__id">{idField.value}</span>}
-            {!expanded && (
-              <button
-                type="button"
-                className="bn-testmeta__summary"
-                title={summaryText || "No metadata yet"}
-                onClick={() => setExpanded(true)}
-              >
-                {summaryText || <span className="bn-testmeta__summary--empty">No metadata</span>}
-              </button>
-            )}
-            <div className="bn-testmeta__actions">
-              {expanded && <AddFieldMenu kind={kind} usedKeys={usedKeys} onPick={handleAddField} />}
-              <button
-                type="button"
-                className={`bn-testmeta__toggle${expanded ? " bn-testmeta__toggle--expanded" : ""}`}
-                aria-expanded={expanded}
-                aria-label={expanded ? "Collapse metadata" : "Expand metadata"}
-                title={expanded ? "Collapse" : "Expand"}
-                onClick={() => setExpanded((prev) => !prev)}
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          {expanded && editableFields.length > 0 && (
-            <div className="bn-testmeta__rows">
-              {editableFields.map(({ field, index }) => (
-                <div className="bn-testmeta__row" key={index}>
-                  <input
-                    className="bn-testmeta__key bn-testmeta__key--input"
-                    type="text"
-                    value={field.key}
-                    placeholder="key"
-                    spellCheck={false}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => handleKeyChange(index, e.target.value)}
-                  />
-                  <input
-                    className="bn-testmeta__value"
-                    type="text"
-                    value={field.value}
-                    placeholder="value"
-                    spellCheck={false}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => handleValueChange(index, e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="bn-testmeta__remove"
-                    aria-label="Remove field"
-                    title="Remove field"
-                    onClick={() => handleRemove(index)}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    },
+    render: ({ block, editor }) => (
+      <div
+        className="bn-testmeta-block"
+        data-block-id={block.id}
+        contentEditable={false}
+        suppressContentEditableWarning
+        draggable={false}
+      >
+        <TestMetaCard
+          kind={block.props.metaKind === "suite" ? "suite" : "test"}
+          fields={parseMetaFields(block.props.metaFields)}
+          readOnly={!editor.isEditable}
+          onChange={(next) =>
+            editor.updateBlock(block.id, {
+              props: { metaFields: serializeMetaFields(next) } as any,
+            })
+          }
+        />
+      </div>
+    ),
   },
 );
+
+function isIdField(field: MetaField) {
+  return ID_KEYS.has(field.key.trim().toLowerCase());
+}
+
+const KIND_LABEL: Record<MetaKind, string> = { test: "Test", suite: "Suite" };
+
+type MetaKind = "test" | "suite";
+
+export type TestMetaCardProps = {
+  kind: MetaKind;
+  fields: MetaField[];
+  onChange: (fields: MetaField[]) => void;
+  readOnly?: boolean;
+};
+
+type AddFieldMenuProps = {
+  kind: MetaKind;
+  usedKeys: string[];
+  onPick: (key: string) => void;
+};

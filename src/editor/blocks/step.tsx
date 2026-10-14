@@ -5,6 +5,7 @@ import { StepHorizontalView } from "./stepHorizontalView";
 import { useStepImageUpload } from "../stepImageUpload";
 import { isSuiteDocument } from "../exampleTableHighlight";
 import type { StepSuggestion } from "../stepAutocomplete";
+import { isStepsHeading } from "../stepsHeading";
 
 const EXPECTED_COLLAPSED_KEY = "bn-expected-collapsed";
 const VIEW_MODE_KEY = "bn-step-view-mode";
@@ -80,14 +81,7 @@ function useStepViewMode(): StepViewMode {
   return viewMode;
 }
 
-/**
- * Returns true when a normalised (lowercased, trailing-punctuation-stripped)
- * heading text looks like a "Steps" heading.
- * Accepted forms: steps, step, step(s), test steps, test step, test step(s).
- */
-export function isStepsHeading(text: string): boolean {
-  return /^(test\s+)?step(s|\(s\))?$/.test(text);
-}
+export { isStepsHeading };
 
 export const isEmptyParagraph = (b: any): boolean =>
   b.type === "paragraph" &&
