@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { mdq } from "mdq-cli";
 import {
   blocksToMarkdown,
   markdownToBlocks,
@@ -1465,6 +1466,98 @@ describe("markdownToBlocks", () => {
         "  2\\. Average",
       ].join("\n"),
     );
+  });
+
+  describe("expected result that starts with a block", () => {
+    const stepWithExpected = (id: string, stepTitle: string, expectedResult: string) => ({
+      id,
+      type: "testStep",
+      props: { stepTitle, stepData: "", expectedResult, listStyle: "bullet" },
+      content: undefined,
+      children: [],
+    });
+
+    // mdq selects top-level list items only, so a step's nested blocks are
+    // queried by re-parsing the item body without its marker line.
+    const stepBody = (markdown: string, stepIndex: number) =>
+      mdq(
+        mdq(markdown).section("Steps").item().at(stepIndex).text().split("\n").slice(1).join("\n"),
+      );
+
+    it("puts a bullet list on its own line under the label", () => {
+      const markdown = blocksToMarkdown([
+        stepWithExpected("step1", "step", "- expected result 1\n- expected result 2"),
+        stepWithExpected("step2", "step number 2", ""),
+      ] as CustomEditorBlock[]);
+
+      expect(markdown).toBe(
+        [
+          "* step",
+          "  *Expected result*:",
+          "  - expected result 1",
+          "  - expected result 2",
+          "* step number 2",
+        ].join("\n"),
+      );
+    });
+
+    it("renders as one nested list per step for a CommonMark parser", () => {
+      const markdown = [
+        "### Steps",
+        "",
+        blocksToMarkdown([
+          stepWithExpected("step1", "step", "- expected result 1\n- expected result 2"),
+          stepWithExpected("step2", "step number 2", ""),
+        ] as CustomEditorBlock[]),
+      ].join("\n");
+
+      expect(mdq(markdown).section("Steps").item().count()).toBe(2);
+      const body = stepBody(markdown, 0);
+      expect(body.list().count()).toBe(1);
+      expect(body.item().each().map((item) => item.text().trim())).toEqual([
+        "- expected result 1",
+        "- expected result 2",
+      ]);
+    });
+
+    it("keeps a fenced code block out of the label line", () => {
+      const markdown = blocksToMarkdown([
+        stepWithExpected("step1", "Run the script", "```\nok\n```"),
+      ] as CustomEditorBlock[]);
+
+      expect(markdown).toBe(
+        ["* Run the script", "  *Expected result*:", "  ```", "  ok", "  ```"].join("\n"),
+      );
+      expect(stepBody(["### Steps", "", markdown].join("\n"), 0).code().count()).toBe(1);
+    });
+
+    it("round-trips the list back into the expected result", () => {
+      const expectedResult = "- expected result 1\n- expected result 2";
+      const markdown = blocksToMarkdown([
+        stepWithExpected("step1", "step", expectedResult),
+      ] as CustomEditorBlock[]);
+
+      const blocks = markdownToBlocks(["### Steps", "", markdown].join("\n"));
+      const step = blocks.find((block) => block.type === "testStep");
+
+      expect((step?.props as { expectedResult?: string }).expectedResult).toBe(expectedResult);
+    });
+
+    it("still parses the legacy form with the first item glued to the label", () => {
+      const blocks = markdownToBlocks(
+        [
+          "### Steps",
+          "* step",
+          "  *Expected result*: - expected result 1",
+          "  - expected result 2",
+          "* step number 2",
+        ].join("\n"),
+      );
+      const steps = blocks.filter((block) => block.type === "testStep");
+
+      expect(steps).toHaveLength(2);
+      expect((steps[0].props as { expectedResult?: string }).expectedResult).toBe("- expected result 1\n- expected result 2");
+    });
   });
 
   it("does not escape dots when the only ordered list marker sits inside code", () => {

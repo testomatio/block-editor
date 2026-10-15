@@ -71,6 +71,8 @@ const EXPECTED_LABEL_REGEX = /^(?:[*_`]*\s*)?(expected(?:\s+result)?)\s*(?:[*_`]
 const STEP_DATA_LINE_REGEX =
   /^(?!\s*(?:[*_`]*\s*)?(?:expected(?:\s+result)?)\b).+/i;
 const NUMBERED_STEP_REGEX = /^\d+[.)]\s+/;
+// Block constructs that cannot start mid-paragraph: a bullet marker or a code fence.
+const EXPECTED_BLOCK_START_REGEX = /^(?:[-*+]\s|```)/;
 // An ordered list marker in step content: digits, a dot, then whitespace or the
 // end of a line. Anchored to the start of a line (leading indent still forms a
 // list), because Markdown only reads a marker there — "Response is 200. See …"
@@ -626,15 +628,20 @@ function serializeBlock(
       if (normalizedExpected.length > 0) {
         const escaped = renderStepSegments(expectedSegments, escapeDots);
         const label = "*Expected result*";
-        let isFirst = true;
-        escaped.split(/\r?\n/).forEach((expectedLine: string) => {
-          const trimmedLine = expectedLine.trim();
-          if (trimmedLine.length === 0) {
-            return;
-          }
-          lines.push(isFirst ? `  ${label}: ${trimmedLine}` : `  ${trimmedLine}`);
-          isFirst = false;
-        });
+        const expectedLines = escaped
+          .split(/\r?\n/)
+          .map((expectedLine: string) => expectedLine.trim())
+          .filter((expectedLine: string) => expectedLine.length > 0);
+        // A list or fence glued after the label is plain paragraph text in
+        // CommonMark, so it gets a line of its own to render as a block.
+        if (EXPECTED_BLOCK_START_REGEX.test(expectedLines[0] ?? "")) {
+          lines.push(`  ${label}:`);
+          expectedLines.forEach((expectedLine: string) => lines.push(`  ${expectedLine}`));
+        } else {
+          expectedLines.forEach((expectedLine: string, lineIndex: number) => {
+            lines.push(lineIndex === 0 ? `  ${label}: ${expectedLine}` : `  ${expectedLine}`);
+          });
+        }
       }
 
       return lines;
