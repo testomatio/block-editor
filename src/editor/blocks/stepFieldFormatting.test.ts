@@ -145,3 +145,45 @@ describe("step field code spans", () => {
     });
   });
 });
+
+describe("stripInlineMarkdown emphasis flanking", () => {
+  const listText = [
+    "The Teacher home page is displayed with the following sections:",
+    "  * Student",
+    "  * Class Standard",
+  ].join("\n");
+
+  it("keeps `* ` list bullets literal instead of italicizing between them", () => {
+    expect(stripInlineMarkdown(listText)).toEqual({
+      plainText: listText,
+      links: [],
+      formatting: [],
+    });
+  });
+
+  it("keeps bullets when bolding a list item", () => {
+    const { plainText, links, formatting } = stripInlineMarkdown(listText);
+    const start = plainText.indexOf("Class Standard");
+    const bold: FormattingMeta = { start, end: start + "Class Standard".length, type: "bold" };
+    expect(buildFullMarkdown(plainText, links, [...formatting, bold])).toBe(
+      listText.replace("Class Standard", "**Class Standard**"),
+    );
+  });
+
+  it("still parses regular emphasis", () => {
+    expect(stripInlineMarkdown("*foo*").formatting).toEqual([{ start: 0, end: 3, type: "italic" }]);
+    expect(stripInlineMarkdown("_foo_").formatting).toEqual([{ start: 0, end: 3, type: "italic" }]);
+    expect(stripInlineMarkdown("**foo**").formatting).toEqual([{ start: 0, end: 3, type: "bold" }]);
+    expect(stripInlineMarkdown("***foo***").formatting).toEqual([
+      { start: 0, end: 3, type: "bold" },
+      { start: 0, end: 3, type: "italic" },
+    ]);
+    expect(stripInlineMarkdown("*Expected result*: ok").plainText).toBe("Expected result: ok");
+  });
+
+  it("keeps whitespace-flanked delimiters and intraword underscores literal", () => {
+    for (const text of ["* a *", "** a **", "*** a ***", "snake_case_name", "a__b__c"]) {
+      expect(stripInlineMarkdown(text)).toEqual({ plainText: text, links: [], formatting: [] });
+    }
+  });
+});
