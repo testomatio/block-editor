@@ -168,6 +168,24 @@ function getActiveFormats(
 }
 
 
+const isWhitespace = (ch: string | undefined) => ch === undefined || /\s/.test(ch);
+const isAlphanumeric = (ch: string | undefined) => ch !== undefined && /[\p{L}\p{N}]/u.test(ch);
+
+// CommonMark flanking: a delimiter run followed by whitespace (e.g. a `* `
+// list bullet) can't open emphasis, one preceded by whitespace can't close it,
+// and `_` never opens/closes inside a word (snake_case stays literal).
+function canOpenEmphasis(markdown: string, index: number, length: number): boolean {
+  if (isWhitespace(markdown[index + length])) return false;
+  if (markdown[index] === "_" && isAlphanumeric(markdown[index - 1])) return false;
+  return true;
+}
+
+function canCloseEmphasis(markdown: string, index: number, length: number): boolean {
+  if (isWhitespace(markdown[index - 1])) return false;
+  if (markdown[index] === "_" && isAlphanumeric(markdown[index + length])) return false;
+  return true;
+}
+
 export function stripInlineMarkdown(markdown: string): {
   plainText: string;
   links: LinkMeta[];
@@ -209,12 +227,15 @@ export function stripInlineMarkdown(markdown: string): {
     }
 
     // Bold+Italic: *** or ___
-    if (
+    if ((
       (markdown[i] === "*" && markdown[i + 1] === "*" && markdown[i + 2] === "*") ||
       (markdown[i] === "_" && markdown[i + 1] === "_" && markdown[i + 2] === "_")
-    ) {
+    ) && canOpenEmphasis(markdown, i, 3)) {
       const marker = markdown.slice(i, i + 3);
-      const closeIdx = markdown.indexOf(marker, i + 3);
+      let closeIdx = markdown.indexOf(marker, i + 3);
+      while (closeIdx !== -1 && !canCloseEmphasis(markdown, closeIdx, 3)) {
+        closeIdx = markdown.indexOf(marker, closeIdx + 1);
+      }
       if (closeIdx !== -1) {
         const inner = markdown.slice(i + 3, closeIdx);
         const start = plainText.length;
@@ -234,14 +255,17 @@ export function stripInlineMarkdown(markdown: string): {
     }
 
     // Bold: ** or __
-    if (
+    if ((
       markdown[i] === "*" && markdown[i + 1] === "*" && markdown[i + 2] !== "*" ||
       markdown[i] === "_" && markdown[i + 1] === "_" && markdown[i + 2] !== "_"
-    ) {
+    ) && canOpenEmphasis(markdown, i, 2)) {
       const marker = markdown.slice(i, i + 2);
-      // Find closing ** that isn't part of ***
+      // Find closing ** that isn't part of *** and can close
       let closeIdx = markdown.indexOf(marker, i + 2);
-      while (closeIdx !== -1 && markdown[closeIdx + 2] === marker[0]) {
+      while (
+        closeIdx !== -1 &&
+        (markdown[closeIdx + 2] === marker[0] || !canCloseEmphasis(markdown, closeIdx, 2))
+      ) {
         closeIdx = markdown.indexOf(marker, closeIdx + 2);
       }
       if (closeIdx !== -1) {
@@ -262,17 +286,21 @@ export function stripInlineMarkdown(markdown: string): {
     }
 
     // Italic: single * or _
-    if (
+    if ((
       (markdown[i] === "*" && markdown[i + 1] !== "*") ||
       (markdown[i] === "_" && markdown[i + 1] !== "_")
-    ) {
+    ) && canOpenEmphasis(markdown, i, 1)) {
       const marker = markdown[i];
-      // Find closing marker that isn't doubled
+      // Find closing marker that isn't doubled and can close
       let closeIdx = i + 1;
       while (closeIdx < markdown.length) {
         closeIdx = markdown.indexOf(marker, closeIdx);
         if (closeIdx === -1) break;
-        if (markdown[closeIdx + 1] !== marker && markdown[closeIdx - 1] !== marker) break;
+        if (
+          markdown[closeIdx + 1] !== marker &&
+          markdown[closeIdx - 1] !== marker &&
+          canCloseEmphasis(markdown, closeIdx, 1)
+        ) break;
         closeIdx++;
       }
       if (closeIdx !== -1 && closeIdx > i + 1) {
