@@ -171,9 +171,7 @@ function getActiveFormats(
 const isWhitespace = (ch: string | undefined) => ch === undefined || /\s/.test(ch);
 const isAlphanumeric = (ch: string | undefined) => ch !== undefined && /[\p{L}\p{N}]/u.test(ch);
 
-// CommonMark flanking: a delimiter run followed by whitespace (e.g. a `* `
-// list bullet) can't open emphasis, one preceded by whitespace can't close it,
-// and `_` never opens/closes inside a word (snake_case stays literal).
+// CommonMark flanking: `* ` bullets can't open emphasis, ` *` can't close, no intraword `_`.
 function canOpenEmphasis(markdown: string, index: number, length: number): boolean {
   if (isWhitespace(markdown[index + length])) return false;
   if (markdown[index] === "_" && isAlphanumeric(markdown[index - 1])) return false;
